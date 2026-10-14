@@ -1,0 +1,8 @@
+{
+  "name": "codex-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs"
+  }
+}
