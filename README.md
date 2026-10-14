@@ -42,3 +42,7 @@ Tracked controllers buzz gently for the duration of approximate bush or trunk co
 ### Nighttime fireflies
 
 Butterflies fade out with daylight, replaced at night by sixteen fireflies across the wrapped tiles. Each firefly has a small yellow sphere inside a larger yellow sphere at 50% opacity at full night. Both use unlit materials to remain bright without extra lights or bloom. Instancing adds two draw batches while fireflies are visible; butterfly skinning updates stop at full night.
+
+### Vertical movement
+
+Hold A (right controller) or X (left controller) to apply upward thrust, accelerating smoothly toward 1.5 m/s, the same as walking. Releasing both preserves upward momentum; gentle gravity (1.5 m/s²) slows ascent and then brings you down, capped at 1.5 m/s. At full ascent speed, release adds approximately 0.75 m over one second before descent. Landing resets vertical velocity. Holding both does not double the speed. Tracked headset/controller height is preserved; flight pauses while the XR session is hidden or viewer tracking is unavailable. Entering or leaving VR resets elevation and velocity.

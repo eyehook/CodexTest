@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs && node tests/forest-haptics.mjs && node tests/fireflies.mjs"
+    "test": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs && node tests/forest-haptics.mjs && node tests/fireflies.mjs && node tests/forest-flight.mjs"
   }
 }
