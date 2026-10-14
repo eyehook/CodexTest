@@ -15,3 +15,8 @@ b.update(.08);assert.ok(b.group.children[0].geometry.attributes.position.array.s
 for(let i=0;i<120;i++)b.update(1/60);
 for(const m of b.group.children){assert.equal(m.count,144);assert.ok(m.geometry.attributes.position.array.every(Number.isFinite));assert.ok(m.instanceMatrix.array.every(Number.isFinite));}
 console.log('Butterfly: five bones, closed 0.8-second flap, changing skinned vertices, finite flight transforms, and 16 × 9 wrapped copies pass.');
+
+b.update(0,0);assert.equal(b.group.visible,false);
+b.update(0,.5);assert.equal(b.group.visible,true);for(const m of b.group.children)assert.equal(m.material.opacity,.5);
+b.update(0,1);for(const m of b.group.children)assert.equal(m.material.opacity,1);
+console.log('Butterflies hide at night and fade back with daylight.');

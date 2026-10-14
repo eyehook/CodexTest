@@ -34,3 +34,11 @@ GitHub documentation: [publishing source](https://docs.github.com/en/pages/getti
 Run `npm test` with Node.js to verify wrapping, planting, input deadzone, day/night lighting, and loading/animation of all tree and butterfly models. No external npm dependencies are required.
 
 Migrated from `Documents/Codex/Quest`; the original files are retained as a backup.
+
+### Forest touch feedback
+
+Tracked controllers buzz gently for the duration of approximate bush or trunk contact (10% intensity for bushes, 16% for trunks). Short 120 ms pulses renew every 80 ms; leaving contact, losing tracking, disconnecting, or ending/pausing the session cancels feedback. Contacts follow the wrapped world. Haptics are skipped when unsupported. Contact volumes approximate the models and do not follow individual moving branches. Test intensity and alignment on Quest before publishing.
+
+### Nighttime fireflies
+
+Butterflies fade out with daylight, replaced at night by sixteen fireflies across the wrapped tiles. Each firefly has a small yellow sphere inside a larger yellow sphere at 50% opacity at full night. Both use unlit materials to remain bright without extra lights or bloom. Instancing adds two draw batches while fireflies are visible; butterfly skinning updates stop at full night.

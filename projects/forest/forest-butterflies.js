@@ -15,13 +15,18 @@ export async function createButterflies(load=url=>new GLTFLoader().loadAsync(url
  const entries=meshes.map(mesh=>{
   const geometry=mesh.geometry.clone();geometry.deleteAttribute('skinIndex');geometry.deleteAttribute('skinWeight');
   geometry.attributes.position.setUsage(THREE.DynamicDrawUsage);
-  const instances=new THREE.InstancedMesh(geometry,mesh.material,16*9);
+  const instances=new THREE.InstancedMesh(geometry,mesh.material.clone(),16*9);
   instances.instanceMatrix.setUsage(THREE.DynamicDrawUsage);instances.frustumCulled=false;group.add(instances);
-  return {mesh,geometry,instances};
+  instances.material.transparent=true;
+  return {mesh,geometry,instances,opacity:instances.material.opacity};
  });
  const v=new THREE.Vector3(),object=new THREE.Object3D();let time=0;
- function update(dt){
-  time+=dt;mixer.update(dt*2.5);root.updateMatrixWorld(true);
+ function update(dt,daylight=1){
+  time+=dt;
+  const visibility=THREE.MathUtils.clamp(daylight,0,1);group.visible=visibility>0;
+  for(const entry of entries)entry.instances.material.opacity=entry.opacity*visibility;
+  if(!group.visible)return;
+  mixer.update(dt*2.5);root.updateMatrixWorld(true);
   for(const {mesh,geometry} of entries){
    if(mesh.isSkinnedMesh)mesh.skeleton.update();
    const pos=geometry.attributes.position;

@@ -1,5 +1,7 @@
-import {createForestSky} from './forest-sky.js';
-import {createButterflies} from './forest-butterflies.js?v=forward2';
+import {createContactHaptics} from './forest-haptics.mjs';
+import {createForestSky,skyState} from './forest-sky.js';
+import {createFireflies} from './forest-fireflies.js';
+import {createButterflies} from './forest-butterflies.js?v=night1';
 import {createAnimatedTrees} from './forest-trees.js';
 import * as THREE from './vendor/three.module.js';
 import {SIZE, wrap, dead, generateForest} from './forest-world.mjs';
@@ -16,8 +18,21 @@ const parts={trunk:[],birch:[],canopy:[],leaves:[],pine:[],grass:[]};
 const matrix=new THREE.Object3D();
 function part(type,x,y,z,sx,sy,sz,color,rotation=0){parts[type].push({x,y,z,sx,sy,sz,color,rotation});}
 const plants=generateForest();
+const contactHaptics=createContactHaptics(plants),contactPoint=new THREE.Vector3();
+function updateContactHaptics(frame,time){
+ if(!session||!frame||session.visibilityState!=='visible'){contactHaptics.reset();return;}
+ contactHaptics.retain(session.inputSources);
+ rig.updateMatrixWorld(true);
+ const reference=renderer.xr.getReferenceSpace();
+ for(const source of session.inputSources){
+  const pose=source.gripSpace?frame.getPose(source.gripSpace,reference):null;
+  if(pose){const p=pose.transform.position;contactPoint.set(p.x,p.y,p.z).applyMatrix4(rig.matrixWorld);}
+  contactHaptics.update(source,pose?contactPoint:null,time);
+ }
+}
 const fallbackTrees=[];
 let animateTrees=()=>{}, animateButterflies=()=>{};
+const fireflies=createFireflies();scene.add(fireflies.group);
 createButterflies().then(b=>{scene.add(b.group);animateButterflies=b.update;}).catch(error=>{console.error(error);document.querySelector('#tree-status').textContent='Butterflies could not load. Reload to retry.';});
 for(const plant of plants){
  const {x,z,size:s,kind,tint,rotation}=plant;
@@ -60,8 +75,8 @@ renderer.setAnimationLoop((time,frame)=>{const dt=Math.min((time-last)/1000||0,.
 if(session&&frame){const pose=frame.getViewerPose(renderer.xr.getReferenceSpace());if(pose){const p=pose.transform.position,q=pose.transform.orientation;camera.position.set(p.x,p.y,p.z);camera.quaternion.set(q.x,q.y,q.z,q.w);}if(pose&&session.visibilityState==='visible'){for(const source of session.inputSources){const axes=source.gamepad?.axes;if(!axes)continue;const sx=axes.length>=4?axes[2]:axes[0]||0,sy=axes.length>=4?axes[3]:axes[1]||0;if(source.handedness==='left'){x=dead(sx);y=dead(sy);}if(source.handedness==='right')turnX=sx;}}turn(-dead(turnX)*dt*Math.PI/3);}
 
 else{x=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));y=Number(keys.has('KeyS'))-Number(keys.has('KeyW'));turn((Number(keys.has('ArrowLeft'))-Number(keys.has('ArrowRight')))*dt*Math.PI/3);}
-rig.updateMatrixWorld(true);camera.getWorldDirection(forward);forward.y=0;if(forward.lengthSq()>.001)forward.normalize();else forward.set(0,0,-1).applyQuaternion(rig.quaternion);right.crossVectors(forward,up).normalize();const length=Math.max(1,Math.hypot(x,y));offset.copy(right).multiplyScalar(x/length).addScaledVector(forward,-y/length).multiplyScalar(dt*1.5);move(offset.x,offset.z);animateTrees(session&&session.visibilityState!=='visible'?0:dt);animateButterflies(session&&session.visibilityState!=='visible'?0:dt);if(skyStart===null)skyStart=time;sky.update((time-skyStart)/1000,head());renderer.render(scene,camera);
+rig.updateMatrixWorld(true);camera.getWorldDirection(forward);forward.y=0;if(forward.lengthSq()>.001)forward.normalize();else forward.set(0,0,-1).applyQuaternion(rig.quaternion);right.crossVectors(forward,up).normalize();const length=Math.max(1,Math.hypot(x,y));offset.copy(right).multiplyScalar(x/length).addScaledVector(forward,-y/length).multiplyScalar(dt*1.5);move(offset.x,offset.z);updateContactHaptics(frame,time);animateTrees(session&&session.visibilityState!=='visible'?0:dt);if(skyStart===null)skyStart=time;const skySeconds=(time-skyStart)/1000,daylight=skyState(skySeconds).daylight,insectDt=session&&session.visibilityState!=='visible'?0:dt;animateButterflies(insectDt,daylight);fireflies.update(insectDt,daylight);sky.update(skySeconds,head());renderer.render(scene,camera);
 });
-button.addEventListener('click',async()=>{button.disabled=true;try{session=await navigator.xr.requestSession('immersive-vr',{requiredFeatures:['local-floor']});reset();session.addEventListener('end',()=>{session=null;reset();keys.clear();document.querySelector('#panel').hidden=false;document.querySelector('#hint').hidden=false;button.disabled=false;button.textContent='Enter VR';status.textContent='Ready to explore again.';});await renderer.xr.setSession(session);document.querySelector('#panel').hidden=true;document.querySelector('#hint').hidden=true;}catch(e){if(session){await session.end().catch(()=>{});session=null;}button.disabled=false;status.textContent='Could not enter VR: '+e.message;}});
+button.addEventListener('click',async()=>{button.disabled=true;try{session=await navigator.xr.requestSession('immersive-vr',{requiredFeatures:['local-floor']});reset();session.addEventListener('end',()=>{session=null;contactHaptics.reset();reset();keys.clear();document.querySelector('#panel').hidden=false;document.querySelector('#hint').hidden=false;button.disabled=false;button.textContent='Enter VR';status.textContent='Ready to explore again.';});await renderer.xr.setSession(session);document.querySelector('#panel').hidden=true;document.querySelector('#hint').hidden=true;}catch(e){if(session){await session.end().catch(()=>{});session=null;}button.disabled=false;status.textContent='Could not enter VR: '+e.message;}});
 (async()=>{try{const supported=!!navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr');button.disabled=!supported;button.textContent=supported?'Enter VR':'Open on your Quest';status.textContent=supported?'Ready. Pick up your controllers and enter VR.':!window.isSecureContext?'VR requires HTTPS. Open the HTTPS GitHub Pages site on your Quest.':'Desktop preview · Open this page in Meta Quest Browser to enter VR.';}catch(e){status.textContent=e.message;}})();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
