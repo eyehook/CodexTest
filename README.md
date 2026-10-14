@@ -2,15 +2,18 @@
 
 A collection of static browser and WebXR projects, prepared for GitHub Pages.
 
+For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
+
 ## Projects
 
+- [Racer](projects/racer/): seated WebXR driving prototype; see its [setup and milestone report](projects/racer/README.md).
 - [Endless Grove](projects/forest/): a 100 × 100 foot wrapping forest with animated trees, butterflies, and a 60-second day/night cycle.
 
 The root `index.html` is the project directory. Add future projects under `projects/<name>/` with their own `index.html`, then add a card to the root index. Keep links relative so they work under GitHub Pages’ `/CodexTest/` path.
 
 ## Local preview
 
-From the repository root, run `python3 -m http.server 8080` and open http://localhost:8080/. No build or npm install is required. Desktop controls: WASD to walk, left/right arrows to turn, R to reset.
+From the repository root, run `python3 -m http.server 8080` and open http://localhost:8080/. The included Racer build and the Forest run without installing anything. To edit Racer, install the Vite development dependency and rebuild as described in its README. Desktop controls: WASD to walk, left/right arrows to turn, R to reset.
 
 ## GitHub Pages and Quest 3
 
@@ -21,7 +24,7 @@ From the repository root, run `python3 -m http.server 8080` and open http://loca
 
 Forest URL: https://eyehook.github.io/CodexTest/projects/forest/
 
-HTTPS provides the secure context required for WebXR. All runtime modules and models are bundled locally; there are no CDN requests. Left stick walks in the direction you look; right stick turns smoothly. Headset performance and immersive controls still need verification on a Quest 3.
+HTTPS provides the secure context required for WebXR. All runtime modules and models are bundled locally; there are no CDN requests. Left stick walks in the direction you look; right stick turns smoothly. The user has verified the forest and immersive controls on Quest 3; formal performance benchmarking remains outstanding.
 
 GitHub documentation: [publishing source](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site), [HTTPS](https://docs.github.com/en/pages/getting-started-with-github-pages/securing-your-github-pages-site-with-https).
 
@@ -46,3 +49,7 @@ Butterflies fade out with daylight, replaced at night by sixteen fireflies acros
 ### Vertical movement
 
 Hold A (right controller) or X (left controller) to apply upward thrust, accelerating smoothly toward 1.5 m/s, the same as walking. Releasing both preserves upward momentum; gentle gravity (1.5 m/s²) slows ascent and then brings you down, capped at 1.5 m/s. At full ascent speed, release adds approximately 0.75 m over one second before descent. Landing resets vertical velocity. Holding both does not double the speed. Tracked headset/controller height is preserved; flight pauses while the XR session is hidden or viewer tracking is unavailable. Entering or leaving VR resets elevation and velocity.
+
+## Racer development
+
+From this repository root: `pnpm install`, `pnpm dev:racer`, and `pnpm build:racer`. npm equivalents (`npm install`, `npm run dev:racer`, `npm run build:racer`) also work; pnpm is used for the checked-in lockfile. Racer source is in `src/racer/`, and build output is in `projects/racer/`. Commit the rebuilt output alongside source when publishing through the existing Pages branch setup. [Full instructions and validation](projects/racer/README.md).
