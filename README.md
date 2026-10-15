@@ -6,6 +6,8 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
+- [Swarm 3D](projects/swarm/): live 3D flocking simulation for desktop and Quest; [setup](projects/swarm/README.md).
+
 - [Racer](projects/racer/): seated WebXR driving prototype; see its [setup and milestone report](projects/racer/README.md).
 - [Endless Grove](projects/forest/): a 100 × 100 foot wrapping forest with animated trees, butterflies, and a 60-second day/night cycle.
 
