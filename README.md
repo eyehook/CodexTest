@@ -6,6 +6,8 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
+- [Terrain](projects/terrain/): GPU-displaced, deterministic rolling hills for desktop and Quest; [setup and validation](projects/terrain/README.md).
+
 - [Surface](projects/surface/): 64 × 64 spring-connected quad surface with automatic raindrops; [details](projects/surface/README.md).
 
 - [Swarm 3D](projects/swarm/): live 3D flocking simulation for desktop and Quest; [setup](projects/swarm/README.md).
