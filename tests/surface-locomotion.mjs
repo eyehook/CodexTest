@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {Group, Vector3, Quaternion} from '../projects/forest/vendor/three.module.js';
+import {Locomotion} from '../projects/surface/locomotion.mjs';
+const source = (handedness, x, y = 0) => ({handedness, gamepad: {mapping: 'xr-standard', axes: [0, 0, x, y]}});
+const viewer = {position: new Vector3(2, 1.65, 3), orientation: new Quaternion()};
+function walk(hz, x = 0, y = -1) {
+  const rig = new Group(), motion = new Locomotion(rig);
+  for (let i = 0; i < hz; i++) motion.update(1 / hz, [source('left', x, y)], viewer);
+  return rig.position;
+}
+assert.ok(Math.abs(walk(60).z + 1.5) < 1e-8);
+assert.ok(walk(60).distanceTo(walk(90)) < 1e-8);
+assert.ok(Math.abs(walk(60, 1, -1).length() - 1.5) < 1e-8, 'Diagonal speed is capped');
+assert.equal(walk(60, 0.1, -0.1).length(), 0);
+const rig = new Group(), motion = new Locomotion(rig);
+rig.position.set(4, 0, 8); rig.updateMatrixWorld(true);
+const before = viewer.position.clone().applyMatrix4(rig.matrixWorld);
+for (let i = 0; i < 60; i++) motion.update(1 / 60, [source('right', 1)], viewer);
+const after = viewer.position.clone().applyMatrix4(rig.matrixWorld);
+assert.ok(before.distanceTo(after) < 1e-8, 'Turning pivots around tracked headset');
+assert.ok(Math.abs(rig.rotation.y + Math.PI / 3) < 1e-8);
+const still = rig.position.clone();
+motion.update(0.02, [], viewer);
+motion.update(0.02, [source('left', 0, -1)], null);
+assert.ok(rig.position.equals(still), 'No stale input after disconnect or tracking loss');
+const headRig = new Group(), headMotion = new Locomotion(headRig);
+const turnedViewer = {...viewer, orientation: new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI / 2)};
+headMotion.update(0.05, [source('left', 0, -1)], turnedViewer);
+assert.ok(headRig.position.x < 0 && Math.abs(headRig.position.z) < 1e-8);
+assert.equal(headRig.position.y, 0);
+console.log('Surface locomotion: walking, head direction, diagonal cap, deadzone, headset pivot, turn speed, refresh-rate independence and tracking loss pass.');

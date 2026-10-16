@@ -3,11 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs && node tests/forest-haptics.mjs && node tests/fireflies.mjs && node tests/forest-flight.mjs && node --test tests/racer.mjs",
+    "test": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs && node tests/forest-haptics.mjs && node tests/fireflies.mjs && node tests/forest-flight.mjs && node --test tests/racer.mjs && node tests/surface.mjs && node tests/surface-locomotion.mjs && node tests/surface-tuning.mjs",
     "dev:racer": "vite --config projects/racer/vite.config.mjs",
     "build:racer": "vite build --config projects/racer/vite.config.mjs",
     "preview:racer": "vite preview --config projects/racer/vite.config.mjs",
-    "test:racer": "node --test tests/racer.mjs"
+    "test:racer": "node --test tests/racer.mjs",
+    "test:surface": "node tests/surface.mjs && node tests/surface-locomotion.mjs && node tests/surface-tuning.mjs"
   },
   "devDependencies": {
     "vite": "^7.1.0"
