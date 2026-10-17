@@ -1,6 +1,7 @@
 import {terrainHeight} from './height.mjs';
+import {bands} from './bands.mjs';
 // Amplitude is the configured nominal maximum, rather than a sampled local peak.
-export function waterLevel(config){return config.amplitude*0.1;}
+export function waterLevel(config){return config.amplitude*bands.water;}
 export function localWaterHeight(config,groundHeight){return waterLevel(config)-groundHeight;}
 export function drySpawn(config){
  const level=waterLevel(config)+2;

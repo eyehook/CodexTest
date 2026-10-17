@@ -18,3 +18,21 @@ export function turnAtHead(rig,headX,headZ,delta){
  rig.z+=-Math.sin(old)*headX+Math.cos(old)*headZ+Math.sin(next)*headX-Math.cos(next)*headZ;
  rig.yaw=next;
 }
+
+export const MIN_TRAVEL_SPEED=0.5,MAX_TRAVEL_SPEED=25,SPEED_CHANGE_RATE=3;
+// Quest xr-standard index 0 is the analog index trigger, independent of A/X flight.
+export function updateTravelSpeed(speed,session,tracked,dt){
+ if(!session||!tracked||session.visibilityState!=='visible'||dt<=0)return speed;
+ let increase=0,decrease=0;
+ for(const source of session.inputSources){
+  if(source.gamepad?.mapping!=='xr-standard')continue;
+  const trigger=source.gamepad.buttons?.[0];
+  let value=trigger?.value??(trigger?.pressed?1:0);
+  if(!Number.isFinite(value))value=0;
+  value=Math.max(0,Math.min(1,value));
+  if(value<0.05)value=0;
+  if(source.handedness==='right')increase=value;
+  if(source.handedness==='left')decrease=value;
+ }
+ return Math.max(MIN_TRAVEL_SPEED,Math.min(MAX_TRAVEL_SPEED,speed+(increase-decrease)*SPEED_CHANGE_RATE*dt));
+}

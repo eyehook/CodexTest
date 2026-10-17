@@ -1,5 +1,6 @@
 import * as THREE from '../../projects/forest/vendor/three.module.js';
 import {noiseGLSL,octaveData} from './height.mjs';
+import {bands} from './bands.mjs';
 export function makeMaterial(c){return new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,uniforms:{lattice:{value:new Uint32Array(16)},fraction:{value:Array.from({length:8},()=>new THREE.Vector2())},frequency:{value:Array(8).fill(0)},amplitude:{value:Array(8).fill(0)},seed:{value:c.seed},colorAmplitude:{value:c.amplitude},ground:{value:0},fogStart:{value:c.fogStart},fogEnd:{value:c.fogEnd},fogColor:{value:new THREE.Color(c.fogColor)}},vertexShader:`
 precision highp float;precision highp int;
 ${noiseGLSL}
@@ -14,11 +15,11 @@ vec3 terrainColor(float h){
  vec3 highGrass=vec3(0.28,0.39,0.12);
  vec3 snow=vec3(0.72,0.82,0.88);
  vec3 summit=vec3(0.98,0.99,1.0);
- vec3 band=mix(sand,lowGrass,smoothstep(0.14,0.155,level));
- band=mix(band,midGrass,smoothstep(0.25,0.265,level));
- band=mix(band,highGrass,smoothstep(0.35,0.365,level));
- band=mix(band,snow,smoothstep(0.43,0.445,level));
- return mix(band,summit,smoothstep(0.53,0.545,level));
+ vec3 band=mix(sand,lowGrass,smoothstep(${bands.grassStart},${bands.beachEnd},level));
+ band=mix(band,midGrass,smoothstep(${bands.midGrassStart},${bands.midGrassEnd},level));
+ band=mix(band,highGrass,smoothstep(${bands.highGrassStart},${bands.highGrassEnd},level));
+ band=mix(band,snow,smoothstep(${bands.snowStart},${bands.snowEnd},level));
+ return mix(band,summit,smoothstep(${bands.summitStart},${bands.summitEnd},level));
 }
 void main(){
  vec3 n=normalize(normalV);
