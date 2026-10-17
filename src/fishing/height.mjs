@@ -1,0 +1,14 @@
+export const defaults = {seed:12345, amplitude:65, frequency:0.002, octaves:5, persistence:0.48, lacunarity:2, speed:6, turnSpeed:60, radius:2000, rings:128, segments:256, fogStart:750, fogEnd:1850, fogColor:'#bacfda', skyColor:'#bacfda'};
+export function hash(x,z,seed){let h=((x>>>0)^Math.imul(z>>>0,0x9e3779b9)^seed)>>>0;h=Math.imul(h^(h>>>16),0x7feb352d);h=Math.imul(h^(h>>>15),0x846ca68b);return (h^(h>>>16))>>>0;}
+const fade=t=>t*t*t*(t*(t*6-15)+10);
+const grad=(h,x,z)=>{switch(h&7){case 0:return x;case 1:return -x;case 2:return z;case 3:return -z;case 4:return (x+z)*0.70710678;case 5:return (x-z)*0.70710678;case 6:return (-x+z)*0.70710678;default:return (-x-z)*0.70710678;}};
+export function noise(x,z,seed){const ix=Math.floor(x),iz=Math.floor(z),fx=x-ix,fz=z-iz,u=fade(fx),v=fade(fz);const a=grad(hash(ix,iz,seed),fx,fz),b=grad(hash(ix+1,iz,seed),fx-1,fz),c=grad(hash(ix,iz+1,seed),fx,fz-1),d=grad(hash(ix+1,iz+1,seed),fx-1,fz-1);return (a+(b-a)*u)*(1-v)+(c+(d-c)*u)*v;}
+export function terrainHeight(x,z,c=defaults){let f=c.frequency,a=c.amplitude,sum=0;for(let i=0;i<c.octaves;i++){sum+=a*noise(x*f,z*f,(c.seed+i*1013)>>>0);f*=c.lacunarity;a*=c.persistence;}return sum;}
+export function octaveData(x,z,c,out){const {base,fraction,frequency,amplitude}=out??{base:Array.from({length:8},()=>[0,0]),fraction:Array.from({length:8},()=>[0,0]),frequency:Array(8),amplitude:Array(8)};let f=c.frequency,a=c.amplitude;for(let i=0;i<8;i++){let px=x*f,pz=z*f,ix=Math.floor(px),iz=Math.floor(pz);base[i][0]=ix>>>0;base[i][1]=iz>>>0;fraction[i][0]=px-ix;fraction[i][1]=pz-iz;frequency[i]=f;amplitude[i]=i<c.octaves?a:0;f*=c.lacunarity;a*=c.persistence;}return out??{base,fraction,frequency,amplitude};}
+export const noiseGLSL=`
+uniform uvec2 lattice[8]; uniform vec2 fraction[8]; uniform float frequency[8]; uniform float amplitude[8]; uniform uint seed;
+uint hashCell(uvec2 p,uint s){uint h=p.x^(p.y*0x9e3779b9u)^s;h=(h^(h>>16u))*0x7feb352du;h=(h^(h>>15u))*0x846ca68bu;return h^(h>>16u);}
+float gradient(uint h,vec2 p){uint k=h&7u;if(k==0u)return p.x;if(k==1u)return -p.x;if(k==2u)return p.y;if(k==3u)return -p.y;if(k==4u)return (p.x+p.y)*0.70710678;if(k==5u)return (p.x-p.y)*0.70710678;if(k==6u)return (-p.x+p.y)*0.70710678;return (-p.x-p.y)*0.70710678;}
+float octaveNoise(vec2 p,int i){vec2 q=p*frequency[i]+fraction[i],cell=floor(q),t=q-cell;uvec2 b=uvec2(lattice[i])+uvec2(ivec2(cell));uint s=seed+uint(i)*1013u;vec2 w=t*t*t*(t*(t*6.0-15.0)+10.0);return mix(mix(gradient(hashCell(b,s),t),gradient(hashCell(b+uvec2(1,0),s),t-vec2(1,0)),w.x),mix(gradient(hashCell(b+uvec2(0,1),s),t-vec2(0,1)),gradient(hashCell(b+uvec2(1,1),s),t-vec2(1,1)),w.x),w.y);}
+float heightAt(vec2 p,float spacing){float h=0.0;for(int i=0;i<8;i++){float weight=1.0-smoothstep(0.12,0.6,spacing*frequency[i]);h+=amplitude[i]*weight*octaveNoise(p,i);}return h;}
+`;
