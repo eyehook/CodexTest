@@ -1,4 +1,4 @@
-// Reuse Forest's controller mapping, thrust, gravity and speed caps.
+// Fishing keeps A/X mapping and uses its own ascent tuning.
 import {ascentPressed,updateFlight} from './flight-physics.mjs';
 export function updateTerrainFlight(state,session,tracked,dt,ground=0){
  if(!session||!tracked||session.visibilityState!=='visible')return;

@@ -19,10 +19,3 @@ export function lighthouseSite(config){
  // No coast may exist with degenerate settings; retain a stable fallback.
  return best??{x:spawn.x,z:spawn.z-60,y:terrainHeight(spawn.x,spawn.z-60,config),distance:60,shoreDistance:null};
 }
-export function foundationBounds(site,width,config){
- let min=Infinity,max=-Infinity;const steps=Math.max(8,Math.ceil(width/0.5));
- for(let i=0;i<=steps;i++)for(let j=0;j<=steps;j++){
-  const y=terrainHeight(site.x+width*(i/steps-0.5),site.z+width*(j/steps-0.5),config);min=Math.min(min,y);max=Math.max(max,y);
- }
- return {top:max+0.08,bottom:min-0.5,needed:max-min>0.05};
-}

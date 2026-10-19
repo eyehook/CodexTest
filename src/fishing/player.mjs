@@ -19,20 +19,18 @@ export function turnAtHead(rig,headX,headZ,delta){
  rig.yaw=next;
 }
 
-export const MIN_TRAVEL_SPEED=0.5,MAX_TRAVEL_SPEED=25,SPEED_CHANGE_RATE=3;
-// Quest xr-standard index 0 is the analog index trigger, independent of A/X flight.
-export function updateTravelSpeed(speed,session,tracked,dt){
- if(!session||!tracked||session.visibilityState!=='visible'||dt<=0)return speed;
- let increase=0,decrease=0;
- for(const source of session.inputSources){
-  if(source.gamepad?.mapping!=='xr-standard')continue;
-  const trigger=source.gamepad.buttons?.[0];
-  let value=trigger?.value??(trigger?.pressed?1:0);
-  if(!Number.isFinite(value))value=0;
-  value=Math.max(0,Math.min(1,value));
-  if(value<0.05)value=0;
-  if(source.handedness==='right')increase=value;
-  if(source.handedness==='left')decrease=value;
+export const FLIGHT_DRAG=0.8,FLIGHT_RESPONSE=4; // Rates per second.
+export function updateHorizontalMotion(world,motion,x,z,yaw,speed,dt,airborne,active=true){
+ if(!active||dt<=0)return;
+ const s=Math.sin(yaw),c=Math.cos(yaw),targetX=(x*c+z*s)*speed,targetZ=(-x*s+z*c)*speed;
+ if(!airborne){
+  motion.x=targetX;motion.z=targetZ;world.x+=targetX*dt;world.z+=targetZ*dt;return;
  }
- return Math.max(MIN_TRAVEL_SPEED,Math.min(MAX_TRAVEL_SPEED,speed+(increase-decrease)*SPEED_CHANGE_RATE*dt));
+ // A returning analog stick must not overwrite the momentum before it centres.
+ const easingOff=targetX*targetX+targetZ*targetZ<motion.x*motion.x+motion.z*motion.z&&targetX*motion.x+targetZ*motion.z>=0;
+ const rate=easingOff?FLIGHT_DRAG:FLIGHT_RESPONSE,decay=Math.exp(-rate*dt),travel=(1-decay)/rate;
+ world.x+=targetX*dt+(motion.x-targetX)*travel;
+ world.z+=targetZ*dt+(motion.z-targetZ)*travel;
+ motion.x=targetX+(motion.x-targetX)*decay;
+ motion.z=targetZ+(motion.z-targetZ)*decay;
 }

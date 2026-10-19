@@ -9,7 +9,7 @@ test('Fishing flight uses either A or X, with no additive thrust',()=>{
  const states=[];
  for(const s of [session(true,false),session(false,true),session(true,true)]){
   const state={height:0,velocity:0};updateTerrainFlight(state,s,true,1);states.push(state);
-  close(state.height,1.125);close(state.velocity,1.5);
+  close(state.height,2.25);close(state.velocity,3);
  }
  assert.deepEqual(states[0],states[1]);assert.deepEqual(states[1],states[2]);
 });
@@ -18,9 +18,9 @@ test('Fishing flight preserves release momentum, reaches an apex, descends and l
   const state={height:0,velocity:0};
   for(let i=0;i<fps;i++)updateTerrainFlight(state,session(true),true,1/fps);
   const releaseHeight=state.height;
-  for(let i=0;i<fps;i++)updateTerrainFlight(state,session(),true,1/fps);
-  close(state.height-releaseHeight,0.75);close(state.velocity,0);
-  for(let i=0;i<fps*4;i++)updateTerrainFlight(state,session(),true,1/fps);
+  for(let i=0;i<fps*2;i++)updateTerrainFlight(state,session(),true,1/fps);
+  close(state.height-releaseHeight,3);close(state.velocity,0);
+  for(let i=0;i<fps*6;i++)updateTerrainFlight(state,session(),true,1/fps);
   assert.deepEqual(state,{height:0,velocity:0,altitude:0});
  }
 });
@@ -36,21 +36,22 @@ test('Fishing flight pauses on hidden/untracked frames and ignores non-Quest inp
 });
 
 test('airborne world altitude is independent of ravines and lower terrain',()=>{
- const state={height:10,velocity:1.5,altitude:110};
- // Holding ascent at its cap adds the same 1.5 m over a valley as over flat land.
+ const state={height:10,velocity:3,altitude:110};
  updateTerrainFlight(state,session(true),true,1,-40);
- close(state.altitude,111.5);close(state.height,151.5);close(state.velocity,1.5);
+ close(state.altitude,113);close(state.height,153);close(state.velocity,3);
  updateTerrainFlight(state,session(),true,1,-80);
- close(state.altitude,112.25);close(state.height,192.25);close(state.velocity,0);
+ close(state.altitude,115.25);close(state.height,195.25);close(state.velocity,1.5);
  updateTerrainFlight(state,session(),true,1,-100);
- close(state.altitude,111.5);close(state.height,211.5);close(state.velocity,-1.5);
+ close(state.altitude,116);close(state.height,216);close(state.velocity,0);
+ updateTerrainFlight(state,session(),true,1,-100);
+ close(state.altitude,115.25);close(state.velocity,-1.5);
 });
 test('world-altitude flight handles negative elevations, rising-ground landing and grounded walking',()=>{
  const state={height:0,velocity:0,altitude:null};
  updateTerrainFlight(state,session(),true,1,-50);close(state.altitude,-50);close(state.height,0);
  updateTerrainFlight(state,session(),true,1,-60);close(state.altitude,-60);close(state.height,0);
- updateTerrainFlight(state,session(true),true,1,-60);close(state.altitude,-58.875);close(state.height,1.125);
- updateTerrainFlight(state,session(),true,0,-100);close(state.altitude,-58.875);close(state.height,41.125);
+ updateTerrainFlight(state,session(true),true,1,-60);close(state.altitude,-57.75);close(state.height,2.25);
+ updateTerrainFlight(state,session(),true,0,-100);close(state.altitude,-57.75);close(state.height,42.25);
  updateTerrainFlight(state,session(),true,0.1,-40);close(state.altitude,-40);close(state.height,0);close(state.velocity,0);
  updateTerrainFlight(state,session(),true,1,-35);close(state.altitude,-35);close(state.height,0);
 });
