@@ -11,14 +11,16 @@ import {treeDefaults} from './trees/TreeGenerator.mjs';
 import {addTreeControls} from './trees/TreeControls.js';
 import {updateTerrainFlight} from './flight.mjs';
 import {GrassSystem} from './grass/GrassSystem.js';
+import {RodSystem} from './rods/RodSystem.js';
 import {Lighthouse} from './Lighthouse.js';
 import './style.css';
 const c={...defaults},world=drySpawn(c),canvas=document.querySelector('canvas');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');renderer.xr.setFoveation(1);
 const scene=new THREE.Scene();scene.background=new THREE.Color(c.skyColor);scene.fog=new THREE.Fog(c.fogColor,c.fogStart,c.fogEnd);
 const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.05,5000);camera.position.y=1.7;const rig=new THREE.Group();rig.add(camera);scene.add(rig);const turn={x:0,z:0,yaw:0};
+const rods=new RodSystem(renderer,scene,rig);
 const flight={height:0,velocity:0,altitude:null},motion={x:0,z:0};
-function resetFlight(){motion.x=motion.z=0;flight.height=0;flight.velocity=0;flight.altitude=null;rig.position.y=0;}
+function resetFlight(){rods.resetPhysics();motion.x=motion.z=0;flight.height=0;flight.velocity=0;flight.altitude=null;rig.position.y=0;}
 function resetTurn(){resetFlight();turn.x=turn.z=turn.yaw=0;rig.position.set(0,0,0);rig.rotation.set(0,0,0);}
 const material=makeMaterial(c),mesh=new THREE.Mesh(new THREE.BufferGeometry(),material);mesh.frustumCulled=false;scene.add(mesh);
 // A single static disk: depth testing exposes water only where terrain is lower.
@@ -38,7 +40,7 @@ let vertexCount=0,triangleCount=0;
 function rebuild(){water.scale.set(c.radius,c.radius,1);const data=meshData(c.radius,c.rings,c.segments),g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(data.positions,3));g.setAttribute('spacing',new THREE.BufferAttribute(data.spacings,1));g.setIndex(new THREE.BufferAttribute(data.indices,1));mesh.geometry.dispose();mesh.geometry=g;vertexCount=data.positions.length/3;triangleCount=data.indices.length/3;camera.far=Math.max(5000,c.radius*2);camera.updateProjectionMatrix();}
 rebuild();document.body.append(VRButton(renderer));
 const keys=new Set();let yaw=0,pitch=0;addEventListener('keydown',e=>{if(e.target instanceof HTMLInputElement)return;if(['KeyW','KeyA','KeyS','KeyD'].includes(e.code)){keys.add(e.code);e.preventDefault();}});addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>keys.clear());document.addEventListener('pointerlockchange',()=>keys.clear());canvas.addEventListener('click',()=>{if(!renderer.xr.isPresenting)canvas.requestPointerLock();});document.addEventListener('mousemove',e=>{if(document.pointerLockElement!==canvas||renderer.xr.isPresenting)return;yaw-=e.movementX*0.002;pitch=THREE.MathUtils.clamp(pitch-e.movementY*0.002,-1.45,1.45);camera.rotation.set(pitch,yaw,0,'YXZ');});
-renderer.xr.addEventListener('sessionstart',()=>{document.exitPointerLock();keys.clear();resetTurn();camera.position.set(0,0,0);camera.rotation.set(0,0,0);document.body.classList.add('xr');});renderer.xr.addEventListener('sessionend',()=>{resetTurn();camera.position.set(0,1.7,0);camera.rotation.set(pitch,yaw,0,'YXZ');document.body.classList.remove('xr');});
+renderer.xr.addEventListener('sessionstart',()=>{document.exitPointerLock();keys.clear();resetTurn();camera.position.set(0,0,0);camera.rotation.set(0,0,0);document.body.classList.add('xr');});renderer.xr.addEventListener('sessionend',()=>{rods.update(null,null,null,false);resetTurn();camera.position.set(0,1.7,0);camera.rotation.set(pitch,yaw,0,'YXZ');document.body.classList.remove('xr');});
 const fields=[['radius','Radius (m)',100,5000,100],['rings','Radial rings',16,256,1],['segments','Angular segments',32,512,8],['amplitude','Amplitude (m)',0,150,1],['frequency','Noise frequency',0.0001,0.02,0.0001],['octaves','Noise octaves',1,8,1],['persistence','Persistence',0.1,0.8,0.01],['lacunarity','Lacunarity',1.2,3,0.1],['seed','Seed',0,65535,1],['speed','Walk speed (m/s)',0.5,25,0.5],['turnSpeed','Turn speed (°/s)',10,120,5],['fogStart','Fog start (m)',10,4500,10],['fogEnd','Fog end (m)',20,4900,10]];
 for(const [key,label,min,max,step]of fields){const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.type='number';input.id=key;input.value=c[key];input.min=min;input.max=max;input.step=step;l.append(input);document.querySelector('#controls').append(l);}
 for(const key of ['fogColor','skyColor']){const l=document.createElement('label');l.textContent=key==='fogColor'?'Fog color':'Sky color';const i=document.createElement('input');i.type='color';i.id=key;i.value=c[key];l.append(i);document.querySelector('#controls').append(l);}
@@ -57,4 +59,5 @@ water.position.set(mesh.position.x,localWaterHeight(c,ground),mesh.position.z);
 trees.update(sampleX,sampleZ,ground,mesh.position.x,mesh.position.z);
 lighthouse.update(world.x,world.z,ground);
 grass.update(sampleX,sampleZ,ground,mesh.position.x,mesh.position.z);
+rods.update(session,frame,renderer.xr.getReferenceSpace(),tracked,dt,world.x,world.z,ground);
 renderer.render(scene,camera);{frames++;elapsed+=rawDt;if(elapsed>=0.5){stats.textContent=`${session?'XR · ':''}${(frames/elapsed).toFixed(1)} FPS · ${(1000*elapsed/frames).toFixed(2)} ms\n${triangleCount.toLocaleString()} terrain triangles\n${vertexCount.toLocaleString()} terrain vertices\n${trees.population.treeCount.toLocaleString()} active trees · ${trees.population.cells.size} cells\nGrass ${grass.enabled?grass.population.count.toLocaleString():'off'} / 50,000 blades\nGrass CPU ${grass.timings.total.toFixed(2)} ms · peak ${grass.timings.peak.toFixed(2)}\nS/G/B ${grass.timings.selection.toFixed(2)}/${grass.timings.generation.toFixed(2)}/${grass.timings.preparation.toFixed(2)} ms\nGrass queued ${grass.population.pending} patches · uploads ${grass.uploads}\nTree draws/frame ${trees.drawCalls} · uploads ${trees.bufferUpdates}\nX ${world.x.toFixed(2)} m · Z ${world.z.toFixed(2)} m\nElevation ${ground.toFixed(2)} m\nWater level ${waterLevel(c).toFixed(2)} m\nWalking ${speed.toFixed(2)} m/s · set ${c.speed.toFixed(2)}\nFlight clearance ${flight.height.toFixed(2)} m\nAltitude ${(flight.altitude??ground).toFixed(2)} m · ${flight.velocity.toFixed(2)} m/s`;frames=0;elapsed=0;}}});
