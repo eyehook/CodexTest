@@ -10,3 +10,10 @@ export function updateRodControls(state,session,tracked){
   state[hand].held=pressed;
  }
 }
+
+export function rodTrigger(source,held=false){
+ const button=source?.gamepad?.mapping==='xr-standard'?source.gamepad.buttons?.[0]:null;
+ if(!button)return false;
+ // Hysteresis keeps a partially squeezed trigger engaged without chatter.
+ return Number.isFinite(button.value)?button.value>=(held?0.15:0.6):!!button.pressed;
+}

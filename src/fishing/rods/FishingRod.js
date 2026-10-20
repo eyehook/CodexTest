@@ -2,7 +2,7 @@ import * as THREE from '../../../projects/forest/vendor/three.module.js';
 import {LinePhysics,LINE_SEGMENTS} from './LinePhysics.mjs';
 export const ROD_LENGTH=2.1,ROD_SEGMENTS=8,BOBBER_RADIUS=0.045,LINE_LENGTH=0.8;
 export class FishingRod {
- constructor(scene){
+ constructor(scene,{surface=null}={}){
   this.root=new THREE.Group();this.root.rotation.x=-Math.PI/2+0.35;this.root.position.set(0,-0.03,-0.03);this.root.visible=false;
   const geometry=new THREE.CylinderGeometry(0.003,0.014,ROD_LENGTH,8,32).translate(0,ROD_LENGTH/2,0);
   const positions=geometry.attributes.position,indices=[],weights=[],colors=[];
@@ -23,17 +23,20 @@ export class FishingRod {
   sphere.setAttribute('color',new THREE.BufferAttribute(color,3));this.bobber=new THREE.Mesh(sphere,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.5}));this.bobber.visible=false;scene.add(this.bobber);
   const lineGeometry=new THREE.BufferGeometry();lineGeometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array((LINE_SEGMENTS+1)*3),3).setUsage(THREE.DynamicDrawUsage));
   this.line=new THREE.Line(lineGeometry,new THREE.LineBasicMaterial({color:0x43524b}));this.line.frustumCulled=false;this.line.visible=false;scene.add(this.line);
-  this.physics=new LinePhysics(LINE_LENGTH);this.tip=new THREE.Vector3();this.bend=0;this.setBend(0);
+  this.physics=new LinePhysics(LINE_LENGTH,{surface,radius:BOBBER_RADIUS});this.tip=new THREE.Vector3();this.bend=0;this.setBend(0);
  }
  setBend(tension){
   this.bend=THREE.MathUtils.clamp(Number.isFinite(tension)?tension:0,0,1);
   for(let i=1;i<this.bones.length;i++){const t=i/ROD_SEGMENTS;this.bones[i].rotation.x=-this.bend*(.025+.12*t*t);}
  }
- update(visible,dt=0,worldX=0,worldZ=0,ground=0){
+ update(visible,dt=0,worldX=0,worldZ=0,ground=0,trigger=false){
   this.root.visible=this.line.visible=this.bobber.visible=visible;
   if(!visible){this.physics.initialized=false;return;}
   this.root.updateWorldMatrix(true,true);this.mesh.skeleton.update();this.bones[ROD_SEGMENTS].getWorldPosition(this.tip);
+  const initialized=this.physics.initialized;
+  if(initialized)this.physics.setTrigger(trigger);
   this.physics.update(this.tip.x+worldX,this.tip.y+ground,this.tip.z+worldZ,dt);
+  if(!initialized)this.physics.synchronizeTrigger(trigger);
   const nodes=this.physics.position,j=LINE_SEGMENTS*3;
   this.bobber.position.set(nodes[j]-worldX,nodes[j+1]-ground,nodes[j+2]-worldZ);
   const p=this.line.geometry.attributes.position;
