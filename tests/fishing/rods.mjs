@@ -66,3 +66,25 @@ test('camera-relative world rebasing does not impart fake bobber momentum',()=>{
  assert.deepEqual(rod.physics.position,before);close(rod.bobber.position.x,bobber.x-100);close(rod.bobber.position.y,bobber.y-30);
  rod.dispose();
 });
+
+test('entering the casting zone pulses only the equipped controller once, with safe haptic failures',async()=>{
+ for(const hand of ['right','left'])for(const failure of ['none','missing','throw','reject']){
+ const grips=[new THREE.Group(),new THREE.Group()],scene=new THREE.Scene(),rig=new THREE.Group();scene.add(rig);
+ const system=new RodSystem({xr:{getControllerGrip:i=>grips[i]}},scene,rig),s=session(hand==='right',hand==='left'),frame={getPose:()=>({})},calls=[];
+ for(let i=0;i<2;i++){
+ const input=s.inputSources[i];
+ if(failure!=='missing')input.gamepad.hapticActuators=[{pulse:(strength,duration)=>{calls.push([input.handedness,strength,duration]);if(failure==='throw')throw Error('unavailable');return failure==='reject'?Promise.reject(Error('unavailable')):Promise.resolve(true);}}];
+ grips[i].dispatchEvent({type:'connected',data:input});
+ }
+ system.update(s,frame,{},true,1/120);assert.equal(calls.length,0);
+ const slot=system.activeSlot,p=slot.rod.physics;
+ p.length=.9145;p.phase='reeling';p.deployed=true;p.triggerHeld=true;p.triggerAction='reel';
+ slot.source.gamepad.buttons[0]={pressed:true};
+ system.update(s,frame,{},true,1/120);assert.equal(p.castingZoneEntries,1);assert.ok(p.length>p.homeLength);
+ for(let i=0;i<600;i++)system.update(s,frame,{},true,1/120);
+ assert.equal(p.length,p.homeLength);
+ assert.deepEqual(calls,failure==='missing'?[]:[[hand,.12,50]]);
+ system.resetPhysics();system.update(s,frame,{},true,1/120);assert.equal(calls.length,failure==='missing'?0:1);
+ await Promise.resolve();for(const slot of system.slots)slot.rod.dispose();
+ }
+});
