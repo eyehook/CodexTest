@@ -20,15 +20,24 @@ test('B/Y toggle one equipped hand at a time, only on press edges',()=>{
  updateRodControls(c,null,false);assert.equal(c.right.shown,false);
  const unsupported=session(true,true);for(const s of unsupported.inputSources)s.gamepad.mapping='';updateRodControls(c,unsupported,true);assert.equal(c.right.shown,false);
 });
-test('rod skin weights are normalized, sections taper, and its bone rig bends the actual mesh',()=>{
- const scene=new THREE.Scene(),rod=new FishingRod(scene);scene.add(rod.root);rod.root.rotation.set(0,0,0);rod.root.position.set(0,0,0);
- assert.equal(rod.bones.length,ROD_SEGMENTS+1);const g=rod.mesh.geometry,p=g.attributes.position,weights=g.attributes.skinWeight;
- let tip=-1,baseRadius=0,tipRadius=0;
- for(let i=0;i<p.count;i++){close(weights.getX(i)+weights.getY(i),1);if(p.getY(i)>ROD_LENGTH-.001){tip=i;tipRadius=Math.max(tipRadius,Math.hypot(p.getX(i),p.getZ(i)));}if(p.getY(i)<.001)baseRadius=Math.max(baseRadius,Math.hypot(p.getX(i),p.getZ(i)));}
- assert.ok(baseRadius>tipRadius*3);
- rod.root.updateMatrixWorld(true);const straight=rod.mesh.getVertexPosition(tip,new THREE.Vector3());
- rod.setBend(1);rod.root.updateMatrixWorld(true);const bent=rod.mesh.getVertexPosition(tip,new THREE.Vector3());assert.ok(straight.distanceTo(bent)>.2);
- rod.setBend(9);assert.equal(rod.bend,1);rod.setBend(-1);assert.equal(rod.bend,0);rod.dispose();
+test('continuous rod curve has increasing curvature, fixed length and a stiff base',()=>{
+ const rod=new FishingRod(new THREE.Scene()),g=rod.mesh.geometry,p=g.attributes.position;
+ assert.equal(rod.mesh.isSkinnedMesh,undefined);assert.equal(g.attributes.skinWeight,undefined);
+ const straight=rod.localTip.clone();rod.setBend(1);assert.ok(straight.distanceTo(rod.localTip)>.2);
+ let length=0,previousAngle=0,previousTurn=0;
+ for(let i=1;i<=ROD_SEGMENTS;i++){
+  const a=(i-1)*3,b=i*3,dy=rod.curve[b+1]-rod.curve[a+1],dz=rod.curve[b+2]-rod.curve[a+2];
+  length+=Math.hypot(dy,dz);const angle=Math.atan2(dz,dy),turn=previousAngle-angle;
+  assert.ok(dy>0&&dz<0);assert.ok(turn>=previousTurn-1e-6);previousTurn=turn;previousAngle=angle;
+ }
+ assert.ok(Math.abs(length-ROD_LENGTH)<.001);assert.equal(rod.curve[1],0);assert.equal(rod.curve[2],0);
+ // Every ring stays circular about its centre, including at former bone joints.
+ for(let i=0;i<p.count;i++){
+  const j=i*3,t=rod.restPositions[j+1]/ROD_LENGTH,ring=Math.round(t*ROD_SEGMENTS)*3;
+  const radius=Math.hypot(p.getX(i),p.getY(i)-rod.curve[ring+1],p.getZ(i)-rod.curve[ring+2]);
+  close(radius,Math.hypot(rod.restPositions[j],rod.restPositions[j+2]));
+ }
+ rod.setBend(9);assert.equal(rod.bend,1);rod.setBend(-1);assert.equal(rod.bend,0);close(rod.localTip.y,ROD_LENGTH);close(rod.localTip.z,0);rod.dispose();
 });
 test('bobber hangs vertically from bent rod tip and line remains attached through rig transforms',()=>{
  const scene=new THREE.Scene(),rig=new THREE.Group(),rod=new FishingRod(scene);scene.add(rig);rig.add(rod.root);rig.position.set(3,5,-7);rig.rotation.y=.8;rod.setBend(.75);rod.update(true);

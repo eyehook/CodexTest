@@ -153,7 +153,7 @@ test('rod responds smoothly to simulated tension without adding geometry',async(
  const rod=new FishingRod(new THREE.Scene());rod.update(true,LINE_STEP);
  const count=rod.mesh.geometry.attributes.position.count;
  rod.physics.tension=1;rod.update(true,LINE_STEP);
- assert.ok(rod.bend>0&&rod.bend<1);assert.notEqual(rod.bones[8].rotation.x,0);
+ assert.ok(rod.bend>0&&rod.bend<1);assert.ok(rod.localTip.z<0);
  assert.equal(rod.mesh.geometry.attributes.position.count,count);rod.dispose();
 });
 
