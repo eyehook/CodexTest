@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../../projects/forest/vendor/three.module.js';
 import {LINE_SEGMENTS} from '../../src/fishing/rods/LinePhysics.mjs';
-import {FishingRod,ROD_LENGTH,ROD_SEGMENTS,LINE_LENGTH,BOBBER_RADIUS} from '../../src/fishing/rods/FishingRod.js';
+import {FishingRod,ROD_LENGTH,ROD_SEGMENTS,LINE_LENGTH,BOBBER_RADIUS,LEADER_LENGTH} from '../../src/fishing/rods/FishingRod.js';
 import {RodSystem} from '../../src/fishing/rods/RodSystem.js';
 import {createRodControls,updateRodControls} from '../../src/fishing/rods/RodControls.mjs';
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);
@@ -51,9 +51,9 @@ test('controller handedness, lost poses, disconnection and session end control v
  const system=new RodSystem(renderer,scene,rig),s=session(true,false),frame={getPose:()=>({})};
  grips[0].dispatchEvent({type:'connected',data:s.inputSources[0]});grips[1].dispatchEvent({type:'connected',data:s.inputSources[1]});
  system.update(s,frame,{},true);assert.equal(system.slots[0].rod.root.visible,true);assert.equal(system.slots[1].rod.root.visible,false);
- system.update(s,{getPose:()=>null},{},true);assert.ok(system.slots.every(s=>!s.rod.line.visible));
+ system.update(s,{getPose:()=>null},{},true);assert.ok(system.slots[0].rod.line.visible);assert.equal(system.slots[0].rod.root.visible,true);
  system.update(s,frame,{},true);assert.ok(system.slots[0].rod.root.visible);
- grips[0].dispatchEvent({type:'disconnected'});assert.equal(system.controls.right.shown,false);assert.equal(system.slots[0].rod.root.visible,false);
+ grips[0].dispatchEvent({type:'disconnected'});assert.equal(system.controls.right.shown,true);assert.equal(system.slots[0].rod.root.visible,true);
  system.update(null,null,null,false);assert.equal(system.controls.left.shown,false);assert.ok(system.slots.every(s=>!s.rod.bobber.visible));
  for(const slot of system.slots)slot.rod.dispose();
 });
@@ -76,7 +76,7 @@ test('camera-relative world rebasing does not impart fake bobber momentum',()=>{
  rod.dispose();
 });
 
-test('entering the casting zone pulses only the equipped controller once, with safe haptic failures',async()=>{
+test('completing retrieval pulses only the equipped controller once, with safe haptic failures',async()=>{
  for(const hand of ['right','left'])for(const failure of ['none','missing','throw','reject']){
  const grips=[new THREE.Group(),new THREE.Group()],scene=new THREE.Scene(),rig=new THREE.Group();scene.add(rig);
  const system=new RodSystem({xr:{getControllerGrip:i=>grips[i]}},scene,rig),s=session(hand==='right',hand==='left'),frame={getPose:()=>({})},calls=[];
@@ -87,13 +87,26 @@ test('entering the casting zone pulses only the equipped controller once, with s
  }
  system.update(s,frame,{},true,1/120);assert.equal(calls.length,0);
  const slot=system.activeSlot,p=slot.rod.physics;
- p.length=.9145;p.phase='reeling';p.deployed=true;p.triggerHeld=true;p.triggerAction='reel';
+ p.length=p.homeLength+.0001;p.phase='reeling';p.deployed=true;p.triggerHeld=true;p.triggerAction='reel';
  slot.source.gamepad.buttons[0]={pressed:true};
- system.update(s,frame,{},true,1/120);assert.equal(p.castingZoneEntries,1);assert.ok(p.length>p.homeLength);
+ system.update(s,frame,{},true,1/120);assert.equal(p.completedRetrievals,1);assert.equal(p.length,p.homeLength);
  for(let i=0;i<600;i++)system.update(s,frame,{},true,1/120);
  assert.equal(p.length,p.homeLength);
  assert.deepEqual(calls,failure==='missing'?[]:[[hand,.12,50]]);
  system.resetPhysics();system.update(s,frame,{},true,1/120);assert.equal(calls.length,failure==='missing'?0:1);
  await Promise.resolve();for(const slot of system.slots)slot.rod.dispose();
  }
+});
+
+test('leader and hook remain attached beneath the bobber across motion and world rebasing',()=>{
+ const scene=new THREE.Scene(),rod=new FishingRod(scene);scene.add(rod.root);rod.update(true,0,1e9,-1e9,20);
+ assert.equal(LEADER_LENGTH,.25);assert.equal(rod.leader.parent,rod.bobber);assert.equal(rod.hook.parent,rod.bobber);
+ const line=rod.leader.geometry.attributes.position;
+ close(line.getY(0),-BOBBER_RADIUS);close(line.getY(2),rod.hook.position.y);assert.equal(line.count,3);
+ close(rod.hookWorldPosition.y,rod.physics.position[LINE_SEGMENTS*3+1]-BOBBER_RADIUS-LEADER_LENGTH-.047);
+ const anchor=rod.hookAnchor.getWorldPosition(new THREE.Vector3());
+ close(anchor.x,rod.hookWorldPosition.x-1e9);close(anchor.y,rod.hookWorldPosition.y-20);close(anchor.z,rod.hookWorldPosition.z+1e9);
+ const before=rod.hookWorldPosition.clone();rod.root.position.x-=100;rod.root.position.y-=30;
+ rod.update(true,0,1e9+100,-1e9,50);assert.deepEqual(rod.hookWorldPosition,before);
+ rod.update(false);assert.equal(rod.bobber.visible,false);rod.dispose();
 });

@@ -1,5 +1,10 @@
+import {BiteLabel} from './BiteLabel.js';
+import {FishEncounter} from './FishEncounter.mjs';
+import {Fish} from './Fish.js';
 import * as THREE from '../../../projects/forest/vendor/three.module.js';
-import {LinePhysics,LINE_SEGMENTS,MIN_LINE_LENGTH} from './LinePhysics.mjs';
+import {LeaderPhysics,LEADER_LENGTH,HOOK_OFFSET_X,HOOK_OFFSET_Y} from './LeaderPhysics.mjs';
+export {LEADER_LENGTH} from './LeaderPhysics.mjs';
+import {LinePhysics,LINE_SEGMENTS,MIN_LINE_LENGTH,AUTO_REEL_LENGTH} from './LinePhysics.mjs';
 export const ROD_LENGTH=2.1,ROD_SEGMENTS=32,BOBBER_RADIUS=0.045,LINE_LENGTH=MIN_LINE_LENGTH;
 export class FishingRod {
  constructor(scene,{surface=null,water=null}={}){
@@ -14,6 +19,20 @@ export class FishingRod {
   const sphere=new THREE.SphereGeometry(BOBBER_RADIUS,12,8).toNonIndexed(),p=sphere.attributes.position,color=new Float32Array(p.count*3);
   for(let i=0;i<p.count;i+=3){const red=p.getY(i)+p.getY(i+1)+p.getY(i+2)>0;for(let j=0;j<3;j++){color[(i+j)*3]=red?0.8:0.95;color[(i+j)*3+1]=red?0.035:0.95;color[(i+j)*3+2]=red?0.025:0.9;}}
   sphere.setAttribute('color',new THREE.BufferAttribute(color,3));this.bobber=new THREE.Mesh(sphere,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.5}));this.bobber.visible=false;scene.add(this.bobber);
+  this.biteLabel=new BiteLabel();this.bobber.add(this.biteLabel);
+  this.leaderPhysics=new LeaderPhysics(water);
+  this.hookDirection=new THREE.Vector3();this.hookRestDirection=new THREE.Vector3(HOOK_OFFSET_X,HOOK_OFFSET_Y,0).normalize();
+  const leaderGeometry=new THREE.BufferGeometry();leaderGeometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(9),3).setUsage(THREE.DynamicDrawUsage));
+  this.leader=new THREE.Line(leaderGeometry,new THREE.LineBasicMaterial({color:0xffffff}));this.bobber.add(this.leader);
+  const hookCurve=new THREE.CatmullRomCurve3([
+   new THREE.Vector3(0,0,0),new THREE.Vector3(0,-.025,0),new THREE.Vector3(0,-.035,0),
+   new THREE.Vector3(.012,-.047,0),new THREE.Vector3(.024,-.035,0),new THREE.Vector3(.024,-.022,0)
+  ]);
+  this.hook=new THREE.Mesh(new THREE.TubeGeometry(hookCurve,20,.0018,6,false),new THREE.MeshStandardMaterial({color:0xb9bec4,metalness:.7,roughness:.35}));
+  this.hook.position.y=-BOBBER_RADIUS-LEADER_LENGTH;this.bobber.add(this.hook);
+  this.hookAnchor=new THREE.Object3D();this.hookAnchor.name='FishAttachment';this.hookAnchor.position.set(HOOK_OFFSET_X,HOOK_OFFSET_Y,0);this.hook.add(this.hookAnchor);
+  this.hookWorldPosition=new THREE.Vector3();
+  this.encounter=new FishEncounter();this.fish=new Fish();this.bobber.add(this.fish);this.fishingEvent=null;
   const lineGeometry=new THREE.BufferGeometry();lineGeometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array((LINE_SEGMENTS+1)*3),3).setUsage(THREE.DynamicDrawUsage));
   this.line=new THREE.Line(lineGeometry,new THREE.LineBasicMaterial({color:0xffffff}));this.line.frustumCulled=false;this.line.visible=false;scene.add(this.line);
   this.physics=new LinePhysics(LINE_LENGTH,{surface,water,radius:BOBBER_RADIUS});this.tip=new THREE.Vector3();this.bend=-1;this.setBend(0);
@@ -44,15 +63,52 @@ export class FishingRod {
  }
  update(visible,dt=0,worldX=0,worldZ=0,ground=0,trigger=false){
   this.root.visible=this.line.visible=this.bobber.visible=visible;
-  if(!visible){this.physics.initialized=false;return;}
-  if(this.physics.initialized)this.setBend(this.bend+(this.physics.tension-this.bend)*(1-Math.exp(-8*Math.max(0,dt))));
+  this.fishingEvent=null;
+  if(!visible){this.physics.initialized=false;this.leaderPhysics.initialized=false;this.encounter.reset();this.fish.visible=false;this.biteLabel.reset();return;}
+  if(this.physics.initialized){
+   const loaded=this.encounter.phase==='hooked'||this.encounter.phase==='caught';
+   // Geometric size determines weight once at hooking. A saturating load
+   // response keeps heavy fish distinguishable without overfolding the rod.
+   const weight=this.encounter.weightKg;
+   const fishLoad=.75*weight/(weight+.75);
+   const target=loaded?Math.min(1,fishLoad*this.encounter.opacity+.35*this.physics.tension):this.physics.tension;
+   this.setBend(this.bend+(target-this.bend)*(1-Math.exp(-8*Math.max(0,dt))));
+  }
   this.root.updateWorldMatrix(true,true);this.tip.copy(this.localTip);this.root.localToWorld(this.tip);
-  const initialized=this.physics.initialized;
-  if(initialized)this.physics.setTrigger(trigger);
+  const initialized=this.physics.initialized,resetCount=this.physics.resetCount;
+  if(initialized){
+   const landedFish=this.encounter.phase==='caught'||(this.encounter.phase==='hooked'&&this.physics.length<=this.physics.homeLength+1e-9);
+   const finishingRetrieval=this.physics.triggerHeld&&this.physics.triggerAction==='reel';
+   // A held retrieval can finish winding, but no new cast may arm during
+   // the landed-fish display/fade. Synchronize the latch without launching.
+   if(landedFish&&!finishingRetrieval)this.physics.synchronizeTrigger(trigger);
+   else this.physics.setTrigger(trigger);
+  }
   this.physics.update(this.tip.x+worldX,this.tip.y+ground,this.tip.z+worldZ,dt);
   if(!initialized)this.physics.synchronizeTrigger(trigger);
+  if(!initialized||this.physics.resetCount!==resetCount){this.encounter.reset();this.biteLabel.reset();}
   const nodes=this.physics.position,j=LINE_SEGMENTS*3;
   this.bobber.position.set(nodes[j]-worldX,nodes[j+1]-ground,nodes[j+2]-worldZ);
+  if(!initialized||this.physics.resetCount!==resetCount)this.leaderPhysics.initialized=false;
+  this.leaderPhysics.update(nodes[j],nodes[j+1]-BOBBER_RADIUS,nodes[j+2],dt);
+  const tackle=this.leaderPhysics.position,leader=this.leader.geometry.attributes.position;
+  leader.setXYZ(0,0,-BOBBER_RADIUS,0);
+  for(let i=1;i<3;i++)leader.setXYZ(i,tackle[i*3]-nodes[j],tackle[i*3+1]-nodes[j+1],tackle[i*3+2]-nodes[j+2]);
+  leader.needsUpdate=true;
+  this.hook.position.set(tackle[6]-nodes[j],tackle[7]-nodes[j+1],tackle[8]-nodes[j+2]);
+  this.hookDirection.set(tackle[9]-tackle[6],tackle[10]-tackle[7],tackle[11]-tackle[8]).normalize();
+  this.hook.quaternion.setFromUnitVectors(this.hookRestDirection,this.hookDirection);
+  this.hookWorldPosition.set(tackle[9],tackle[10],tackle[11]);
+  const water=this.physics.water?this.physics.water():-Infinity;
+  const resting=this.physics.phase==='cast'&&!trigger&&this.physics.length>=AUTO_REEL_LENGTH&&Math.abs(nodes[j+1]-water)<.08&&(this.physics.dipTime>0||Math.hypot(this.physics.velocity[0],this.physics.velocity[1],this.physics.velocity[2])<.12)&&(this.physics.surface?this.physics.surface(nodes[j],nodes[j+2]):-Infinity)<water-.05&&this.hookWorldPosition.y<water;
+  this.fishingEvent=this.encounter.update(dt,resting,this.physics.triggerHeld&&this.physics.triggerAction==='reel',this.physics.length,this.physics.homeLength);
+  if(this.fishingEvent==='nibble')this.physics.dip(.0254);
+  else if(this.fishingEvent==='bite')this.physics.dip(.1524);
+  this.biteLabel.update(this.encounter.phase==='bite',dt,this.fishingEvent==='lost');
+  this.fish.visible=this.encounter.phase==='hooked'||this.encounter.phase==='caught';this.hook.visible=!this.fish.visible;
+  this.fish.position.copy(this.hook.position);
+  this.fish.scale.setScalar(this.encounter.size);
+  this.fish.quaternion.copy(this.hook.quaternion);this.fish.setHue(this.encounter.hue);this.fish.setOpacity(this.encounter.opacity);
   const p=this.line.geometry.attributes.position;
   p.setXYZ(0,this.tip.x,this.tip.y,this.tip.z);
   for(let i=1;i<=LINE_SEGMENTS;i++){const k=i*3;p.setXYZ(i,nodes[k]-worldX,nodes[k+1]-ground,nodes[k+2]-worldZ);}
@@ -62,6 +118,6 @@ export class FishingRod {
  }
  dispose(){
   this.root.removeFromParent();this.bobber.removeFromParent();this.line.removeFromParent();
-  this.root.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});this.bobber.geometry.dispose();this.bobber.material.dispose();this.line.geometry.dispose();this.line.material.dispose();
+  this.root.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});this.bobber.traverse(o=>{if(o.isSprite){o.dispose();return;}if(o.geometry)o.geometry.dispose();if(o.material){o.material.map?.dispose();o.material.dispose();}});this.line.geometry.dispose();this.line.material.dispose();
  }
 }

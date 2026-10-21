@@ -4,8 +4,11 @@ export function updateRodControls(state,session,tracked){
  // Preserve the latch while suspended to avoid toggling when tracking returns.
  if(!tracked||session.visibilityState!=='visible')return;
  for(const hand of ['left','right']){
-  let pressed=false;
-  for(const source of session.inputSources)if(source.handedness===hand&&source.gamepad?.mapping==='xr-standard'&&source.gripSpace){pressed=!!source.gamepad.buttons?.[5]?.pressed;break;}
+  let source=null;
+  for(const candidate of session.inputSources)if(candidate.handedness===hand&&candidate.gamepad?.mapping==='xr-standard'&&candidate.gripSpace){source=candidate;break;}
+  // Input-source replacement is not a physical release of B/Y.
+  if(!source)continue;
+  const pressed=!!source.gamepad.buttons?.[5]?.pressed;
   if(pressed&&!state[hand].held){state[hand].shown=!state[hand].shown;if(state[hand].shown)state[hand==='left'?'right':'left'].shown=false;}
   state[hand].held=pressed;
  }

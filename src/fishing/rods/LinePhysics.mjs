@@ -1,12 +1,13 @@
-export const LINE_STEP=1/120,LINE_SEGMENTS=12,MIN_LINE_LENGTH=0.6096,CAST_LINE_LENGTH=0.9144,MAX_LINE_LENGTH=38.1,REEL_MIN_SPEED=0.5,REEL_MAX_SPEED=10,REEL_ACCELERATION=(REEL_MAX_SPEED-REEL_MIN_SPEED)/5;
+export const LINE_STEP=1/120,LINE_SEGMENTS=12,MIN_LINE_LENGTH=0.6096,AUTO_REEL_LENGTH=2,MAX_LINE_SLACK=.1524,SLACK_TAKEUP_TIME=1,MAX_LINE_LENGTH=38.1,REEL_MIN_SPEED=0.5,REEL_MAX_SPEED=10,REEL_ACCELERATION=(REEL_MAX_SPEED-REEL_MIN_SPEED)/5;
 // Position-based rope: a moving pinned tip, light line nodes, and a heavier bobber.
 // All positions/previous positions are Float64 world coordinates, retaining inertia
 // across camera-relative terrain rebasing and making line payout possible later.
 export class LinePhysics {
  constructor(length=MIN_LINE_LENGTH,{surface=null,water=null,radius=0.045}={}){
-  this.castingZoneEntries=0;this.settleTime=-1;this.spoolOpen=false;this.triggerAction=null;this.deployed=false;this.water=water;this.tension=0;this.spoolSpeed=0;this.homeLength=length;this.length=length;this.surface=surface;this.radius=radius;this.phase='ready';this.landed=false;this.triggerHeld=false;this.reelTime=0;this.reelSpeed=0;this.velocity=new Float64Array(3);this.position=new Float64Array((LINE_SEGMENTS+1)*3);this.previous=new Float64Array(this.position.length);this.target=new Float64Array(3);this.accumulator=0;this.initialized=false;
+  this.autoReel=false;this.slackRemaining=0;this.dipTime=0;this.dipDepth=0;this.resetCount=0;this.completedRetrievals=0;this.settleTime=-1;this.spoolOpen=false;this.triggerAction=null;this.deployed=false;this.water=water;this.tension=0;this.spoolSpeed=0;this.homeLength=length;this.length=length;this.surface=surface;this.radius=radius;this.phase='ready';this.landed=false;this.triggerHeld=false;this.reelTime=0;this.reelSpeed=0;this.velocity=new Float64Array(3);this.position=new Float64Array((LINE_SEGMENTS+1)*3);this.previous=new Float64Array(this.position.length);this.target=new Float64Array(3);this.accumulator=0;this.initialized=false;
  }
  reset(x,y,z){
+  this.autoReel=false;this.slackRemaining=0;this.dipTime=0;this.dipDepth=0;this.resetCount++;
   this.settleTime=-1;this.spoolOpen=false;this.triggerAction=null;this.deployed=false;this.phase='ready';this.landed=false;this.tension=0;this.spoolSpeed=0;this.reelTime=0;this.reelSpeed=0;this.length=this.homeLength;this.velocity.fill(0);
   for(let i=0;i<=LINE_SEGMENTS;i++){const j=i*3;this.position[j]=x;this.position[j+1]=y-this.length*i/LINE_SEGMENTS;this.position[j+2]=z;}
   this.previous.set(this.position);this.target[0]=x;this.target[1]=y;this.target[2]=z;this.accumulator=0;this.initialized=true;
@@ -28,28 +29,36 @@ export class LinePhysics {
  }
  synchronizeTrigger(pressed){
   this.triggerHeld=pressed;this.triggerAction=null;
-  this.phase=this.length<=this.homeLength?'ready':'cast';
+  this.phase=this.length<=this.homeLength?'ready':this.autoReel?'reeling':'cast';
   this.reelTime=this.reelSpeed=0;
  }
  setTrigger(pressed){
   if(pressed&&!this.triggerHeld){
    // Latch the action once, from the paid-out length at the start of the press.
-   this.triggerAction=this.length<=Math.max(this.homeLength,CAST_LINE_LENGTH)+1e-9?'cast':'reel';
+   this.triggerAction=this.length<=this.homeLength+1e-9?'cast':'reel';
    if(this.triggerAction==='cast'){this.settleTime=-1;this.spoolOpen=false;this.phase='armed';}
    else {this.spoolOpen=false;this.phase='reeling';this.reelTime=0;this.reelSpeed=REEL_MIN_SPEED;}
   }else if(!pressed&&this.triggerHeld){
    if(this.triggerAction==='cast'){
-    this.bobberVelocity(this.velocity);this.spoolOpen=true;this.deployed=true;this.phase='cast';this.landed=false;
-   }else this.phase=this.length<=this.homeLength?'ready':'cast';
-   this.triggerAction=null;this.reelTime=this.reelSpeed=0;
+    this.bobberVelocity(this.velocity);this.autoReel=false;this.slackRemaining=0;this.spoolOpen=true;this.deployed=true;this.phase='cast';this.landed=false;
+   }else this.phase=this.length<=this.homeLength?'ready':this.autoReel?'reeling':'cast';
+   this.triggerAction=null;if(!this.autoReel)this.reelTime=this.reelSpeed=0;
   }
   this.triggerHeld=pressed;
  }
+ trimSlack(distance,dt){
+  const target=Math.max(this.homeLength,distance+MAX_LINE_SLACK),excess=Math.max(0,this.length-target);
+  if(excess<=1e-9){this.slackRemaining=0;return;}
+  if(this.slackRemaining<=0)this.slackRemaining=SLACK_TAKEUP_TIME;
+  this.length-=excess*Math.min(1,dt/this.slackRemaining);
+  this.slackRemaining=Math.max(0,this.slackRemaining-dt);
+ }
+ dip(depth){this.dipFloor=this.position[LINE_SEGMENTS*3+1]-depth;this.dipDepth=depth;this.dipTime=depth>.05?1.2:.75;}
  settlingDamping(){
-  // A paused retrieval keeps its damping throughout the casting zone. Arming
+  // Retrieval and the fully retrieved line retain settling damping. Arming
   // and the open casting spool always bypass it, even before line pays out.
   if(this.phase==='armed'||this.spoolOpen)return 0;
-  if(this.phase==='reeling'||this.length<=Math.max(this.homeLength,CAST_LINE_LENGTH)+1e-9)
+  if(this.phase==='reeling'||this.length<=this.homeLength+1e-9)
    return 3*(1-Math.min(1,Math.max(0,this.length-this.homeLength)/2))**2;
   return 0;
  }
@@ -83,7 +92,14 @@ export class LinePhysics {
   if(out){
    this.deployed=true;
    const ax=p[end],ay=p[end+1],az=p[end+2],h=LINE_STEP;
+   const actualWater=this.water?this.water():-Infinity;
+   // Close casts may finish automatically after landing, never in flight.
+   const onWater=ay<=actualWater+this.radius&&(!this.surface||this.surface(ax,az)<actualWater-this.radius);
+   if(this.phase==='cast'&&this.length>this.homeLength&&this.length<AUTO_REEL_LENGTH&&(!this.spoolOpen||onWater)){
+    this.autoReel=true;this.spoolOpen=false;this.phase='reeling';this.reelTime=0;this.reelSpeed=REEL_MIN_SPEED;
+   }
    if(this.phase==='reeling'){
+    if(this.length<AUTO_REEL_LENGTH)this.autoReel=true;
     // Taper the final 2 metres quadratically, retaining a small speed so retrieval
     // reaches the minimum rather than approaching it forever.
     const remaining=Math.max(0,this.length-this.homeLength);
@@ -94,14 +110,21 @@ export class LinePhysics {
     this.reelSpeed=Math.min(nextRamp,Math.max(0.30,nextRamp*Math.min(1,remaining/2)**2));
     const previousLength=this.length;
     this.length=Math.max(this.homeLength,this.length-(startSpeed+this.reelSpeed)*0.5*h);
-    if(previousLength>CAST_LINE_LENGTH&&this.length<=CAST_LINE_LENGTH)this.castingZoneEntries++;
+    if(previousLength>this.homeLength&&this.length<=this.homeLength)this.completedRetrievals++;
     this.spoolSpeed=0;
     // Stop winding at minimum length without resetting any particle or velocity.
-    if(this.length<=this.homeLength){this.phase='ready';this.settleTime=0.8;this.reelTime=this.reelSpeed=0;}
+    if(this.length<=this.homeLength){this.autoReel=false;this.phase='ready';this.settleTime=0.8;this.reelTime=this.reelSpeed=0;}
    }
    // A light bobber floats mostly above water. Strong immersion drag absorbs
    // impact momentum while buoyancy returns it naturally, without a depth clamp.
-   const water=this.water?this.water():-Infinity;
+   // A short fish pull lowers the buoyancy equilibrium; normal buoyancy brings
+   // it back up afterward. Collisions and line tension still constrain motion.
+   const hold=this.dipDepth>.05?.6:.25;
+   const duration=this.dipDepth>.05?1.2:.75;
+   const age=duration-this.dipTime;
+   const pull=this.dipTime>0&&age<hold?this.dipDepth:0;
+   this.dipTime=Math.max(0,this.dipTime-h);
+   const water=actualWater-pull;
    const depth=Math.max(0,Math.min(2*this.radius,water-ay+this.radius));
    const q=depth/this.radius,immersed=q*q*(3-q)/4;
    if(this.settleTime>=0&&this.phase==='ready')this.settleTime+=h;
@@ -109,10 +132,15 @@ export class LinePhysics {
    const drag=Math.exp(-(0.05+immersed*120+settling)*h);
    this.velocity[0]*=drag;this.velocity[2]*=drag;
    this.velocity[1]=(this.velocity[1]+9.81*(8*immersed-1)*h)*drag;
-   const bx=ax+this.velocity[0]*h,by=ay+this.velocity[1]*h,bz=az+this.velocity[2]*h;
+   const bx=ax+this.velocity[0]*h,bz=az+this.velocity[2]*h;
+   let by=ay+this.velocity[1]*h;
+   if(pull>0&&by<this.dipFloor){by=this.dipFloor;if(this.velocity[1]<0)this.velocity[1]=0;}
    this.landed=false;
    if(!this.collide(ax,ay,az,bx,by,bz)){p[end]=bx;p[end+1]=by;p[end+2]=bz;}
    const dx=p[end]-x,dy=p[end+1]-y,dz=p[end+2]-z,distance=Math.hypot(dx,dy,dz);
+   // A general slack allowance applies in air, on water, and while retrieving.
+   // Only surplus line is wound, so this never adds inward bobber tension.
+   this.trimSlack(distance,h);
    const nx=dx/(distance||1),ny=dy/(distance||1),nz=dz/(distance||1);
    // Tension responds to motion relative to the rod tip, transferring a new
    // controller swing into bobber momentum even after a previous retrieval.

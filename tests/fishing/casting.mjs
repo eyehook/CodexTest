@@ -117,10 +117,10 @@ test('water impact submerges the bobber then buoyancy returns it to equilibrium'
  assert.ok(minimum<0);assert.ok(minimum>-.11,`dip ${minimum} m at ${impactSpeed} m/s, ${fps} Hz`);assert.ok(Math.abs(p.position[end+1]-.025)<.005);assert.ok(Math.abs(p.velocity[1])<.01);
  }
 });
-test('open spool retains slack and pays out only when pulled',()=>{
+test('open spool trims excess slack and pays out only when pulled',()=>{
  const p=placedBobber(null,5,2,3);p.length=20;
  for(let i=0;i<30;i++)p.update(0,3,0,LINE_STEP);
- assert.equal(p.length,20);assert.equal(p.spoolSpeed,0);
+ assert.ok(p.length<20&&p.length>5);assert.equal(p.spoolSpeed,0);
  p.length=6;p.velocity[0]=12;const before=p.length;
  for(let i=0;i<30;i++)p.update(0,3,0,LINE_STEP);
  assert.ok(p.length>before);assert.ok(p.spoolSpeed>0);
@@ -241,30 +241,16 @@ test('final two-metre approach damps momentum while distant retrieval does not',
  assert.equal(near.phase,'armed');assert.equal(near.settleTime,-1);
 });
 
-test('two-foot minimum and inclusive three-foot cast threshold choose the correct trigger action',()=>{
- const p=new LinePhysics();assert.equal(p.homeLength,.6096);
- for(const length of [.6096,.7,.9144]){
- p.reset(0,3,0);p.triggerHeld=false;p.length=length;p.phase='cast';p.settleTime=1;
- p.setTrigger(true);assert.equal(p.phase,'armed');assert.equal(p.settleTime,-1);assert.equal(p.length,length);
- p.setTrigger(false);assert.equal(p.phase,'cast');assert.ok(p.spoolOpen);
- }
- p.reset(0,3,0);p.triggerHeld=false;p.length=.9145;p.setTrigger(true);assert.equal(p.phase,'reeling');
- while(p.length>.6096){p.setTrigger(true);p.update(0,3,0,LINE_STEP);assert.notEqual(p.phase,'armed');}
- assert.equal(p.length,.6096);assert.equal(p.triggerAction,'reel');p.setTrigger(false);assert.equal(p.spoolOpen,false);
- p.setTrigger(true);assert.equal(p.phase,'armed');
-});
-
-test('paused retrieval keeps damping across the entire casting zone until cast begins',()=>{
- for(const length of [.6096,.7,.8,.9144]){
- const p=new LinePhysics();p.reset(0,3,0);p.length=length;p.deployed=true;
- p.phase='reeling';p.triggerHeld=true;p.triggerAction='reel';p.velocity[2]=1;
- const damping=p.settlingDamping();assert.ok(damping>2);
- const velocity=p.velocity.slice();p.setTrigger(false);
- assert.equal(p.settlingDamping(),damping);assert.deepEqual(p.velocity,velocity);
- for(let i=0;i<30;i++)p.update(0,3,0,LINE_STEP);
- assert.equal(p.length,length);assert.ok(p.settlingDamping()>2);
+test('automatic final retrieval continues after release and casting requires minimum length',()=>{
+ for(const fps of [30,72,90,120]){
+ const p=new LinePhysics();p.reset(0,3,0);p.phase='cast';p.deployed=true;p.spoolOpen=false;p.length=1.99;p.position[end]=1.5;
+ p.update(0,3,0,1/fps);assert.equal(p.phase,'reeling');assert.ok(p.autoReel);
+ p.setTrigger(true);p.setTrigger(false);assert.equal(p.phase,'reeling');
+ for(let i=0;i<fps*20&&p.length>p.homeLength;i++)p.update(0,3,0,1/fps);
+ assert.equal(p.length,.6096);assert.equal(p.completedRetrievals,1);assert.equal(p.autoReel,false);
  p.setTrigger(true);assert.equal(p.phase,'armed');assert.equal(p.settlingDamping(),0);
- p.update(0,3,0,LINE_STEP);assert.equal(p.settlingDamping(),0);
- p.setTrigger(false);assert.equal(p.phase,'cast');assert.equal(p.settlingDamping(),0);
  }
+ const p=new LinePhysics();p.reset(0,3,0);p.phase='cast';p.deployed=true;p.length=.8;p.spoolOpen=true;
+ p.update(0,3,0,LINE_STEP);assert.equal(p.phase,'cast');assert.equal(p.autoReel,false);
+ p.setTrigger(true);assert.equal(p.phase,'reeling'); // No former 2–3 ft casting zone.
 });
