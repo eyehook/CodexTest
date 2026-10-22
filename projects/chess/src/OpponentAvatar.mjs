@@ -1,5 +1,7 @@
 // Replacement avatars implement this world-space contract, independent of chess rules.
 export class OpponentAvatar {
+  setEvaluation(_score) {}
+  update(_dt) {}
   setHandTarget(_worldPosition) {
     throw new Error("Avatar must implement setHandTarget");
   }

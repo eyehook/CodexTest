@@ -1,4 +1,5 @@
 import { effectiveElo } from "./Settings.mjs?v=ratings-2";
+import { parseEvaluation } from "./Evaluation.mjs";
 export const ENGINE_URL = new URL(
   "../vendor/stockfish/stockfish-17.1-lite-single-03e3232.js",
   import.meta.url,
@@ -18,6 +19,8 @@ export class EngineController {
     ++this.generation;
     this.ready = false;
     this.busy = false;
+    this.currentSearch = null;
+    this.lastEvaluation = null;
     this.worker?.terminate();
     this.worker = null;
     for (const w of this.waiters.splice(0)) {
@@ -49,6 +52,10 @@ export class EngineController {
       this.worker.onmessage = ({ data }) => {
         if (generation !== this.generation) return;
         for (const line of String(data).split("\n")) {
+          if (this.currentSearch) {
+            const score = parseEvaluation(line, this.currentSearch.fen);
+            if (score) this.currentSearch.score = score;
+          }
           const range = line.match(
             /^option name UCI_Elo type spin .*min (\d+) max (\d+)/,
           );
@@ -94,17 +101,24 @@ export class EngineController {
       throw error;
     }
   }
-  async bestMove(fen) {
+  async evaluate(fen) {
+    await this.bestMove(fen, { analysis: true });
+    return this.lastEvaluation;
+  }
+  async bestMove(fen, { analysis = false } = {}) {
     if (!this.ready || this.busy)
       throw new Error("Engine unavailable or already searching");
     const generation = this.generation;
     this.busy = true;
+    this.currentSearch = { fen, score: null };
     try {
+      if (analysis) this.send("setoption name UCI_LimitStrength value false");
       const result = this.wait((l) => l.startsWith("bestmove "), 10000);
       this.send(`position fen ${fen}`);
-      this.send("go movetime 300");
+      this.send(analysis ? "go movetime 150" : "go movetime 300");
       const line = await result;
       if (generation !== this.generation) throw new Error("Engine cancelled");
+      this.lastEvaluation = this.currentSearch.score;
       const token = line.split(/\s+/)[1];
       if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(token))
         throw new Error(`Invalid Stockfish move: ${token}`);
@@ -114,7 +128,12 @@ export class EngineController {
         ...(token[4] ? { promotion: token[4] } : {}),
       };
     } finally {
-      if (generation === this.generation) this.busy = false;
+      if (generation === this.generation) {
+        if (analysis && this.worker)
+          this.send("setoption name UCI_LimitStrength value true");
+        this.currentSearch = null;
+        this.busy = false;
+      }
     }
   }
 }

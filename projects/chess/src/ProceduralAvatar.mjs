@@ -1,6 +1,7 @@
 import * as THREE from "../../forest/vendor/three.module.js";
 import { OpponentAvatar } from "./OpponentAvatar.mjs";
 import { solveArm } from "./ArmIK.mjs";
+import { OpponentFace } from "./OpponentFace.mjs?v=blink-1";
 const up = new THREE.Vector3(0, 1, 0);
 export class ProceduralAvatar extends OpponentAvatar {
   constructor(parent) {
@@ -28,7 +29,14 @@ export class ProceduralAvatar extends OpponentAvatar {
       0.15,
       -0.52,
     ).rotation.y = Math.PI / 4;
-    add(new THREE.IcosahedronGeometry(0.102, 1), skin, 0, 0.46, -0.52);
+    this.head = add(
+      new THREE.BoxGeometry(0.18, 0.18, 0.18),
+      skin,
+      0,
+      0.46,
+      -0.52,
+    );
+    this.face = new OpponentFace(this.head);
     add(new THREE.CylinderGeometry(0.035, 0.04, 0.07, 8), skin, 0, 0.35, -0.52);
     // Chair back makes the seated pose legible without adding legs or idle motion.
     add(
@@ -83,6 +91,12 @@ export class ProceduralAvatar extends OpponentAvatar {
     this.shoulder = new THREE.Vector3(0.16, 0.3, -0.43);
     this.restLocal = new THREE.Vector3(0.28, 0.04, -0.31);
     this.reset();
+  }
+  setEvaluation(score) {
+    this.face.setEvaluation(score);
+  }
+  update(dt) {
+    this.face.update(dt);
   }
   get restTarget() {
     this.root.updateWorldMatrix(true, false);

@@ -2,11 +2,11 @@ import * as THREE from "../../forest/vendor/three.module.js";
 import { TableHandle } from "./TableHandle.mjs";
 import { Settings } from "./Settings.mjs?v=ratings-2";
 import { ChessBoard } from "./ChessBoard.mjs?v=capture-flight-1";
-import { EngineController } from "./EngineController.mjs?v=ratings-2";
-import { GameController } from "./GameController.mjs?v=ratings-2";
+import { EngineController } from "./EngineController.mjs?v=face-1";
+import { GameController } from "./GameController.mjs?v=face-1";
 import { InputController } from "./InputController.mjs";
 import { TableControls } from "./TableControls.mjs";
-import { ProceduralAvatar } from "./ProceduralAvatar.mjs";
+import { ProceduralAvatar } from "./ProceduralAvatar.mjs?v=blink-1";
 import { OpponentAnimator } from "./OpponentAnimator.mjs?v=capture-flight-1";
 const $ = (id) => document.getElementById(id);
 const settings = new Settings();
@@ -45,6 +45,12 @@ const game = new GameController({
   board,
   engine,
   opponent,
+  onEvaluation: (score) => {
+    avatar.setEvaluation(score);
+    $("viewport").dataset.opponentEvaluation = score
+      ? `${score.type}:${score.value}`
+      : "neutral";
+  },
   onChange: (state) => {
     engineReady = engine.ready;
     refreshEnter();
@@ -95,7 +101,8 @@ function action(a) {
 const tableHandle = new TableHandle({
   parent: world,
   settings,
-  canGrab: () => !["moving", "grabbing", "thinking"].includes(game.phase),
+  canGrab: () =>
+    !["moving", "grabbing", "thinking", "evaluating"].includes(game.phase),
   onMove: () => applyPosition(false),
   onEnd: () => applyPosition(),
 });
@@ -218,6 +225,7 @@ renderer.setAnimationLoop((time, frame) => {
   if (tracked) {
     board.update(dt);
     opponent.update(dt);
+    avatar.update(dt);
   }
   renderer.render(scene, camera);
   if (time - lastDiagnostics > 1000) {
@@ -235,6 +243,7 @@ globalThis.chessDiagnostics = () => ({
   animation: opponent.state,
   engineReady: engine.ready,
   engineElo: engine.elo,
+  opponentExpression: avatar.face.amount,
   drawCalls: renderer.info.render.calls,
   triangles: renderer.info.render.triangles,
 });

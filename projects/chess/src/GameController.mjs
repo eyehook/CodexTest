@@ -1,5 +1,6 @@
 import { Chess } from "../vendor/chess/chess.mjs";
 import { resolveSide } from "./Settings.mjs?v=ratings-2";
+import { opponentEvaluation } from "./Evaluation.mjs";
 export class GameController {
   constructor({
     board,
@@ -7,8 +8,16 @@ export class GameController {
     opponent,
     onChange = () => {},
     random = Math.random,
+    onEvaluation = () => {},
   }) {
-    Object.assign(this, { board, engine, opponent, onChange, random });
+    Object.assign(this, {
+      board,
+      engine,
+      opponent,
+      onChange,
+      random,
+      onEvaluation,
+    });
     this.game = new Chess();
     this.playerColor = "w";
     this.epoch = 0;
@@ -42,6 +51,7 @@ export class GameController {
     this.board.setPlayerColor?.(this.playerColor);
     this.selected = this.last = this.promotion = null;
     this.promotionPlaced = false;
+    this.onEvaluation(null);
     this.phase = "loading";
     this.board.sync(this.game);
     this.notify("Loading engine…");
@@ -50,6 +60,8 @@ export class GameController {
       if (epoch !== this.epoch) return;
       if (this.playerColor === "b") await this.computerTurn(epoch);
       else {
+        await this.refreshEvaluation(epoch);
+        if (epoch !== this.epoch) return;
         this.phase = "player";
         this.notify(this.status());
       }
@@ -137,6 +149,7 @@ export class GameController {
       )
         return;
       if (this.finish()) return;
+      await this.refreshEvaluation(epoch);
       await this.computerTurn(epoch);
     } catch (error) {
       if (epoch !== this.epoch) return;
@@ -157,11 +170,35 @@ export class GameController {
     )
       return;
     if (this.finish()) return;
+    await this.refreshEvaluation(epoch);
+    if (epoch !== this.epoch) return;
     this.phase = "player";
     this.notify(this.status());
   }
+  async refreshEvaluation(epoch) {
+    if (!this.engine.evaluate || epoch !== this.epoch) return;
+    const fen = this.game.fen();
+    this.phase = "evaluating";
+    this.notify("Evaluating position…");
+    try {
+      const score = await this.engine.evaluate(fen);
+      if (epoch === this.epoch && this.game.fen() === fen)
+        this.onEvaluation(opponentEvaluation(score, this.playerColor));
+    } catch {
+      if (epoch === this.epoch) this.onEvaluation(null);
+    }
+  }
   finish() {
     if (!this.game.isGameOver()) return false;
+    this.onEvaluation(
+      this.game.isCheckmate()
+        ? {
+            type: "mate",
+            value: this.game.turn() === this.playerColor ? 1 : -1,
+            fen: this.game.fen(),
+          }
+        : { type: "cp", value: 0, fen: this.game.fen() },
+    );
     this.phase = "over";
     this.notify(this.status());
     return true;
@@ -171,6 +208,7 @@ export class GameController {
     this.opponent.cancel();
     this.engine.dispose();
     this.board.sync(this.game);
+    this.onEvaluation(null);
     this.phase = "error";
     this.selected = this.promotion = null;
     this.promotionPlaced = false;

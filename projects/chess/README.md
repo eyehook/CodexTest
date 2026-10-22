@@ -1,6 +1,6 @@
 # VR Chess
 
-Single-player seated chess for Meta Quest 3 and desktop browsers. The player chooses White, Black or Random; the opponent uses a locally bundled, single-threaded Stockfish WASM worker. A procedural seated opponent moves pieces using an analytic two-bone arm solver. No backend, API, CDN, account, or build step is used.
+Single-player seated chess for Meta Quest 3 and desktop browsers. The player chooses White, Black or Random; the opponent uses a locally bundled, single-threaded Stockfish WASM worker. A procedural seated opponent moves pieces using an analytic two-bone arm solver. The opponent has a cube head, two low-poly black sphere eyes that blink at irregular intervals, and a simple curved mouth showing its view of the position: a smile when ahead, a flat line near equal, and a frown when behind. No backend, API, CDN, account, or build step is used.
 
 ## Local development
 
@@ -28,6 +28,12 @@ WebXR needs a secure context. Use the repository's USB Quest launcher (`Start-Qu
 
 No physical Quest 3 testing or headset frame-time measurements have been performed by the implementing agent. Check seat alignment, both controllers, tracking loss/recovery, tabletop buttons and the handle, arm appearance, stereo, comfort and sustained 72 FPS on hardware. The single-threaded engine does not need cross-origin isolation headers, so it is compatible with ordinary GitHub Pages hosting.
 
+## Opponent expression
+
+After each committed move, a bounded 150 ms full-strength analysis runs in the existing Stockfish worker. It is serialized with the 300 ms strength-limited move search; playing strength is restored immediately after analysis. Only the main principal variation's exact score is used. Scores normalize from side-to-move to White, then to the opponent's color, so the expression stays correct for White/Black/Random player choices.
+
+A ±0.20-pawn band is flat. Outside that band, curvature grows smoothly with the advantage, saturating for large advantages; forced mate uses the full smile/frown. Checkmate and draw results set the final expression directly. Score failures or a restart return the face to neutral; generation guards discard stale results. The mouth transitions smoothly and reuses one small ribbon mesh; the two black low-poly sphere eyes briefly flatten together for a blink. A new open-eye interval is sampled uniformly from 2.5–6.5 seconds after each 180 ms blink (60 ms close, 25 ms closed, 95 ms open). Blinking runs even with a neutral mouth, uses elapsed frame time, and pauses with hidden/untracked VR instead of catching up. No fonts or textures are used for the face. Headset appearance and the extra analysis CPU cost still require Quest validation.
+
 ## Difficulty
 
 Options run from **1350 to 2000 in increments of 50**, with **1500 default**. The selected rating persists. Older saved choices outside this range reset to 1500. Initialization reads the actual engine's advertised `UCI_Elo` min/max before enabling `UCI_LimitStrength`; the bundled engine advertises **1320–3190**, which includes every launcher option. These are approximate targets, especially with the Lite network and 300 ms search limit, and not guaranteed playing ratings. No artificial weakening is added.
@@ -37,8 +43,9 @@ Options run from **1350 to 2000 in increments of 50**, with **1500 default**. Th
 - `GameController.mjs`: authoritative chess.js instance, selection, promotion, status, turn flow and generation-guarded transactions. Validate on a clone → lock → animate → commit → synchronize → unlock. Repetition/history remain in the authoritative instance.
 - `ChessBoard.mjs`: square/world conversion, merged reusable piece geometries, instanced colored board squares, highlights and synchronization. The player’s chosen color sits closest; h1 is light; queens begin on d1/d8.
 - `InputController.mjs` / `HandInteraction.mjs`: finite sphere/column proximity, tracked grip spheres, trigger/grip edge polling, exclusive pickup/carry/drop, desktop dragging and tabletop button proximity. Only visible tracked controller input is accepted in XR.
-- `EngineController.mjs`: dedicated classic Worker, UCI handshake, advertised Elo range, bounded single outstanding search, timeouts, failures and worker termination. Each restart replaces the worker so stale responses cannot enter a new game.
+- `EngineController.mjs`: dedicated classic Worker, UCI handshake, advertised Elo range, bounded single outstanding move/analysis search, score parsing, timeouts, failures and worker termination. Each restart replaces the worker so stale responses cannot enter a new game.
 - `OpponentAvatar.mjs` / `ProceduralAvatar.mjs`: replaceable world-space hand-target, attachment and rest-pose interface. No chess rules or square notation in avatar geometry.
+- `Evaluation.mjs` / `OpponentFace.mjs`: score perspective, near-equal band and bounded expression mapping; two sphere eyes and a smoothly curved mesh mouth on the head.
 - `ArmIK.mjs`: geometry-independent analytic two-bone solver with consistent pole direction, 15–155° bend bounds and distance clamping. All squares are reachable without moving the torso.
 - `OpponentAnimator.mjs`: cancellable asynchronous reach/lower/attach/lift/carry/place/clear/return sequence. The carried piece remains upright; `Object3D.attach` preserves its world transform. Transport clearance is 24 cm, above the tallest pieces. Captured pieces complete their lift/carry/landing flight to a side tray first; en passant removes the adjacent pawn; castling carries king then rook. Promotion replaces the mesh after placement and commit.
 - `Motion.mjs`: elapsed-time easing, paused with rendering visibility/tracking, cancellable jobs.

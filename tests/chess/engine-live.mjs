@@ -37,6 +37,18 @@ test("actual bundled WASM completes UCI handshake and returns legal moves after 
     e.dispose();
     await e.initialize(2000);
     assert.equal(e.elo, 2000);
+    for (const [fen, sign] of [
+      ["7k/8/8/8/8/8/8/KQ6 w - - 0 1", 1],
+      ["7k/8/8/8/8/8/8/KQ6 b - - 0 1", 1],
+      ["kq6/8/8/8/8/8/8/7K b - - 0 1", -1],
+    ]) {
+      const score = await e.evaluate(fen);
+      assert.ok(
+        score && score.value * sign > 0,
+        "actual WASM score uses White perspective",
+      );
+      assert.equal(score.fen, fen);
+    }
     const m = await e.bestMove(new Chess().fen());
     assert.ok(new Chess().move(m));
   } finally {

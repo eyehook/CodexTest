@@ -82,3 +82,17 @@ Launcher ratings now run from 1350 through 2000 in steps of 50, with 1500 still 
 Strength-range validation: all 62 Chess tests and the repository suite passed. The browser dropdown lists all 14 options and retains 1500 as its initial selection. Capture flight also completed during actual browser play.
 
 The user reported that the updated game works well and authorized publication of these improvements. Automated checks pass; formal Quest frame-time measurements have not been recorded.
+
+
+## Evaluation-driven opponent face
+
+Added two low-poly black sphere eyes and a basic black mouth curve. Full-strength 150 ms worker analysis after each completed move drives opponent-relative curvature; near-equal positions are flat, advantage smiles and disadvantage frowns. Amount scales continuously and transitions smoothly. Analysis is serialized with playing searches, restores the Elo limit, and rejects stale results after restart or side changes. Checkmate/draw set final expressions. Tests cover score sign for both colors and side-to-move, mate/bound/MultiPV handling, curvature direction/magnitude, buffer reuse, strength restoration, analysis cancellation and terminal results. Actual bundled WASM analysis is checked on clear White/Black material advantages.
+
+Face validation: all 67 Chess tests and the full repository suite passed. The browser displayed both eyes and the mouth, received a real opponent-relative cp score and completed a normal player/computer turn. Changes are local; Quest appearance/performance remain pending.
+
+
+## Cube head and blinking
+
+Replaced the faceted round head with a cube and moved the facial graphics onto its front surface. Added synchronized brief blinks at randomized 2.5–6.5 second intervals, independent of mouth evaluation. Tests verify cube proportions/front-face placement, eye closure and reopening at 30/72/120 Hz, random rescheduling, expression continuity and safe timing after pauses.
+
+Cube/blink validation: all 73 Chess tests and the repository suite passed, and `git diff --check` passed. Browser preview confirmed the cube head and front-mounted facial graphics. Physical Quest appearance remains unverified.
