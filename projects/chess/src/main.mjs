@@ -1,12 +1,12 @@
 import * as THREE from "../../forest/vendor/three.module.js";
-import { TableHandle } from "./TableHandle.mjs";
+import { TableHandle } from "./TableHandle.mjs?v=air-grip-1";
 import { Settings } from "./Settings.mjs?v=ratings-2";
-import { ChessBoard } from "./ChessBoard.mjs?v=knight-rotation-1";
+import { ChessBoard } from "./ChessBoard.mjs?v=tray-return-highlight-1";
 import { EngineController } from "./EngineController.mjs?v=face-1";
-import { GameController } from "./GameController.mjs?v=face-1";
-import { InputController } from "./InputController.mjs";
-import { TableControls } from "./TableControls.mjs";
-import { ProceduralAvatar } from "./ProceduralAvatar.mjs?v=blink-1";
+import { GameController } from "./GameController.mjs?v=promotion-flight-1";
+import { InputController } from "./InputController.mjs?v=tray-return-highlight-1";
+import { TableControls } from "./TableControls.mjs?v=no-promotion-buttons-1";
+import { ProceduralAvatar } from "./ProceduralAvatar.mjs?v=no-chair-back-1";
 import { OpponentAnimator } from "./OpponentAnimator.mjs?v=capture-flight-1";
 const $ = (id) => document.getElementById(id);
 const settings = new Settings();
@@ -62,8 +62,9 @@ const game = new GameController({
     $("game-status").dataset.fen = state.game.fen();
     for (const key of ["height", "distance", "offset"])
       $(key).disabled =
-        ["moving", "grabbing"].includes(state.phase) || !!tableHandle.active;
-    ui.update(state.message, state.phase === "promotion");
+        ["moving", "grabbing", "promotion"].includes(state.phase) ||
+        !!tableHandle.active;
+    ui.update(state.message);
     $("promotion").hidden = state.phase !== "promotion";
   },
 });
@@ -77,7 +78,8 @@ function applyPosition(persist = true) {
   for (const key of ["height", "distance", "offset"]) {
     $(key).value = settings[key];
     $(key).disabled =
-      ["moving", "grabbing"].includes(game.phase) || !!tableHandle.active;
+      ["moving", "grabbing", "promotion"].includes(game.phase) ||
+      !!tableHandle.active;
   }
   $("height-value").value = `${Math.round(-settings.height * 100)} cm`;
   $("distance-value").value = `${Math.round(settings.distance * 100)} cm`;
@@ -86,7 +88,10 @@ function action(a) {
   if (a === "restart") void game.restart(settings.elo, settings.side);
   else if (["q", "r", "b", "n"].includes(a)) game.promote(a);
   else {
-    if (["moving", "grabbing"].includes(game.phase) || tableHandle.active)
+    if (
+      ["moving", "grabbing", "promotion"].includes(game.phase) ||
+      tableHandle.active
+    )
       return;
     if (a === "height+")
       settings.height = Math.min(-0.1, settings.height + 0.025);
@@ -102,7 +107,9 @@ const tableHandle = new TableHandle({
   parent: world,
   settings,
   canGrab: () =>
-    !["moving", "grabbing", "thinking", "evaluating"].includes(game.phase),
+    !["moving", "grabbing", "promotion", "thinking", "evaluating"].includes(
+      game.phase,
+    ),
   onMove: () => applyPosition(false),
   onEnd: () => applyPosition(),
 });

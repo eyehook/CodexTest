@@ -6,24 +6,18 @@ export class TableControls {
     this.root.position.set(0, -0.034, 0);
     this.targets = [];
     this.status = this.label("Loading…", 0.46, 0.065);
-    this.status.position.set(0, 0, -0.34);
+    this.status.position.set(0, 0, 0.345);
     this.root.add(this.status);
     this.buttons = new Map();
-    const entries = [
-      ["restart", "Restart game"],
-      ["q", "Queen"],
-      ["r", "Rook"],
-      ["b", "Bishop"],
-      ["n", "Knight"],
-    ];
-    entries.forEach(([action, text], i) => {
+    const entries = [["restart", "Restart game"]];
+    entries.forEach(([action, text]) => {
       const mesh = this.label(text, 0.16, 0.065);
-      mesh.position.set(0.34, 0.001, i === 0 ? 0.345 : -0.2 + (i - 1) * 0.105);
+      mesh.position.set(0.34, 0.001, 0.345);
       mesh.userData.action = action;
       this.root.add(mesh);
       this.buttons.set(action, mesh);
     });
-    this.update("Loading…", false);
+    this.update("Loading…");
   }
   label(text, width, height) {
     const canvas = document.createElement("canvas");
@@ -86,14 +80,14 @@ export class TableControls {
         targets.includes(target) ? 0xffd57c : 0xffffff,
       );
   }
-  update(message, promotion) {
+  update(message) {
     if (message !== this.message) {
       this.paint(this.status, message);
       this.message = message;
     }
     this.targets = [];
-    for (const [action, mesh] of this.buttons) {
-      mesh.visible = action.length !== 1 || promotion;
+    for (const mesh of this.buttons.values()) {
+      mesh.visible = true;
       if (mesh.visible) this.targets.push(mesh);
     }
   }

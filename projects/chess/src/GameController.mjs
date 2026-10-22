@@ -30,6 +30,7 @@ export class GameController {
   notify(message) {
     this.message = message;
     this.board.highlight(this);
+    this.board.updatePromotion?.(this);
     this.onChange(this);
   }
   status() {
@@ -107,16 +108,26 @@ export class GameController {
     if (moves.some((move) => move.promotion)) {
       this.promotion = { from, to: square };
       this.promotionPlaced = true;
-      this.phase = "promotion";
-      this.notify("Choose promotion: Queen, Rook, Bishop, Knight");
+      const show = () => {
+        this.phase = "promotion";
+        this.notify("Grab a promotion piece, then release to choose it.");
+      };
+      if (moves[0].captured && this.board.finishPlacement) {
+        const epoch = this.epoch;
+        this.phase = "moving";
+        this.notify("Placing pawn…");
+        void this.board.finishPlacement(moves[0]).then(() => {
+          if (epoch === this.epoch && this.phase === "moving") show();
+        });
+      } else show();
     } else void this.play({ from, to: square }, { placed: true });
     return true;
   }
-  promote(piece) {
+  promote(piece, promotionPiece = null) {
     if (this.phase === "promotion" && ["q", "r", "b", "n"].includes(piece)) {
       const move = { ...this.promotion, promotion: piece };
       this.promotion = null;
-      void this.play(move, { placed: this.promotionPlaced });
+      void this.play(move, { placed: this.promotionPlaced, promotionPiece });
       this.promotionPlaced = false;
     }
   }
@@ -137,14 +148,16 @@ export class GameController {
     this.board.sync(this.game);
     return true;
   }
-  async play(request, { placed = false } = {}) {
+  async play(request, { placed = false, promotionPiece = null } = {}) {
     const epoch = this.epoch;
     try {
       if (
         !(await this.transaction(request, (move) =>
-          placed
-            ? (this.board.finishPlacement?.(move) ?? Promise.resolve())
-            : this.board.animateMove(move),
+          promotionPiece
+            ? this.board.animatePromotion(move, promotionPiece)
+            : placed
+              ? (this.board.finishPlacement?.(move) ?? Promise.resolve())
+              : this.board.animateMove(move),
         ))
       )
         return;

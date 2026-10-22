@@ -216,3 +216,19 @@ Chess opponent face: `OpponentFace.mjs` adds two low-poly black sphere eyes and 
 Chess avatar refinement: the head is a 0.18 m cube. `OpponentFace` positions eyes/mouth just ahead of its front face; synchronized blinks flatten the sphere eyes over a 180 ms close/hold/open cycle, separated by newly randomized 2.5–6.5 s open intervals. The face update advances blinking before the mouth early-return, so neutral expressions still blink. No timers or extra meshes are added; tracked/visible render timing pauses blinks safely.
 
 Chess knight now uses the user-edited Blender mesh (186 triangles), shared by White/Black, promotion and capture displays. Editable source and portable exporter: `assets/chess/knight/`; generated runtime geometry: `projects/chess/src/KnightGeometry.mjs`. Colors remain game materials.
+
+Chess positioning update: the gold handle mesh is removed. A fresh grip press in open space outside every occupied square's sphere-expanded 6-inch pickup column starts table positioning; columns are reserved regardless of side/turn. Tabletop buttons retain priority. The owner hand sphere becomes six RGB axis arrows aligned with seated axes until grip release (trigger does not keep positioning active). Existing height/distance/lateral bounds, exclusive ownership, interruption handling and save-on-end remain. `TableHandle` now owns only positioning state/math; `InputController` owns the gesture and arrows.
+
+Chess status display is now centered at the near tabletop edge (z = +0.345 m), in the former gold handle location; restart/promotion buttons retain their positions.
+
+Chess opponent chair back has been removed from `ProceduralAvatar`; the avatar meshes and arm animation remain.
+
+Chess promotion: once a player pawn lands on the back rank (including capture flight/settling), a floating tray 22 cm above the board presents Queen/Rook/Bishop/Knight meshes in the player's color. Fresh trigger/grip picks one up; releasing all pickup buttons commits that choice and replaces the pawn. Tracking loss returns the choice to the tray without committing; restart clears it. Table positioning is locked during promotion, and VR promotion buttons are hidden. Desktop sidebar promotion buttons remain available.
+
+Legacy VR side-of-board promotion buttons are removed from `TableControls`, leaving only Restart. Promotion selection uses the floating piece tray.
+
+Promotion tray hover uses the same White/Black emissive highlight materials as board pieces, including the carried choice; leaving the tray or canceling selection restores the normal material.
+
+Promotion release outside the tray removes the pawn and glides the actual selected mesh to its square over 0.5 s before committing. Release back over the tray cancels the choice, easing the mesh to its slot over 0.22 s; the pawn and pending promotion remain. Returning choices cannot be picked up mid-return. Restart cancels flight/return and restores authoritative state.
+
+The promotion tray glows gold while the held choice satisfies the exact return/cancel bounds. Leaving those bounds, releasing, tracking loss, restart or hiding the tray clears the glow.

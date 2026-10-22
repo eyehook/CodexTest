@@ -46,3 +46,12 @@ export function buttonDown(button, wasDown) {
     !!button && (button.pressed || (button.value ?? 0) > (wasDown ? 0.15 : 0.6))
   );
 }
+
+// Reserve occupied piece columns for pickup, regardless of color or game phase.
+export function inPieceVolume(center, game) {
+  return game.game
+    .board()
+    .some((row) =>
+      row.some((piece) => piece && columnIntersects(center, piece.square)),
+    );
+}

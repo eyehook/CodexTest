@@ -45,14 +45,9 @@ function fixture() {
     allow: (value) => (allowed = value),
   };
 }
-test("handle intersects hand spheres at the tabletop and rejects distant hands", () => {
+test("positioning controller adds no handle mesh to the table", () => {
   const f = fixture();
-  f.handle.root.updateWorldMatrix(true, true);
-  const center = f.handle.root.getWorldPosition(new THREE.Vector3());
-  assert.ok(f.handle.intersects(center));
-  assert.ok(
-    !f.handle.intersects(center.clone().add(new THREE.Vector3(0, 1, 0))),
-  );
+  assert.equal(f.world.children.length, 0);
 });
 test("drag is anchored to seated axes, follows height/distance without cumulative drift, saves once on release", () => {
   const f = fixture();

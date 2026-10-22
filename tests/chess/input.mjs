@@ -339,9 +339,11 @@ for (const ending of ["release", "disconnect", "viewer", "restart"])
     f.input.tableHandle = handle;
     f.points[0].set(0, -0.015, 0.345);
     f.update();
-    assert.ok(f.input.hands[0].handleHover);
+    assert.equal(f.input.hands[0].axes.visible, false);
     f.press(0, 1, 1);
     assert.equal(handle.active.owner, f.input.hands[0]);
+    assert.equal(f.input.hands[0].axes.visible, true);
+    assert.equal(f.input.hands[0].sphere.visible, false);
     assert.equal(f.input.held, null);
     f.move(1, "e2");
     f.press(1, 0, 1);
@@ -369,6 +371,191 @@ for (const ending of ["release", "disconnect", "viewer", "restart"])
       f.update();
     }
     assert.equal(handle.active, null);
+    assert.equal(f.input.hands[0].axes.visible, false);
     assert.equal(saves, 1);
     assert.equal(f.game.game.history().length, 0);
   });
+function attachPositioner(f) {
+  let saves = 0;
+  const handle = new TableHandle({
+    parent: f.world,
+    settings: { height: -0.3, distance: 0.7, offset: 0.2 },
+    canGrab: () => f.game.phase === "player",
+    onMove() {},
+    onEnd: () => saves++,
+  });
+  f.input.tableHandle = handle;
+  return { handle, saves: () => saves };
+}
+test("air positioning requires grip and ends on grip release with trigger held", async () => {
+  const f = await fixture(),
+    p = attachPositioner(f);
+  f.press(0, 0, 1);
+  assert.equal(p.handle.active, null);
+  f.press(0, 1, 1);
+  assert.equal(p.handle.active.owner, f.input.hands[0]);
+  assert.equal(f.input.hands[0].axes.children.length, 6);
+  f.press(0, 1, 0);
+  assert.equal(p.handle.active, null);
+  assert.equal(f.input.hands[0].axes.visible, false);
+  assert.equal(f.input.hands[0].sphere.visible, true);
+  assert.equal(p.saves(), 1);
+});
+test("piece columns reserve grip and leaving with grip held does not reposition", async () => {
+  const f = await fixture(),
+    p = attachPositioner(f);
+  f.move(0, "e7");
+  f.press(0, 1, 1);
+  assert.equal(p.handle.active, null);
+  f.points[0].set(2, 1, 0);
+  f.update();
+  assert.equal(p.handle.active, null);
+  f.press(0, 1, 0);
+  f.move(0, "e2");
+  f.press(0, 1, 1);
+  assert.equal(f.input.held.from, "e2");
+  assert.equal(p.handle.active, null);
+});
+test("tabletop controls take priority over open-space grip", async () => {
+  const f = await fixture(),
+    p = attachPositioner(f);
+  f.input.ui.touchTarget = () => ({ userData: { action: "restart" } });
+  f.press(0, 1, 1);
+  assert.equal(p.handle.active, null);
+  assert.deepEqual(f.actions, ["restart"]);
+});
+
+for (const color of ["w", "b"])
+  for (const type of ["q", "r", "b", "n"])
+    test(`floating promotion ${color} ${type}: grabs without committing and commits on release`, async () => {
+      const f = await fixture();
+      f.game.playerColor = color;
+      f.board.setPlayerColor(color);
+      f.game.game.load(
+        color === "w"
+          ? "7k/P7/8/8/8/8/8/7K w - - 0 1"
+          : "k7/8/8/8/8/8/p7/7K b - - 0 1",
+      );
+      f.board.sync(f.game.game);
+      const from = color === "w" ? "a7" : "a2",
+        to = color === "w" ? "a8" : "a1";
+      f.game.beginGrab(from);
+      f.game.dropGrab(to);
+      assert.equal(f.game.phase, "promotion");
+      assert.equal(f.board.promotionPanel.visible, true);
+      assert.equal(f.board.promotionChoices.length, 4);
+      const choice = f.board.promotionChoices.find(
+        (p) => p.userData.promotion === type,
+      );
+      assert.equal(choice.material, f.board.materials[color]);
+      f.board.root.updateWorldMatrix(true, true);
+      const worldPoint = f.board.root.localToWorld(
+        choice.position.clone().add(new THREE.Vector3(0, 0.04, 0)),
+      );
+      f.points[0].copy(f.world.worldToLocal(worldPoint));
+      f.update();
+      f.press(0, 1, 1);
+      assert.equal(f.input.held.promotion, type);
+      assert.equal(
+        choice.material,
+        color === "w" ? f.board.hoverMaterial : f.board.blackHoverMaterial,
+      );
+      assert.equal(f.game.game.get(from).type, "p");
+      f.points[0].y += 0.2;
+      f.update();
+      assert.ok(choice.position.distanceTo(choice.userData.home) > 0.01);
+      const releasePosition = choice.position.clone();
+      f.press(0, 1, 0);
+      assert.equal(f.game.phase, "moving");
+      assert.equal(f.board.pieces.has(from), false);
+      assert.equal(choice.parent, f.board.root);
+      assert.ok(choice.position.distanceTo(releasePosition) < 1e-9);
+      for (let i = 0; i < 40; i++) {
+        f.board.update(1 / 72);
+        await Promise.resolve();
+      }
+      await tick();
+      assert.equal(f.game.game.get(to).type, type);
+      assert.equal(f.board.promotionPanel.visible, false);
+      assert.equal(f.input.held, null);
+    });
+test("lost promotion hand returns choice without committing and restart removes tray", async () => {
+  const f = await fixture();
+  f.game.game.load("7k/P7/8/8/8/8/8/7K w - - 0 1");
+  f.board.sync(f.game.game);
+  f.game.beginGrab("a7");
+  f.game.dropGrab("a8");
+  const piece = f.board.promotionChoices[0];
+  assert.ok(
+    f.input.beginPromotion(f.input.hands[0], piece, piece.position.clone()),
+  );
+  piece.position.x += 0.1;
+  f.lose(0);
+  assert.equal(f.input.held, null);
+  assert.ok(piece.position.equals(piece.userData.home));
+  assert.equal(f.game.phase, "promotion");
+  assert.equal(f.game.game.get("a7").type, "p");
+  await f.game.restart(1500);
+  assert.equal(f.board.promotionPanel.visible, false);
+});
+test("capture promotion tray waits for victim flight and pawn landing", async () => {
+  const f = await fixture();
+  f.game.game.load("1r5k/P7/8/8/8/8/8/7K w - - 0 1");
+  f.board.sync(f.game.game);
+  f.game.beginGrab("a7");
+  f.game.dropGrab("b8");
+  assert.equal(f.game.phase, "moving");
+  assert.equal(f.board.promotionPanel.visible, false);
+  for (let i = 0; i < 180 && f.game.phase !== "promotion"; i++) {
+    f.board.update(1 / 72);
+    await Promise.resolve();
+  }
+  assert.equal(f.game.phase, "promotion");
+  assert.ok(
+    f.board.pieces.get("a7").position.distanceTo(squarePosition("b8")) < 1e-9,
+  );
+  assert.equal(f.board.promotionPanel.visible, true);
+});
+
+test("releasing over promotion tray cancels selection and eases choice back to slot", async () => {
+  const f = await fixture();
+  f.game.game.load("7k/P7/8/8/8/8/8/7K w - - 0 1");
+  f.board.sync(f.game.game);
+  f.game.beginGrab("a7");
+  f.game.dropGrab("a8");
+  const piece = f.board.promotionChoices[0];
+  f.input.beginPromotion(f.input.hands[0], piece, piece.position.clone());
+  piece.position.x += 0.03;
+  f.input.release();
+  assert.equal(f.game.phase, "promotion");
+  assert.equal(f.game.game.get("a7").type, "p");
+  assert.equal(f.board.pieces.get("a7").parent, f.board.root);
+  assert.equal(piece.userData.returning, true);
+  assert.ok(piece.position.distanceTo(piece.userData.home) > 0.02);
+  for (let i = 0; i < 20; i++) {
+    f.board.update(1 / 72);
+    await Promise.resolve();
+  }
+  assert.equal(piece.userData.returning, false);
+  assert.ok(piece.position.equals(piece.userData.home));
+  assert.equal(f.board.promotionPanel.visible, true);
+});
+test("restart during promotion glide restores tray meshes and prevents stale promotion", async () => {
+  const f = await fixture();
+  f.game.game.load("7k/P7/8/8/8/8/8/7K w - - 0 1");
+  f.board.sync(f.game.game);
+  f.game.beginGrab("a7");
+  f.game.dropGrab("a8");
+  const piece = f.board.promotionChoices[0];
+  f.input.beginPromotion(f.input.hands[0], piece, piece.position.clone());
+  piece.position.y += 0.2;
+  f.input.release();
+  f.board.update(0.05);
+  await f.game.restart(1500);
+  await tick();
+  assert.equal(f.game.game.get("a7").type, "p");
+  assert.equal(f.game.game.get("a8").type, "r");
+  assert.equal(piece.parent, f.board.promotionPanel);
+  assert.equal(f.board.promotionPanel.visible, false);
+  assert.equal(f.game.game.history().length, 0);
+});

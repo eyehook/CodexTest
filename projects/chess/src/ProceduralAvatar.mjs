@@ -38,14 +38,6 @@ export class ProceduralAvatar extends OpponentAvatar {
     );
     this.face = new OpponentFace(this.head);
     add(new THREE.CylinderGeometry(0.035, 0.04, 0.07, 8), skin, 0, 0.35, -0.52);
-    // Chair back makes the seated pose legible without adding legs or idle motion.
-    add(
-      new THREE.BoxGeometry(0.39, 0.43, 0.045),
-      new THREE.MeshStandardMaterial({ color: 0x374248 }),
-      0,
-      0.13,
-      -0.69,
-    );
     this.upper = add(
       new THREE.CylinderGeometry(0.028, 0.035, 1, 8),
       cloth,

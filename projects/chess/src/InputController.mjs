@@ -2,10 +2,11 @@ import * as THREE from "../../forest/vendor/three.module.js";
 import { squareName } from "./ChessBoard.mjs";
 import {
   HAND_RADIUS,
+  inPieceVolume,
   nearestPiece,
   squareUnder,
   buttonDown,
-} from "./HandInteraction.mjs";
+} from "./HandInteraction.mjs?v=air-grip-1";
 export class InputController {
   constructor({
     renderer,
@@ -44,7 +45,28 @@ export class InputController {
       );
       sphere.visible = false;
       scene.add(sphere);
+      const axes = new THREE.Group();
+      for (const [direction, color] of [
+        [new THREE.Vector3(1, 0, 0), 0xf06060],
+        [new THREE.Vector3(0, 1, 0), 0x70df80],
+        [new THREE.Vector3(0, 0, 1), 0x65aaff],
+      ])
+        for (const sign of [-1, 1]) {
+          axes.add(
+            new THREE.ArrowHelper(
+              direction.clone().multiplyScalar(sign),
+              new THREE.Vector3(),
+              0.085,
+              color,
+              0.022,
+              0.014,
+            ),
+          );
+        }
+      axes.visible = false;
+      scene.add(axes);
       const hand = {
+        axes,
         controller,
         sphere,
         source: null,
@@ -78,7 +100,10 @@ export class InputController {
   }
   cancelHeld() {
     this.tableHandle?.end();
+    if (this.held?.promotion) this.board.resetPromotionChoice(this.held.piece);
     this.held = null;
+    this.board.highlightPromotionReturn?.(false);
+    this.board.highlightPromotion?.();
     this.game.cancelGrab();
     this.board.setInteraction();
   }
@@ -88,18 +113,20 @@ export class InputController {
       hand.armed = false;
       hand.tracked = false;
       hand.sphere.visible = false;
+      hand.axes.visible = false;
       hand.hover = null;
     }
   }
   loseHand(hand) {
     if (this.tableHandle?.active?.owner === hand) this.tableHandle.end();
-    hand.handleHover = false;
+    hand.axes.visible = false;
     hand.controlHover = null;
     if (this.held?.owner === hand) this.cancelHeld();
     hand.tracked = false;
     hand.armed = false;
     hand.hover = null;
     hand.sphere.visible = false;
+    hand.axes.visible = false;
   }
   checkHeld() {
     if (
@@ -110,13 +137,32 @@ export class InputController {
       this.tableHandle.end();
     if (
       this.held &&
-      (this.game.phase !== "grabbing" ||
-        this.game.epoch !== this.held.epoch ||
-        this.board.pieces.get(this.held.from) !== this.held.piece)
+      (this.game.epoch !== this.held.epoch ||
+        (this.held.promotion
+          ? this.game.phase !== "promotion"
+          : this.game.phase !== "grabbing" ||
+            this.board.pieces.get(this.held.from) !== this.held.piece))
     ) {
+      if (this.held.promotion) this.board.resetPromotionChoice(this.held.piece);
       this.held = null;
       this.board.setInteraction();
     }
+  }
+  beginPromotion(owner, piece, point) {
+    if (
+      this.held ||
+      this.tableHandle?.active ||
+      this.game.phase !== "promotion"
+    )
+      return false;
+    this.held = {
+      owner,
+      piece,
+      promotion: piece.userData.promotion,
+      epoch: this.game.epoch,
+      offset: piece.position.clone().sub(point),
+    };
+    return true;
   }
   begin(owner, from, point) {
     if (this.held || this.tableHandle?.active || !this.game.beginGrab(from))
@@ -139,6 +185,12 @@ export class InputController {
     if (!this.held) return;
     this.held.piece.position.copy(point).add(this.held.offset);
     this.held.piece.position.y = Math.max(0, this.held.piece.position.y);
+    if (this.held.promotion) {
+      this.board.highlightPromotionReturn?.(
+        this.board.onPromotionTray(this.held.piece),
+      );
+      return;
+    }
     const over = squareUnder(this.held.piece.position);
     const valid = !!over && this.held.legal.has(over);
     this.board.setInteraction({ over, valid });
@@ -146,6 +198,16 @@ export class InputController {
   release() {
     this.checkHeld();
     if (!this.held) return;
+    if (this.held.promotion) {
+      const { piece, promotion } = this.held;
+      this.held = null;
+      this.board.highlightPromotionReturn?.(false);
+      this.board.highlightPromotion?.();
+      if (this.board.onPromotionTray(piece)) {
+        void this.board.returnPromotionChoice(piece);
+      } else this.game.promote(promotion, piece);
+      return;
+    }
     const over = squareUnder(this.held.piece.position);
     this.held = null;
     this.board.setInteraction();
@@ -179,38 +241,49 @@ export class InputController {
       const grip = buttonDown(source.gamepad?.buttons[1], hand.grip);
       const previouslyDown = hand.trigger || hand.grip;
       const down = trigger || grip;
-      hand.handleHover =
-        !this.held &&
-        !this.tableHandle?.active &&
-        this.tableHandle?.canGrab() &&
-        this.tableHandle.intersects(hand.sphere.position);
       hand.hover =
-        this.held || this.tableHandle?.active || hand.handleHover
+        this.held || this.tableHandle?.active
           ? null
           : nearestPiece(point, this.game);
+      hand.promotionHover =
+        !this.held &&
+        !this.tableHandle?.active &&
+        this.game.phase === "promotion"
+          ? this.board.promotionHit?.(hand.sphere.position)
+          : null;
       hand.controlHover =
-        !this.held && !this.tableHandle?.active && !hand.handleHover
+        !this.held && !this.tableHandle?.active
           ? this.ui.touchTarget?.(hand.sphere.position)
           : null;
       if (hand.armed) {
         if (this.tableHandle?.active?.owner === hand) {
           this.tableHandle.move(hand.sphere.position);
-          if (!down && previouslyDown) this.tableHandle.end();
+          if (!grip) this.tableHandle.end();
         } else if (this.held?.owner === hand) {
           this.carry(point);
           if (!down && previouslyDown) this.release();
         } else if (
           !this.held &&
           !this.tableHandle?.active &&
-          down &&
-          !previouslyDown
+          ((down && !previouslyDown) || (grip && !hand.grip))
         ) {
-          if (hand.handleHover) {
+          if (hand.promotionHover && down && !previouslyDown)
+            this.beginPromotion(hand, hand.promotionHover, point);
+          else if (hand.hover && down && !previouslyDown)
+            this.begin(hand, hand.hover, point);
+          else if (hand.controlHover && down && !previouslyDown)
+            this.onAction(hand.controlHover.userData.action);
+          else if (
+            this.game.phase !== "promotion" &&
+            grip &&
+            !hand.grip &&
+            !hand.controlHover &&
+            !inPieceVolume(point, this.game) &&
+            this.tableHandle?.canGrab()
+          ) {
             this.tableHandle.begin(hand, hand.sphere.position, this.game.epoch);
             this.board.setInteraction();
-          } else if (hand.hover) this.begin(hand, hand.hover, point);
-          else if (hand.controlHover)
-            this.onAction(hand.controlHover.userData.action);
+          }
         }
       }
       // Reconnect/tracking recovery consumes current buttons; a fresh press is required.
@@ -218,11 +291,20 @@ export class InputController {
       hand.trigger = trigger;
       hand.grip = grip;
     }
+    this.board.highlightPromotionReturn?.(
+      !!this.held?.promotion && this.board.onPromotionTray(this.held.piece),
+    );
+    this.board.highlightPromotion?.(
+      this.held?.promotion
+        ? [this.held.piece]
+        : this.held
+          ? []
+          : this.hands
+              .filter((h) => h.tracked && h.promotionHover)
+              .map((h) => h.promotionHover),
+    );
     this.ui.highlight?.(
       this.hands.filter((h) => h.tracked).map((h) => h.controlHover),
-    );
-    this.tableHandle?.highlight(
-      this.hands.some((h) => h.handleHover && h.tracked),
     );
     if (!this.held)
       this.board.setInteraction({
@@ -231,10 +313,18 @@ export class InputController {
           .map((h) => h.hover),
       });
     for (const hand of this.hands) {
+      const repositioning =
+        hand.tracked && this.tableHandle?.active?.owner === hand;
+      hand.sphere.visible = hand.tracked && !repositioning;
+      hand.axes.visible = !!repositioning;
+      if (repositioning) {
+        hand.axes.position.copy(hand.sphere.position);
+        this.tableHandle.parent.parent.getWorldQuaternion(hand.axes.quaternion);
+      }
       hand.sphere.material.color.setHex(
         this.held?.owner === hand || this.tableHandle?.active?.owner === hand
           ? 0xe9ba59
-          : hand.hover || hand.handleHover || hand.controlHover
+          : hand.hover || hand.promotionHover || hand.controlHover
             ? 0xffd57c
             : 0x83e3c4,
       );

@@ -146,6 +146,111 @@ export class ChessBoard {
     this.interaction = { hovered: new Set(hovered), over, valid };
     if (this.highlightState) this.highlight(this.highlightState);
   }
+  updatePromotion(state) {
+    if (!this.promotionPanel) {
+      this.promotionPanel = new THREE.Group();
+      this.root.add(this.promotionPanel);
+      const panel = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.008, 0.12),
+        new THREE.MeshStandardMaterial({ color: 0x253e43, roughness: 0.8 }),
+      );
+      this.promotionTray = panel;
+      panel.position.set(0, 0.22, 0.04);
+      this.promotionPanel.add(panel);
+      this.promotionChoices = ["q", "r", "b", "n"].map((type, i) => {
+        const piece = new THREE.Mesh(
+          this.geometries[type],
+          this.materials[state.playerColor],
+        );
+        piece.userData = {
+          promotion: type,
+          home: new THREE.Vector3((i - 1.5) * 0.09, 0.225, 0.04),
+        };
+        piece.position.copy(piece.userData.home);
+        this.promotionPanel.add(piece);
+        return piece;
+      });
+    }
+    this.promotionColor = state.playerColor;
+    this.promotionPanel.visible = state.phase === "promotion";
+    if (!this.promotionPanel.visible) this.highlightPromotionReturn(false);
+    if (this.promotionPanel.visible)
+      for (const piece of this.promotionChoices)
+        piece.material = this.materials[state.playerColor];
+  }
+  highlightPromotion(hovered = []) {
+    const highlighted = new Set(hovered);
+    for (const piece of this.promotionChoices ?? []) {
+      const color = this.promotionColor ?? "w";
+      piece.material = highlighted.has(piece)
+        ? color === "w"
+          ? this.hoverMaterial
+          : this.blackHoverMaterial
+        : this.materials[color];
+    }
+  }
+  promotionHit(worldPoint) {
+    if (!this.promotionPanel?.visible) return null;
+    this.root.updateWorldMatrix(true, true);
+    const point = this.root.worldToLocal(worldPoint.clone());
+    let best = null,
+      distance = Infinity;
+    for (const piece of this.promotionChoices) {
+      if (piece.userData.returning) continue;
+      piece.geometry.computeBoundingBox();
+      const bounds = piece.geometry.boundingBox
+        .clone()
+        .translate(piece.position);
+      const d = bounds.distanceToPoint(point);
+      if (d <= 0.0254 && d < distance) {
+        best = piece;
+        distance = d;
+      }
+    }
+    return best;
+  }
+  highlightPromotionReturn(active) {
+    if (!this.promotionTray) return;
+    this.promotionTray.material.emissive.setHex(active ? 0x99651c : 0);
+    this.promotionTray.material.emissiveIntensity = active ? 0.65 : 0;
+  }
+  onPromotionTray(piece) {
+    const p = piece.position;
+    return (
+      Math.abs(p.x) <= 0.22 &&
+      Math.abs(p.z - 0.04) <= 0.08 &&
+      p.y >= 0.18 &&
+      p.y <= 0.33
+    );
+  }
+  async returnPromotionChoice(piece) {
+    piece.userData.returning = true;
+    const start = piece.position.clone();
+    await this.motion.tween(0.22, (t) =>
+      piece.position.lerpVectors(start, piece.userData.home, t),
+    );
+    piece.userData.returning = false;
+  }
+  async animatePromotion(move, piece) {
+    const generation = this.generation;
+    // Keep the selected mesh visible after the tray is hidden.
+    this.root.attach(piece);
+    const pawn = this.pieces.get(move.from);
+    pawn?.removeFromParent();
+    this.pieces.delete(move.from);
+    const start = piece.position.clone(),
+      destination = squarePosition(move.to);
+    const completed = await this.motion.tween(0.5, (t) =>
+      piece.position.lerpVectors(start, destination, t),
+    );
+    if (!completed || generation !== this.generation) return;
+    this.resetPromotionChoice(piece);
+  }
+  resetPromotionChoice(piece) {
+    this.promotionPanel.add(piece);
+    piece.userData.returning = false;
+    piece.position.copy(piece.userData.home);
+  }
   placeHeld(move) {
     this.removeCapture(move);
     const piece = this.pieces.get(move.from);
@@ -158,6 +263,12 @@ export class ChessBoard {
     return this.root.localToWorld(squarePosition(square));
   }
   sync(game) {
+    this.highlightPromotionReturn(false);
+    if (this.promotionPanel) {
+      this.promotionPanel.visible = false;
+      for (const piece of this.promotionChoices)
+        this.resetPromotionChoice(piece);
+    }
     this.motion.cancel();
     ++this.generation;
     this.captureTask = null;
