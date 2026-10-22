@@ -6,6 +6,8 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
+- [VR Chess](projects/chess/): seated chess against a local Stockfish opponent, with controller selection and an articulated procedural avatar; [setup and licensing](projects/chess/README.md).
+
 - [Fishing](projects/fishing/): independent copy of Terrain as the foundation for a fishing simulator; [setup and validation](projects/fishing/README.md).
 
 - [Terrain](projects/terrain/): GPU-displaced, deterministic rolling hills, lakes, and clustered triangle trees for desktop and Quest; [setup and validation](projects/terrain/README.md).

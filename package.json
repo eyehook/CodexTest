@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs && node tests/forest-haptics.mjs && node tests/fireflies.mjs && node tests/forest-flight.mjs && node --test tests/racer.mjs && node tests/surface.mjs && node tests/surface-locomotion.mjs && node tests/surface-tuning.mjs && node --test tests/terrain/*.mjs && node --test tests/fishing/*.mjs",
+    "test": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs && node tests/forest-haptics.mjs && node tests/fireflies.mjs && node tests/forest-flight.mjs && node --test tests/racer.mjs && node tests/surface.mjs && node tests/surface-locomotion.mjs && node tests/surface-tuning.mjs && node --test tests/terrain/*.mjs && node --test tests/fishing/*.mjs && node --test tests/chess/*.mjs",
     "dev:racer": "vite --config projects/racer/vite.config.mjs",
     "build:racer": "vite build --config projects/racer/vite.config.mjs",
     "preview:racer": "vite preview --config projects/racer/vite.config.mjs",
@@ -14,7 +14,8 @@
     "test:terrain": "node --test tests/terrain/*.mjs",
     "dev:fishing": "vite --config projects/fishing/vite.config.mjs",
     "build:fishing": "vite build --config projects/fishing/vite.config.mjs",
-    "test:fishing": "node --test tests/fishing/*.mjs"
+    "test:fishing": "node --test tests/fishing/*.mjs",
+    "test:chess": "node --test tests/chess/*.mjs"
   },
   "devDependencies": {
     "vite": "^7.1.0"

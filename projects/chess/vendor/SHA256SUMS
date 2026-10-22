@@ -1,0 +1,4 @@
+76c7c34f0e2e9ab076521a5d6fe786a9cce537bb1b6f29d32a9c9970b5b232d2  vendor/chess/chess.mjs
+1c8265e52fdaef797684b4979b42c5dcfe0350df3e11a87e48e4ec5f86e0ca5c  vendor/stockfish/stockfish-17.1-lite-single-03e3232.js
+7ca31bedd166148931a1cc84dbd8dd9cf001744e9994caf23a3c6ff4988d7086  vendor/stockfish/stockfish-17.1-lite-single-03e3232.wasm
+11abd8548e4231ed146ce5fd5b3b3104ecb39c8c5db7f9dd76dc8d9453f757ab  vendor/stockfish/source-17.1.0.tar.gz

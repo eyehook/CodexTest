@@ -1,0 +1,45 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
+import {
+  EngineController,
+  ENGINE_URL,
+} from "../../projects/chess/src/EngineController.mjs";
+import { Chess } from "../../projects/chess/vendor/chess/chess.mjs";
+function nodeWorker() {
+  const child = spawn(process.execPath, [fileURLToPath(ENGINE_URL)], {
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const worker = {
+    postMessage: (command) => child.stdin.write(command + "\n"),
+    terminate: () => child.kill(),
+  };
+  createInterface({ input: child.stdout }).on("line", (data) =>
+    worker.onmessage?.({ data }),
+  );
+  child.on("error", (error) => worker.onerror?.({ message: error.message }));
+  child.stderr.on("data", () => {});
+  return worker;
+}
+test("actual bundled WASM completes UCI handshake and returns legal moves after reset", async () => {
+  const e = new EngineController({ createWorker: nodeWorker });
+  try {
+    await e.initialize(800);
+    assert.equal(e.elo, e.range.min);
+    assert.equal(e.range.min, 1320);
+    const game = new Chess();
+    for (let i = 0; i < 4; i++) {
+      const m = await e.bestMove(game.fen());
+      assert.doesNotThrow(() => game.move(m));
+    }
+    e.dispose();
+    await e.initialize(2200);
+    assert.equal(e.elo, 2200);
+    const m = await e.bestMove(new Chess().fen());
+    assert.ok(new Chess().move(m));
+  } finally {
+    e.dispose();
+  }
+});

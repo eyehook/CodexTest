@@ -2,7 +2,7 @@
 
 ## Start here
 
-This repository is a collection of static browser/WebXR experiments for Meta Quest 3. The root `index.html` is a project directory; current projects are **Endless Grove**, under `projects/forest/`, and **Racer**, under `projects/racer/`.
+This repository is a collection of static browser/WebXR experiments for Meta Quest 3. The root `index.html` is a project directory; projects live under `projects/`, including **Chess** under `projects/chess/`. See `README.md` and the root directory page for the project list.
 
 Read this file and `README.md`, inspect `git status`, then inspect the relevant modules before editing. Treat the code and current Git state as authoritative if this document becomes stale. Keep this document current when behavior, setup, or architecture changes.
 
@@ -191,3 +191,16 @@ Fish mouth alignment: the fish origin is at the leader endpoint/hook eye, with t
 Missed-fish indicator: bite timeout or retrieval before a bite replaces FISH! with a blue LOST! quad. It floats upward 1.6 m and smoothly shrinks to zero over two seconds, then hides. Label textures are generated lazily once per message and reused; reset/hiding cancels the animation and hand transfer preserves it. A subsequent bite restores red FISH!.
 
 LOST! is emitted once per actual missed bite or interrupted nibbling fish. Reeling during the random waiting delay only cancels that delay; it cannot lose another fish or restart an existing LOST! animation. Regression coverage presses the trigger repeatedly during the post-loss waiting period and verifies the original animation finishes normally.
+
+
+## Chess — seated WebXR game
+
+Buildless ES modules in `projects/chess/src/`, static entry `projects/chess/index.html`. Read `projects/chess/README.md` and `MILESTONES.md`. Run `npm run test:chess`; root `npm test` includes it. Serve the repository root, then open `/projects/chess/`; the existing USB Quest launcher works without a build. All URLs remain relative for Pages.
+
+White player, Black Stockfish. `GameController` owns chess.js and validates on a clone, locks interactions, animates, commits authoritative state and rebuilds visuals. Selection/promotion, standard rules and game-over feedback come from chess.js. `ChessBoard` uses merged shared piece geometry and instanced square colors; h1 is light. `EngineController` runs bundled Stockfish 17.1.0 Lite single-threaded WASM in a dedicated classic Worker, advertises/parses its Elo range and searches at 300 ms with 16 MB hash. No cross-origin isolation is needed. Selected default Elo 1500 and seated setup persist; 800/1000/1200 visibly clamp to the actual minimum 1320. Worker termination plus turn epochs reject stale results on restart/session exit. Error/timeout pauses the game with restart available.
+
+`OpponentAvatar` exposes world-space hand/rest targets and attachment for future rig replacement. `ProceduralAvatar` owns primitive meshes; `ArmIK` is an independent analytic two-bone solver with fixed pole, reach clamping and 15–155 degree bend bounds. `OpponentAnimator` implements reach/lower/attach/lift/carry/place/clear/return; carry clearance is 24 cm, captures disappear first, castling moves king then rook, and promotion synchronizes after commit. Restart cancels jobs and rebuilds from chess.js. Input locks during animation; table adjustment and VR entry cannot interrupt it.
+
+WebXR uses seated `local` space, anchoring the environment to initial tracked eye pose/yaw without moving the camera. Height/distance/offset move the environment, with VR height/distance controls. Hidden/untracked viewer frames pause animation; untracked controller triggers are ignored. Session exit cancels the game and asks for restart. Desktop uses clicks and launcher controls. Typical initial desktop scene recorded 45 draw calls and 9,316 triangles; no headset FPS claim. Physical Quest stereo, controller feel, seating, interruption behavior and 72 FPS target remain unverified.
+
+Local dependencies: chess.js 1.4.0 BSD-2-Clause, existing Forest Three.js r180 MIT, and Stockfish GPLv3. Chess application code is GPL-3.0-or-later with local LICENSE. Preserve `vendor/stockfish/Copying.txt`, AUTHORS and the distributed corresponding-source archive (npm gitHead 602fd7e1a571a2be71f242942db90483731f2a1f, including Lite NNUE and upstream build scripts). No CDN or external runtime requests. Full setup, licensing and milestone evidence are in the project docs. Changes are local until commit/push is requested.
