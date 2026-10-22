@@ -128,3 +128,29 @@ test("cancel during pickup and carry rebuilds without orphaned pieces", async ()
     assert.ok(f.board.pieces.get("e7"));
   }
 });
+
+test("opponent uses each closest arm for far-board moves, including a flipped board", async () => {
+  for (const flipped of [false, true])
+    for (const file of ["a", "h"]) {
+      const f = setup("r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1");
+      f.board.setPlayerColor(flipped ? "b" : "w");
+      f.root.updateMatrixWorld(true);
+      const from = `${file}8`,
+        to = `${file}1`;
+      const expected = f.avatar.closestArm(f.board.squareToWorld(from));
+      let lean = 0;
+      const move = new Chess(f.game.fen()).move({ from, to });
+      await run(f.opponent, f.opponent.movePiece(move), 72, () => {
+        lean = Math.max(lean, f.avatar.lean);
+        if (["lift", "carry", "place"].includes(f.opponent.state))
+          assert.equal(f.avatar.activeArm, expected);
+        for (const arm of f.avatar.arms) {
+          assert.ok(Math.abs(arm.upper.scale.y - 0.3) < 1e-9);
+          assert.ok(Math.abs(arm.lower.scale.y - 0.28) < 1e-9);
+        }
+      });
+      assert.ok(lean > 0.5);
+      assert.equal(f.avatar.lean, 0);
+      assert.ok(f.board.pieces.get(to));
+    }
+});

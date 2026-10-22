@@ -18,6 +18,7 @@ test("all 64 board squares reachable at pickup and elevated transport heights", 
       p.y = height;
       root.updateMatrixWorld(true);
       const target = root.localToWorld(p);
+      avatar.selectArm(avatar.closestArm(target));
       assert.ok(
         avatar.setHandTarget(target) < 0.001,
         `${squareName(i)} y=${height}`,
@@ -40,4 +41,41 @@ test("IK keeps segment lengths and stable pole side, clamps extremes", () => {
   const zero = solveArm(shoulder, shoulder);
   assert.ok(Number.isFinite(zero.elbow.x));
   assert.ok(zero.clamped);
+});
+
+test("matching natural-length arms select closest hand and lean without stretching", () => {
+  const root = new THREE.Group();
+  root.position.set(0.2, -0.35, -0.7);
+  root.rotation.y = 0.9;
+  const avatar = new ProceduralAvatar(root);
+  assert.equal(avatar.arms[0].upper.geometry, avatar.arms[1].upper.geometry);
+  assert.equal(avatar.arms[0].lower.geometry, avatar.arms[1].lower.geometry);
+  assert.equal(avatar.arms[0].hand.geometry, avatar.arms[1].hand.geometry);
+  const target = (x, y, z) => {
+    root.updateMatrixWorld(true);
+    return root.localToWorld(new THREE.Vector3(x, y, z));
+  };
+  for (const side of [-1, 1]) {
+    const near = target(side * 0.21, 0.06, -0.21);
+    avatar.selectArm(avatar.closestArm(near));
+    assert.equal(avatar.activeArm, side === -1 ? 0 : 1);
+    avatar.setHandTarget(near);
+    const nearLean = avatar.lean;
+    for (let i = 0; i <= 100; i++) {
+      const far = target(side * 0.21, 0.06, -0.21 + (0.42 * i) / 100);
+      assert.ok(avatar.setHandTarget(far) < 0.001);
+      for (const arm of avatar.arms) {
+        assert.ok(
+          Math.abs(arm.pose.shoulder.distanceTo(arm.pose.elbow) - 0.3) < 1e-9,
+        );
+        assert.ok(
+          Math.abs(arm.pose.elbow.distanceTo(arm.pose.hand) - 0.28) < 1e-9,
+        );
+      }
+    }
+    assert.ok(avatar.lean > nearLean);
+    assert.ok(avatar.body.rotation.x <= 0.5);
+    avatar.reset();
+    assert.equal(avatar.lean, 0);
+  }
 });

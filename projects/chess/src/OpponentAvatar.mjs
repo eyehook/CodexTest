@@ -1,5 +1,6 @@
 // Replacement avatars implement this world-space contract, independent of chess rules.
 export class OpponentAvatar {
+  // Optional closestArm/selectArm allow a rig to choose a hand per carried piece.
   setEvaluation(_score) {}
   update(_dt) {}
   setHandTarget(_worldPosition) {

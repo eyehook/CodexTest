@@ -64,6 +64,13 @@ export class OpponentAnimator {
       sourceLow = target(from, grip),
       destHigh = target(to, grip + 0.24),
       destLow = target(to, grip);
+    const arm = this.avatar.closestArm?.(sourceLow);
+    if (arm !== undefined && arm !== this.avatar.activeArm) {
+      // Finish returning the previous arm before switching (also during castling).
+      if (!(await this.travel(this.avatar.restTarget, 0.3, generation)))
+        return false;
+      this.avatar.selectArm(arm);
+    }
     this.state = "reach";
     if (!(await this.travel(sourceHigh, 0.4, generation))) return false;
     this.state = "lower";
