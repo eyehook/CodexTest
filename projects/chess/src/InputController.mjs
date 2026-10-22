@@ -357,6 +357,14 @@ export class InputController {
     if (this.renderer.xr.isPresenting || e.button !== 0) return;
     this.checkHeld();
     this.pointerRay(e);
+    const control = this.ray.intersectObjects(
+      this.ui.pointerTargets?.() ?? [],
+      false,
+    )[0];
+    if (control) {
+      this.onAction(control.object.userData.action);
+      return;
+    }
     const hit = this.ray.intersectObjects(
       [...this.board.pieces.values(), this.board.squares],
       false,

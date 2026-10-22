@@ -1,11 +1,12 @@
+import { GameOverPanel } from "./GameOverPanel.mjs?v=result-art-1";
 import * as THREE from "../../forest/vendor/three.module.js";
 import { TableHandle } from "./TableHandle.mjs?v=air-grip-1";
 import { Settings } from "./Settings.mjs?v=ratings-2";
 import { ChessBoard } from "./ChessBoard.mjs?v=tray-return-highlight-1";
 import { EngineController } from "./EngineController.mjs?v=face-1";
 import { GameController } from "./GameController.mjs?v=promotion-flight-1";
-import { InputController } from "./InputController.mjs?v=tray-return-highlight-1";
-import { TableControls } from "./TableControls.mjs?v=no-promotion-buttons-1";
+import { InputController } from "./InputController.mjs?v=game-over-1";
+import { TableControls } from "./TableControls.mjs?v=move-display-1";
 import { ProceduralAvatar } from "./ProceduralAvatar.mjs?v=two-arms-1";
 import { OpponentAnimator } from "./OpponentAnimator.mjs?v=two-arms-1";
 const $ = (id) => document.getElementById(id);
@@ -30,6 +31,7 @@ const world = new THREE.Group();
 anchor.add(world);
 const board = new ChessBoard(world);
 const ui = new TableControls(world);
+const gameOverPanel = new GameOverPanel(world);
 ui.root.visible = false;
 const avatar = new ProceduralAvatar(world);
 const opponent = new OpponentAnimator(board, avatar);
@@ -64,7 +66,8 @@ const game = new GameController({
       $(key).disabled =
         ["moving", "grabbing", "promotion"].includes(state.phase) ||
         !!tableHandle.active;
-    ui.update(state.message);
+    ui.update(state.message, state.game.history({ verbose: true }));
+    gameOverPanel.update(state);
     $("promotion").hidden = state.phase !== "promotion";
   },
 });
@@ -118,7 +121,15 @@ const input = new InputController({
   scene,
   camera,
   board,
-  ui,
+  ui: {
+    touchTarget: (point) =>
+      gameOverPanel.touchTarget(point) ?? ui.touchTarget(point),
+    highlight: (targets) => {
+      ui.highlight(targets);
+      gameOverPanel.highlight(targets);
+    },
+    pointerTargets: () => gameOverPanel.targets,
+  },
   game,
   tableHandle,
   onAction: action,
@@ -234,6 +245,10 @@ renderer.setAnimationLoop((time, frame) => {
     opponent.update(dt);
     avatar.update(dt);
   }
+  ui.faceCamera(renderer.xr.isPresenting ? renderer.xr.getCamera() : camera);
+  gameOverPanel.faceCamera(
+    renderer.xr.isPresenting ? renderer.xr.getCamera() : camera,
+  );
   renderer.render(scene, camera);
   if (time - lastDiagnostics > 1000) {
     lastDiagnostics = time;
