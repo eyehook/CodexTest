@@ -1,12 +1,13 @@
 import * as THREE from "../../forest/vendor/three.module.js";
-import { Settings } from "./Settings.mjs";
-import { ChessBoard } from "./ChessBoard.mjs";
-import { EngineController } from "./EngineController.mjs";
-import { GameController } from "./GameController.mjs";
+import { TableHandle } from "./TableHandle.mjs";
+import { Settings } from "./Settings.mjs?v=ratings-2";
+import { ChessBoard } from "./ChessBoard.mjs?v=capture-flight-1";
+import { EngineController } from "./EngineController.mjs?v=ratings-2";
+import { GameController } from "./GameController.mjs?v=ratings-2";
 import { InputController } from "./InputController.mjs";
-import { VRPanel } from "./VRPanel.mjs";
+import { TableControls } from "./TableControls.mjs";
 import { ProceduralAvatar } from "./ProceduralAvatar.mjs";
-import { OpponentAnimator } from "./OpponentAnimator.mjs";
+import { OpponentAnimator } from "./OpponentAnimator.mjs?v=capture-flight-1";
 const $ = (id) => document.getElementById(id);
 const settings = new Settings();
 const scene = new THREE.Scene();
@@ -28,7 +29,7 @@ scene.add(anchor);
 const world = new THREE.Group();
 anchor.add(world);
 const board = new ChessBoard(world);
-const ui = new VRPanel(world);
+const ui = new TableControls(world);
 ui.root.visible = false;
 const avatar = new ProceduralAvatar(world);
 const opponent = new OpponentAnimator(board, avatar);
@@ -48,31 +49,39 @@ const game = new GameController({
     engineReady = engine.ready;
     refreshEnter();
     $("game-status").textContent = state.message;
+    $("game-status").dataset.playerColor = state.playerColor;
+    $("player-side").textContent =
+      `Playing ${state.playerColor === "w" ? "White" : "Black"}`;
     $("game-status").dataset.phase = state.phase;
     $("game-status").dataset.fen = state.game.fen();
     for (const key of ["height", "distance", "offset"])
-      $(key).disabled = state.phase === "moving";
+      $(key).disabled =
+        ["moving", "grabbing"].includes(state.phase) || !!tableHandle.active;
     ui.update(state.message, state.phase === "promotion");
     $("promotion").hidden = state.phase !== "promotion";
   },
 });
-function applyPosition() {
+function applyPosition(persist = true) {
   world.position.set(
     settings.offset,
     renderer.xr.isPresenting ? settings.height : 0,
     renderer.xr.isPresenting ? -settings.distance : 0,
   );
-  settings.save();
-  for (const key of ["height", "distance", "offset"])
+  if (persist) settings.save();
+  for (const key of ["height", "distance", "offset"]) {
     $(key).value = settings[key];
+    $(key).disabled =
+      ["moving", "grabbing"].includes(game.phase) || !!tableHandle.active;
+  }
   $("height-value").value = `${Math.round(-settings.height * 100)} cm`;
   $("distance-value").value = `${Math.round(settings.distance * 100)} cm`;
 }
 function action(a) {
-  if (a === "restart") void game.restart(settings.elo);
+  if (a === "restart") void game.restart(settings.elo, settings.side);
   else if (["q", "r", "b", "n"].includes(a)) game.promote(a);
   else {
-    if (game.phase === "moving") return;
+    if (["moving", "grabbing"].includes(game.phase) || tableHandle.active)
+      return;
     if (a === "height+")
       settings.height = Math.min(-0.1, settings.height + 0.025);
     if (a === "height-")
@@ -83,23 +92,38 @@ function action(a) {
     applyPosition();
   }
 }
+const tableHandle = new TableHandle({
+  parent: world,
+  settings,
+  canGrab: () => !["moving", "grabbing", "thinking"].includes(game.phase),
+  onMove: () => applyPosition(false),
+  onEnd: () => applyPosition(),
+});
 const input = new InputController({
   renderer,
   scene,
   camera,
   board,
   ui,
-  onSquare: (s) => game.select(s),
+  game,
+  tableHandle,
   onAction: action,
 });
+$("side").value = settings.side;
+$("side").onchange = () => {
+  settings.side = $("side").value;
+  settings.save();
+  void game.restart(settings.elo, settings.side);
+};
 $("elo").value = settings.elo;
 $("elo").onchange = () => {
   settings.elo = Number($("elo").value);
   settings.save();
-  void game.restart(settings.elo);
+  void game.restart(settings.elo, settings.side);
 };
 for (const key of ["height", "distance", "offset"])
   $(key).oninput = () => {
+    if (tableHandle.active) return;
     settings[key] = Number($(key).value);
     applyPosition();
   };
@@ -162,6 +186,7 @@ renderer.xr.addEventListener("sessionend", () => {
 const resize = () => {
   const view = $("viewport");
   camera.aspect = view.clientWidth / view.clientHeight;
+  camera.fov = camera.aspect < 1.2 ? 55 : 43; // Keep both capture trays in narrow desktop previews.
   camera.updateProjectionMatrix();
   renderer.setSize(view.clientWidth, view.clientHeight);
 };
@@ -201,11 +226,12 @@ renderer.setAnimationLoop((time, frame) => {
     $("viewport").dataset.triangles = renderer.info.render.triangles;
   }
 });
-void game.restart(settings.elo);
+void game.restart(settings.elo, settings.side);
 // Read-only diagnostics for desktop/headset inspection.
 globalThis.chessDiagnostics = () => ({
   fen: game.game.fen(),
   phase: game.phase,
+  playerColor: game.playerColor,
   animation: opponent.state,
   engineReady: engine.ready,
   engineElo: engine.elo,

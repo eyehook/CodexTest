@@ -1,13 +1,22 @@
 import { Chess } from "../vendor/chess/chess.mjs";
+import { resolveSide } from "./Settings.mjs?v=ratings-2";
 export class GameController {
-  constructor({ board, engine, opponent, onChange = () => {} }) {
-    Object.assign(this, { board, engine, opponent, onChange });
+  constructor({
+    board,
+    engine,
+    opponent,
+    onChange = () => {},
+    random = Math.random,
+  }) {
+    Object.assign(this, { board, engine, opponent, onChange, random });
     this.game = new Chess();
+    this.playerColor = "w";
     this.epoch = 0;
     this.phase = "loading";
     this.selected = null;
     this.last = null;
     this.promotion = null;
+    this.promotionPlaced = false;
   }
   notify(message) {
     this.message = message;
@@ -22,22 +31,28 @@ export class GameController {
     if (this.game.isInsufficientMaterial())
       return "Draw · insufficient material";
     if (this.game.isDraw()) return "Draw · fifty-move rule";
-    return `${this.game.turn() === "w" ? "Your turn · White" : "Black to move"}${this.game.isCheck() ? " · CHECK" : ""}`;
+    return `${this.game.turn() === this.playerColor ? "Your turn" : "Opponent turn"} · ${this.game.turn() === "w" ? "White" : "Black"}${this.game.isCheck() ? " · CHECK" : ""}`;
   }
-  async restart(elo) {
+  async restart(elo, side = "white") {
     const epoch = ++this.epoch;
     this.opponent.cancel();
     this.engine.dispose();
     this.game.reset();
+    this.playerColor = resolveSide(side, this.random);
+    this.board.setPlayerColor?.(this.playerColor);
     this.selected = this.last = this.promotion = null;
+    this.promotionPlaced = false;
     this.phase = "loading";
     this.board.sync(this.game);
     this.notify("Loading engine…");
     try {
       await this.engine.initialize(elo);
       if (epoch !== this.epoch) return;
-      this.phase = "player";
-      this.notify(this.status());
+      if (this.playerColor === "b") await this.computerTurn(epoch);
+      else {
+        this.phase = "player";
+        this.notify(this.status());
+      }
     } catch (error) {
       if (epoch === this.epoch) {
         this.phase = "error";
@@ -45,34 +60,52 @@ export class GameController {
       }
     }
   }
-  select(square) {
-    if (this.phase !== "player" || this.game.turn() !== "w") return;
-    const moves = this.selected
-      ? this.game
-          .moves({ square: this.selected, verbose: true })
-          .filter((m) => m.to === square)
-      : [];
-    if (moves.length) {
-      if (moves.some((m) => m.promotion)) {
-        this.promotion = { from: this.selected, to: square };
-        this.phase = "promotion";
-        this.notify("Choose promotion: Queen, Rook, Bishop, Knight");
-      } else void this.play({ from: this.selected, to: square });
-      return;
+  beginGrab(square) {
+    if (
+      this.phase !== "player" ||
+      this.game.turn() !== this.playerColor ||
+      this.game.get(square)?.color !== this.playerColor
+    )
+      return false;
+    this.selected = square;
+    this.phase = "grabbing";
+    this.notify("Hold trigger or grip to carry; release over a legal square.");
+    return true;
+  }
+  cancelGrab(message = this.status()) {
+    if (this.phase !== "grabbing") return;
+    this.phase = "player";
+    this.selected = null;
+    this.board.sync(this.game);
+    this.notify(message);
+  }
+  dropGrab(square) {
+    if (this.phase !== "grabbing") return false;
+    const from = this.selected;
+    const moves = this.game
+      .moves({ square: from, verbose: true })
+      .filter((move) => move.to === square);
+    if (!moves.length) {
+      this.cancelGrab(
+        "Invalid drop · piece returned. Pick up one of your pieces to try again.",
+      );
+      return false;
     }
-    if (this.game.get(square)?.color === "w") {
-      this.selected = square;
-      this.notify(this.status());
-    } else {
-      this.selected = null;
-      this.notify("Select a White piece, then a highlighted destination.");
-    }
+    this.board.placeHeld?.(moves[0]);
+    if (moves.some((move) => move.promotion)) {
+      this.promotion = { from, to: square };
+      this.promotionPlaced = true;
+      this.phase = "promotion";
+      this.notify("Choose promotion: Queen, Rook, Bishop, Knight");
+    } else void this.play({ from, to: square }, { placed: true });
+    return true;
   }
   promote(piece) {
     if (this.phase === "promotion" && ["q", "r", "b", "n"].includes(piece)) {
       const move = { ...this.promotion, promotion: piece };
       this.promotion = null;
-      void this.play(move);
+      void this.play(move, { placed: this.promotionPlaced });
+      this.promotionPlaced = false;
     }
   }
   async transaction(request, animate) {
@@ -83,7 +116,7 @@ export class GameController {
     this.phase = "moving";
     this.selected = null;
     this.notify(
-      `${move.color === "b" ? "Opponent" : "White"} moves ${move.san}`,
+      `${move.color === this.playerColor ? "You play" : "Opponent plays"} ${move.san}`,
     );
     await animate(move);
     if (epoch !== this.epoch) return false;
@@ -92,29 +125,19 @@ export class GameController {
     this.board.sync(this.game);
     return true;
   }
-  async play(request) {
+  async play(request, { placed = false } = {}) {
     const epoch = this.epoch;
     try {
       if (
         !(await this.transaction(request, (move) =>
-          this.board.animateMove(move),
+          placed
+            ? (this.board.finishPlacement?.(move) ?? Promise.resolve())
+            : this.board.animateMove(move),
         ))
       )
         return;
       if (this.finish()) return;
-      this.phase = "thinking";
-      this.notify("Stockfish is thinking…");
-      const reply = await this.engine.bestMove(this.game.fen());
-      if (epoch !== this.epoch) return;
-      if (
-        !(await this.transaction(reply, (move) =>
-          this.opponent.movePiece(move),
-        ))
-      )
-        return;
-      if (this.finish()) return;
-      this.phase = "player";
-      this.notify(this.status());
+      await this.computerTurn(epoch);
     } catch (error) {
       if (epoch !== this.epoch) return;
       this.opponent.cancel();
@@ -122,6 +145,20 @@ export class GameController {
       this.phase = "error";
       this.notify(`Game paused: ${error.message}. Restart to retry.`);
     }
+  }
+  async computerTurn(epoch) {
+    if (epoch !== this.epoch) return;
+    this.phase = "thinking";
+    this.notify("Stockfish is thinking…");
+    const reply = await this.engine.bestMove(this.game.fen());
+    if (epoch !== this.epoch) return;
+    if (
+      !(await this.transaction(reply, (move) => this.opponent.movePiece(move)))
+    )
+      return;
+    if (this.finish()) return;
+    this.phase = "player";
+    this.notify(this.status());
   }
   finish() {
     if (!this.game.isGameOver()) return false;
@@ -136,6 +173,7 @@ export class GameController {
     this.board.sync(this.game);
     this.phase = "error";
     this.selected = this.promotion = null;
+    this.promotionPlaced = false;
     this.notify("VR session ended. Restart to begin a new game.");
   }
 }

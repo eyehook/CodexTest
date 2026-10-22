@@ -26,8 +26,8 @@ function nodeWorker() {
 test("actual bundled WASM completes UCI handshake and returns legal moves after reset", async () => {
   const e = new EngineController({ createWorker: nodeWorker });
   try {
-    await e.initialize(800);
-    assert.equal(e.elo, e.range.min);
+    await e.initialize(1350);
+    assert.equal(e.elo, 1350);
     assert.equal(e.range.min, 1320);
     const game = new Chess();
     for (let i = 0; i < 4; i++) {
@@ -35,8 +35,8 @@ test("actual bundled WASM completes UCI handshake and returns legal moves after 
       assert.doesNotThrow(() => game.move(m));
     }
     e.dispose();
-    await e.initialize(2200);
-    assert.equal(e.elo, 2200);
+    await e.initialize(2000);
+    assert.equal(e.elo, 2000);
     const m = await e.bestMove(new Chess().fen());
     assert.ok(new Chess().move(m));
   } finally {

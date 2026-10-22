@@ -23,10 +23,10 @@ test("settings defaults, persistence, corruption, engine clamp", () => {
   const store = { getItem: () => value, setItem: (_, v) => (value = v) };
   const a = new Settings(store);
   assert.equal(a.elo, 1500);
-  a.elo = 800;
+  a.elo = 1350;
   a.save();
-  assert.equal(new Settings(store).elo, 800);
-  assert.equal(effectiveElo(800, { min: 1320, max: 3190 }), 1320);
+  assert.equal(new Settings(store).elo, 1350);
+  assert.equal(effectiveElo(1350, { min: 1400, max: 3190 }), 1400);
   assert.throws(() => effectiveElo(123, {}));
   value = '{"height":99,"distance":-2}';
   const b = new Settings(store);
@@ -69,16 +69,13 @@ test("rules: castling, en passant, all promotions, mate and draws", () => {
 test("full turn commits after animation and rejects Black selection", async () => {
   const g = fixture();
   await g.restart(1500);
-  g.select("e7");
+  g.beginGrab("e7");
   assert.equal(g.selected, null);
-  let release;
-  g.board.animateMove = () => new Promise((r) => (release = r));
   const fen = g.game.fen();
-  g.select("e2");
-  g.select("e4");
+  g.beginGrab("e2");
+  g.dropGrab("e4");
   assert.equal(g.phase, "moving");
   assert.equal(g.game.fen(), fen);
-  release();
   await tick();
   assert.equal(g.game.get("e4").color, "w");
   assert.equal(g.game.get("e5").color, "b");
@@ -89,8 +86,8 @@ test("restart prevents stale search from committing", async () => {
   await g.restart(1500);
   let resolve;
   g.engine.bestMove = () => new Promise((r) => (resolve = r));
-  g.select("e2");
-  g.select("e4");
+  g.beginGrab("e2");
+  g.dropGrab("e4");
   await tick();
   assert.equal(g.phase, "thinking");
   await g.restart(1500);
@@ -104,16 +101,16 @@ test("restart during animation cancels transaction; invalid engine reply pauses 
   await g.restart(1500);
   let release;
   g.opponent.movePiece = () => new Promise((r) => (release = r));
-  g.select("e2");
-  g.select("e4");
+  g.beginGrab("e2");
+  g.dropGrab("e4");
   await tick();
   await g.restart(1500);
   release();
   await tick();
   assert.equal(g.game.fen(), new Chess().fen());
   g.engine.bestMove = async () => ({ from: "a8", to: "a1" });
-  g.select("e2");
-  g.select("e4");
+  g.beginGrab("e2");
+  g.dropGrab("e4");
   await tick();
   assert.equal(g.phase, "error");
   assert.equal(g.game.turn(), "b");
@@ -122,8 +119,8 @@ test("promotion requires an explicit choice", async () => {
   const g = fixture();
   await g.restart(1500);
   g.game.load("7k/P7/8/8/8/8/8/7K w - - 0 1");
-  g.select("a7");
-  g.select("a8");
+  g.beginGrab("a7");
+  g.dropGrab("a8");
   assert.equal(g.phase, "promotion");
   assert.equal(g.game.get("a7").type, "p");
   g.promote("n");
@@ -160,8 +157,8 @@ test("UCI handshake, discovered range, bounded search, overlap and stale worker"
   const e = new EngineController({
     createWorker: () => (worker = new FakeWorker()),
   });
-  await e.initialize(800);
-  assert.equal(e.elo, 1320);
+  await e.initialize(1350);
+  assert.equal(e.elo, 1350);
   assert.ok(
     worker.commands.includes("setoption name UCI_LimitStrength value true"),
   );

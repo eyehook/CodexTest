@@ -15,16 +15,30 @@
       <a class="back" href="../../">← CodexTest</a>
       <p class="eyebrow">A seat at the table</p>
       <h1>VR Chess<span>.</span></h1>
-      <p class="intro">Take White. Find your next move.</p>
+      <p class="intro">Choose your side. Find your next move.</p>
+      <label for="side">Play as</label>
+      <select id="side">
+        <option value="white">White</option>
+        <option value="black">Black</option>
+        <option value="random">Random</option>
+      </select>
+      <p id="player-side" role="status">Playing White</p>
       <label for="elo">Opponent target strength</label>
       <select id="elo">
-        <option>800</option>
-        <option>1000</option>
-        <option>1200</option>
+        <option>1350</option>
+        <option>1400</option>
+        <option>1450</option>
         <option selected>1500</option>
+        <option>1550</option>
+        <option>1600</option>
+        <option>1650</option>
+        <option>1700</option>
+        <option>1750</option>
         <option>1800</option>
+        <option>1850</option>
+        <option>1900</option>
+        <option>1950</option>
         <option>2000</option>
-        <option>2200</option>
       </select>
       <p id="engine" role="status">Loading Stockfish…</p>
       <button id="enter" disabled>Checking WebXR…</button>
@@ -55,15 +69,17 @@
         <button id="restart" class="secondary">Restart game</button>
       </div>
       <p class="help">
-        Point and trigger: select a White piece, then a green square. Desktop:
-        click the board. Gold selects; olive marks the last move; red marks
-        check.
+        Reach above one of your pieces. Hold trigger or grip to pick it up;
+        release over a legal square to move. In VR, touch tabletop buttons and
+        press trigger or grip for restart or promotion. Grab the gold handle at
+        the near edge to adjust table height, distance and side offset. Desktop:
+        drag and drop. Invalid drops return the piece.
       </p>
       <p class="fine">
         Runs locally in your browser. <a href="./README.md">Setup & licenses</a>
       </p>
     </main>
     <div id="viewport" aria-label="3D chessboard"></div>
-    <script type="module" src="./src/main.mjs"></script>
+    <script type="module" src="./src/main.mjs?v=ratings-2"></script>
   </body>
 </html>

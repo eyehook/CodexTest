@@ -1,4 +1,17 @@
-export const RATINGS = [800, 1000, 1200, 1500, 1800, 2000, 2200];
+export const SIDES = ["white", "black", "random"];
+export function resolveSide(side, random = Math.random) {
+  return side === "black"
+    ? "b"
+    : side === "random"
+      ? random() < 0.5
+        ? "w"
+        : "b"
+      : "w";
+}
+export const RATINGS = Array.from(
+  { length: 14 },
+  (_, index) => 1350 + index * 50,
+);
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export class Settings {
   constructor(storage) {
@@ -12,6 +25,7 @@ export class Settings {
       saved =
         JSON.parse(this.storage?.getItem("codextest.chess.v1") || "{}") || {};
     } catch {}
+    this.side = SIDES.includes(saved.side) ? saved.side : "white";
     this.elo = RATINGS.includes(Number(saved.elo)) ? Number(saved.elo) : 1500;
     for (const [k, value, min, max] of [
       ["height", -0.35, -0.65, -0.1],
@@ -27,6 +41,7 @@ export class Settings {
         "codextest.chess.v1",
         JSON.stringify({
           elo: this.elo,
+          side: this.side,
           height: this.height,
           distance: this.distance,
           offset: this.offset,

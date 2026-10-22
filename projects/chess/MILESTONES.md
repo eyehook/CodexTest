@@ -32,4 +32,53 @@ Implemented smooth elapsed-time interpolation, upright preserved transforms, rea
 
 All 20 Chess tests passed. Automated suites cover the transaction/animation interruption boundaries, special rules, both controller tracking gates and settings fallback. The repository-wide test command also passed. Browser checks cover actual WASM loading, legal play, Elo persistence/range messaging and restart. Initial desktop scene: 45 draw calls / 9,316 triangles (VR adds panel/rays). This does not establish headset performance.
 
-Remaining acceptance work is physical Quest 3 validation: secure-context launch, both trigger rays, comfortable seated alignment, promotion/restart/setup panels, tracking loss/recovery, piece/arm appearance in stereo and sustained 72 FPS or better. Test the existing local USB launcher before asking to publish. There is no game saving/resume, draw negotiation/resignation, physical grabbing, audio or idle animation in this scope.
+Remaining acceptance work is physical Quest 3 validation: secure-context launch, both trigger rays, comfortable seated alignment, promotion/restart/setup panels, tracking loss/recovery, piece/arm appearance in stereo and sustained 72 FPS or better. Test the existing local USB launcher before asking to publish. There is no game saving/resume, draw negotiation/resignation, audio or idle animation in this scope.
+
+
+## Direct hand pickup update
+
+Replaced ray chess selection with 50%-opacity controller-grip spheres (1-inch radius), finite 6-inch square-column hover tests, trigger/grip pickup and release-to-drop. Carried pieces retain their pickup offset and upright orientation. Destination feedback follows the piece’s projected square; legal drops commit once, illegal/offboard drops restore the origin. Menu rays remain for empty hands only. Desktop uses pointer-captured drag/drop. Promotion remains pending until a menu choice. Tracking loss, hidden XR, disconnects and restart cancel safely; simultaneous hands/buttons cannot duplicate a move. Existing A–D entries describe the original milestone validation; controller feel and appearance for this update require Quest testing.
+
+Validation for this update: all 34 Chess tests passed within the full repository test command, and `git diff --check` passed. An actual desktop drag from e2 to e4 committed the move and received a legal Stockfish reply. Publication follows the repository’s user-authorized commit/push workflow.
+
+
+## Table positioning handle
+
+Added a visible gold handle on the near tabletop edge for VR trigger/grip pickup. Height, forward distance and lateral offset follow controller displacement in seated-anchor coordinates within existing setup limits (±25 cm sideways). The entire environment follows, with no camera movement. One hand owns the handle, piece pickup is excluded, and thinking/moving turns lock adjustment. Releasing or losing input ends at the last position and saves once. Automated checks cover transformed-anchor motion, no cumulative drag drift, bounds, ownership and interruption. Physical Quest feel remains pending.
+
+
+## VR menu removal
+
+Removed the VR side menu and all controller pointing rays. Essential status, restart and promotion controls now sit on the tabletop and accept hand-sphere proximity plus a fresh trigger/grip press. The desktop launcher sidebar and drag/drop are preserved. The table handle supplies VR positioning. Historical milestone sections above describe earlier control layouts.
+
+Validation after the handle and menu updates: all 43 Chess tests and the full repository test command passed. VR tests assert that no controller line meshes are created and no XR interaction calls the raycaster. Physical contact checks cover tabletop button bounds after translation/rotation; desktop launcher retention was verified in the browser. Quest testing remains pending.
+
+
+## Player side selection
+
+Added persisted White/Black/Random preference, with White as the default. Random assigns once per new game; the assigned color is displayed. The board rotates toward the player, while the handle, controls and avatar stay in place. Stockfish opens as White for a Black player. Own-piece pickup, status, promotion and computer transactions are side-aware. Tests cover both orientations, Black opening/turn flow/promotion, random assignment, settings persistence, stale opening cancellation and an actual White carry animation on the flipped board.
+
+
+## Captured piece trays
+
+Captured pieces now remain on side trays grouped by their own color. The table is widened to 1.25 m to keep full trays clear of the board and tabletop controls. Captures and en passant place victims in their tray before attacker placement; committed verbose move history reconstructs captures after synchronization. Promotion captures retain their actual piece type, custom starting FENs do not invent captures, interrupted captures restore the board, and restart clears trays. Side choice rotates only the board; trays and all pieces still follow table adjustments.
+
+Capture-tray validation: all 55 Chess tests and the full repository suite passed. Narrow desktop previews use a wider field of view to include both trays; the XR projection remains headset-controlled.
+
+Browser verification: played e4, d4 and exd5 against the actual Stockfish worker; the captured black pawn appeared on its side tray.
+
+
+## Capture flight animation
+
+Replaced instant tray placement with a visible five-inch lift, elevated carry and landing using the same victim mesh. Both player and opponent captures wait for the flight before completing the transaction. Player attackers wait clear of the flying victim and settle afterward. Restart cancels at any flight stage and reconstructs the authoritative state. Tests check frame-to-frame continuity, lift/transport/landing at 30/72/120 Hz, both table orientations, en passant, promotion capture types and cancellation in all three stages.
+
+Capture-flight validation: all 61 Chess tests and the full repository test command passed; `git diff --check` passed. Headset visual timing and comfort remain unverified.
+
+
+## Strength range update
+
+Launcher ratings now run from 1350 through 2000 in steps of 50, with 1500 still the default. Persisted choices are validated against these 14 values; older unsupported ratings reset to 1500. Every offered rating lies within the actual bundled Stockfish UCI range. Historical milestone entries above describe earlier options.
+
+Strength-range validation: all 62 Chess tests and the repository suite passed. The browser dropdown lists all 14 options and retains 1500 as its initial selection. Capture flight also completed during actual browser play.
+
+The user reported that the updated game works well and authorized publication of these improvements. Automated checks pass; formal Quest frame-time measurements have not been recorded.

@@ -1,4 +1,4 @@
-import { effectiveElo } from "./Settings.mjs";
+import { effectiveElo } from "./Settings.mjs?v=ratings-2";
 export const ENGINE_URL = new URL(
   "../vendor/stockfish/stockfish-17.1-lite-single-03e3232.js",
   import.meta.url,

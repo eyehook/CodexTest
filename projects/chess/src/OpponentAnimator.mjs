@@ -21,7 +21,11 @@ export class OpponentAnimator {
   }
   async movePiece(move) {
     const generation = this.generation;
-    this.board.removeCapture(move);
+    if (
+      !(await this.board.removeCapture(move)) ||
+      generation !== this.generation
+    )
+      return;
     if (!(await this.carry(move.from, move.to, generation))) return;
     if (move.flags.includes("k") || move.flags.includes("q")) {
       const rank = move.from[1],

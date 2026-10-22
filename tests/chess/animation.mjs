@@ -31,6 +31,7 @@ async function run(o, p, rate = 72, check = () => {}) {
     },
   );
   for (let i = 0; i < rate * 20 && !done; i++) {
+    o.board.update(1 / rate);
     o.update(1 / rate);
     check();
     await Promise.resolve();
@@ -80,14 +81,14 @@ test("capture and en passant remove the right target", async () => {
     move = clone.move("exd2+");
   const victim = f.board.pieces.get("d2");
   await run(f.opponent, f.opponent.movePiece(move));
-  assert.equal(victim.parent, null);
+  assert.equal(victim.parent, f.board.capturedRoot);
   assert.equal(f.board.pieces.get("d2").userData.square, "d2");
   const ep = setup("4k3/8/8/8/3pP3/8/8/4K3 b - e3 0 1");
   const ec = new Chess(ep.game.fen()),
     em = ec.move("dxe3");
   const pawn = ep.board.pieces.get("e4");
   await run(ep.opponent, ep.opponent.movePiece(em));
-  assert.equal(pawn.parent, null);
+  assert.equal(pawn.parent, ep.board.capturedRoot);
 });
 test("Black castling carries king and rook; promotion synchronizes to new type", async () => {
   for (const san of ["O-O", "O-O-O"]) {
