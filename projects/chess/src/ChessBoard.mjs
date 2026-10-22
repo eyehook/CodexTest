@@ -1,3 +1,4 @@
+import { knightGeometry } from "./KnightGeometry.mjs?v=edited-knight-1";
 import * as THREE from "../../forest/vendor/three.module.js";
 import { mergeGeometries } from "../../forest/vendor/BufferGeometryUtils.js";
 import { Motion } from "./Motion.mjs";
@@ -13,6 +14,7 @@ export function squarePosition(square) {
 export const squareName = (i) =>
   `${String.fromCharCode(97 + (i % 8))}${1 + Math.floor(i / 8)}`;
 function pieceGeometry(type) {
+  if (type === "n") return knightGeometry().rotateY(Math.PI / 2);
   const parts = [];
   function add(g, x = 0, y = 0, z = 0, rz = 0) {
     g.rotateZ(rz);
@@ -38,11 +40,6 @@ function pieceGeometry(type) {
         Math.sin(a) * 0.012,
       );
     }
-  }
-  if (type === "n") {
-    add(new THREE.BoxGeometry(0.018, 0.031, 0.018), 0, 0.062, 0, -0.25);
-    add(new THREE.BoxGeometry(0.018, 0.017, 0.031), -0.003, 0.077, 0.007);
-    add(new THREE.ConeGeometry(0.006, 0.012, 4), 0.005, 0.09, -0.005);
   }
   if (type === "b") {
     add(new THREE.SphereGeometry(0.014, 8, 6), 0, 0.064);

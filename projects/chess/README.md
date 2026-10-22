@@ -74,3 +74,5 @@ To rebuild the engine, extract the archive into a separate working directory, us
 ## Milestones and validation
 
 See [MILESTONES.md](MILESTONES.md) for implemented behavior, desktop/automated evidence, known limitations and next steps for A–D.
+
+Chess knight now uses the user-edited Blender mesh (186 triangles), shared by White/Black, promotion and capture displays. Editable source and portable exporter: `assets/chess/knight/`; generated runtime geometry: `projects/chess/src/KnightGeometry.mjs`. Colors remain game materials.

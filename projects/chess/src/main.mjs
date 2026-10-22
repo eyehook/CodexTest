@@ -1,7 +1,7 @@
 import * as THREE from "../../forest/vendor/three.module.js";
 import { TableHandle } from "./TableHandle.mjs";
 import { Settings } from "./Settings.mjs?v=ratings-2";
-import { ChessBoard } from "./ChessBoard.mjs?v=capture-flight-1";
+import { ChessBoard } from "./ChessBoard.mjs?v=knight-rotation-1";
 import { EngineController } from "./EngineController.mjs?v=face-1";
 import { GameController } from "./GameController.mjs?v=face-1";
 import { InputController } from "./InputController.mjs";
