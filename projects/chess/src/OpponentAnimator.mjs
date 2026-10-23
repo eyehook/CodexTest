@@ -40,10 +40,18 @@ export class OpponentAnimator {
     // Any final capture settling happens only after the arm has returned normally.
     if (generation === this.generation) await this.board.captureTask;
   }
-  async travel(target, seconds, generation, onProgress = () => {}) {
+  async travel(
+    target,
+    seconds,
+    generation,
+    onProgress = () => {},
+    arcHeight = 0.08,
+  ) {
     const start = this.avatar.getHandPosition();
     const ok = await this.motion.tween(seconds, (t) => {
-      this.avatar.setHandTarget(start.clone().lerp(target, t));
+      const point = start.clone().lerp(target, t);
+      point.y += 4 * arcHeight * t * (1 - t);
+      this.avatar.setHandTarget(point);
       onProgress(t);
     });
     return ok && generation === this.generation;
@@ -58,9 +66,7 @@ export class OpponentAnimator {
       p.y = height;
       return this.board.root.localToWorld(p);
     };
-    const sourceHigh = target(from, grip + 0.24),
-      sourceLow = target(from, grip),
-      destHigh = target(to, grip + 0.24),
+    const sourceLow = target(from, grip),
       destLow = target(to, grip);
     const arm = this.avatar.closestArm?.(sourceLow);
     if (arm !== undefined && arm !== this.avatar.activeArm) {
@@ -70,26 +76,26 @@ export class OpponentAnimator {
       this.avatar.selectArm(arm);
     }
     this.state = "reach";
-    if (!(await this.travel(sourceHigh, 0.4, generation))) return false;
-    this.state = "lower";
-    if (!(await this.travel(sourceLow, 0.25, generation))) return false;
-    // Object3D.attach preserves world transform; the hand stays upright during transport.
+    if (!(await this.travel(sourceLow, 0.55, generation))) return false;
     this.avatar.attachment.updateWorldMatrix(true, true);
     this.avatar.attachment.attach(piece);
-    this.state = "lift";
-    if (!(await this.travel(sourceHigh, 0.25, generation))) return false;
     this.state = "carry";
     let capture = null;
+    // One uninterrupted arch joins pickup and placement, including descent.
     if (
-      !(await this.travel(destHigh, 0.6, generation, (t) => {
-        // Keep the victim on its square until the attacker is nearly above it.
-        if (move?.captured && !capture && t >= 0.85)
-          capture = this.board.removeCapture(move);
-      }))
+      !(await this.travel(
+        destLow,
+        0.9,
+        generation,
+        (t) => {
+          if (t >= 0.85) this.state = "place";
+          if (move?.captured && !capture && t >= 0.85)
+            capture = this.board.removeCapture(move);
+        },
+        0.18,
+      ))
     )
       return false;
-    this.state = "place";
-    if (!(await this.travel(destLow, 0.25, generation))) return false;
     this.board.root.attach(piece);
     piece.position.copy(squarePosition(to));
     piece.quaternion.identity();
@@ -97,7 +103,6 @@ export class OpponentAnimator {
     this.board.pieces.delete(from);
     this.board.pieces.set(to, piece);
     piece.userData.square = to;
-    this.state = "clear";
-    return this.travel(destHigh, 0.25, generation);
+    return true;
   }
 }

@@ -128,3 +128,5 @@ Capture arc update: captured pieces follow a single eased 0.8 s parabolic arc wi
 Board coordinates: `BoardCoordinates.mjs` draws ivory rank/file labels on the left and bottom frame edges using one transparent canvas texture and mesh. The label group stays in the table frame, independent of board rotation; White sees a–h left-to-right and 1–8 near-to-far, Black sees h–a and 8–1. Labels stay upright and update once on side changes. No external fonts/assets.
 
 Coordinate validation: all 99 Chess tests and the full repository suite passed; git diff --check passed. Regression compares each label with actual square positions under translated/yawed parents and repeated White/Black switches. Quest text readability remains unverified.
+
+Opponent hand motion: approach and return now follow gentle 8 cm arches. Carrying uses one continuous 0.9 s arc from the actual pickup grip to destination grip with 18 cm peak lift, replacing separate vertical lift, horizontal carry and lower/clear stages. Piece intersections near endpoints are allowed. Closest-hand selection, fixed bone lengths, torso lean and late/concurrent capture flight remain.

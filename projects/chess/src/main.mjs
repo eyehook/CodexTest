@@ -8,7 +8,7 @@ import { GameController } from "./GameController.mjs?v=promotion-flight-1";
 import { InputController } from "./InputController.mjs?v=game-over-1";
 import { TableControls } from "./TableControls.mjs?v=move-display-1";
 import { ProceduralAvatar } from "./ProceduralAvatar.mjs?v=two-arms-1";
-import { OpponentAnimator } from "./OpponentAnimator.mjs?v=capture-arc-1";
+import { OpponentAnimator } from "./OpponentAnimator.mjs?v=arm-arc-1";
 const $ = (id) => document.getElementById(id);
 const settings = new Settings();
 const scene = new THREE.Scene();

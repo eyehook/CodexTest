@@ -49,7 +49,7 @@ for (const rate of [30, 72, 120])
     const move = clone.move({ from: "e3", to: "d2" });
     const piece = board.pieces.get("e3");
     let carried = false,
-      minCarry = Infinity;
+      peakCarry = -Infinity;
     await run(opponent, opponent.movePiece(move), rate, () => {
       if (opponent.state === "carry") {
         carried = true;
@@ -57,7 +57,17 @@ for (const rate of [30, 72, 120])
         const local = root.worldToLocal(
           piece.getWorldPosition(new THREE.Vector3()),
         );
-        minCarry = Math.min(minCarry, local.y);
+        peakCarry = Math.max(peakCarry, local.y);
+        const source = squarePosition(move.from),
+          destination = squarePosition(move.to);
+        const delta = destination.clone().sub(source);
+        const horizontal = local.clone();
+        horizontal.y = 0;
+        const progress = horizontal.sub(source).dot(delta) / delta.lengthSq();
+        assert.ok(
+          Math.abs(local.y - 4 * 0.18 * progress * (1 - progress)) < 1e-6,
+          "piece follows a single smooth arc without lift/carry corners",
+        );
         assert.ok(
           piece
             .getWorldScale(new THREE.Vector3())
@@ -67,7 +77,7 @@ for (const rate of [30, 72, 120])
       }
     });
     assert.ok(carried);
-    assert.ok(minCarry > 0.23);
+    assert.ok(peakCarry > 0.13);
     assert.equal(game.fen(), before);
     assert.equal(piece.parent, board.root);
     assert.ok(piece.position.distanceTo(squarePosition("d2")) < 1e-9);
@@ -108,7 +118,7 @@ test("Black castling carries king and rook; promotion synchronizes to new type",
   assert.equal(f.board.pieces.get("a1").geometry, f.board.geometries.q);
 });
 test("cancel during pickup and carry rebuilds without orphaned pieces", async () => {
-  for (const phase of ["reach", "lower", "lift", "carry", "place", "return"]) {
+  for (const phase of ["reach", "carry", "place", "return"]) {
     const f = setup();
     f.game.move("e4");
     f.board.sync(f.game);
@@ -183,7 +193,7 @@ for (const rate of [30, 72, 120])
           point.distanceTo(destination) <=
             source.distanceTo(destination) * 0.15 + 1e-8,
         );
-        assert.equal(f.opponent.state, "carry");
+        assert.equal(f.opponent.state, "place");
       }
     });
     assert.ok(started);
