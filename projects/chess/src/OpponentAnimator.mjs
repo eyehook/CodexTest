@@ -21,12 +21,7 @@ export class OpponentAnimator {
   }
   async movePiece(move) {
     const generation = this.generation;
-    if (
-      !(await this.board.removeCapture(move)) ||
-      generation !== this.generation
-    )
-      return;
-    if (!(await this.carry(move.from, move.to, generation))) return;
+    if (!(await this.carry(move.from, move.to, generation, move))) return;
     if (move.flags.includes("k") || move.flags.includes("q")) {
       const rank = move.from[1],
         kingSide = move.flags.includes("k");
@@ -42,15 +37,18 @@ export class OpponentAnimator {
     this.state = "return";
     await this.travel(this.avatar.restTarget, 0.45, generation);
     if (generation === this.generation) this.state = "rest";
+    // Any final capture settling happens only after the arm has returned normally.
+    if (generation === this.generation) await this.board.captureTask;
   }
-  async travel(target, seconds, generation) {
+  async travel(target, seconds, generation, onProgress = () => {}) {
     const start = this.avatar.getHandPosition();
     const ok = await this.motion.tween(seconds, (t) => {
       this.avatar.setHandTarget(start.clone().lerp(target, t));
+      onProgress(t);
     });
     return ok && generation === this.generation;
   }
-  async carry(from, to, generation) {
+  async carry(from, to, generation, move = null) {
     const piece = this.board.pieces.get(from);
     if (!piece) throw new Error(`Missing piece at ${from}`);
     const box = new THREE.Box3().setFromObject(piece);
@@ -81,7 +79,15 @@ export class OpponentAnimator {
     this.state = "lift";
     if (!(await this.travel(sourceHigh, 0.25, generation))) return false;
     this.state = "carry";
-    if (!(await this.travel(destHigh, 0.6, generation))) return false;
+    let capture = null;
+    if (
+      !(await this.travel(destHigh, 0.6, generation, (t) => {
+        // Keep the victim on its square until the attacker is nearly above it.
+        if (move?.captured && !capture && t >= 0.85)
+          capture = this.board.removeCapture(move);
+      }))
+    )
+      return false;
     this.state = "place";
     if (!(await this.travel(destLow, 0.25, generation))) return false;
     this.board.root.attach(piece);

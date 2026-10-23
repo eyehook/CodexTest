@@ -1,3 +1,4 @@
+import { BoardCoordinates } from "./BoardCoordinates.mjs";
 import { knightGeometry } from "./KnightGeometry.mjs?v=edited-knight-1";
 import * as THREE from "../../forest/vendor/three.module.js";
 import { mergeGeometries } from "../../forest/vendor/BufferGeometryUtils.js";
@@ -76,6 +77,7 @@ export class ChessBoard {
     // Trays share the table frame, so side selection rotates only the playing board.
     this.capturedRoot = new THREE.Group();
     parent.add(this.capturedRoot);
+    this.coordinates = new BoardCoordinates(parent);
     this.motion = new Motion();
     this.generation = 0;
     this.captureTask = null;
@@ -136,6 +138,7 @@ export class ChessBoard {
     });
   }
   setPlayerColor(color) {
+    this.coordinates.setPlayerColor(color);
     this.root.rotation.y = color === "b" ? Math.PI : 0;
     this.root.updateWorldMatrix(true, true);
   }
@@ -384,35 +387,22 @@ export class ChessBoard {
     return this.captureTask;
   }
   async flyCapture(piece, start, landing, rotation, generation) {
-    const high = Math.max(start.y, landing.y) + 0.127; // Five inches of vertical clearance.
-    const raised = start.clone();
-    raised.y = high;
-    const above = landing.clone();
-    above.y = high;
-    const stage = async (phase, from, to, seconds) => {
-      if (generation !== this.generation) return false;
-      this.capturePhase = phase;
-      const complete = await this.motion.tween(seconds, (t) => {
-        piece.position.lerpVectors(from, to, t);
-        if (phase === "landing")
-          piece.quaternion.slerpQuaternions(
-            rotation,
-            new THREE.Quaternion(),
-            t,
-          );
-      });
-      return complete && generation === this.generation;
-    };
-    if (!(await stage("lifting", start, raised, 0.22))) return false;
-    if (!(await stage("carrying", raised, above, 0.5))) return false;
-    if (!(await stage("landing", above, landing, 0.24))) return false;
+    if (generation !== this.generation) return false;
+    this.capturePhase = "arc";
+    const height = 0.15;
+    const complete = await this.motion.tween(0.8, (t) => {
+      piece.position.lerpVectors(start, landing, t);
+      piece.position.y += 4 * height * t * (1 - t);
+      piece.quaternion.slerpQuaternions(rotation, new THREE.Quaternion(), t);
+    });
+    if (!complete || generation !== this.generation) return false;
     this.capturePhase = "idle";
     return true;
   }
   async finishPlacement(move) {
     if (!move.captured) return;
     const generation = this.generation;
-    if (!(await this.captureTask) || generation !== this.generation) return;
+    const capture = this.captureTask;
     const piece = this.pieces.get(move.from);
     if (!piece) return;
     const from = piece.position.clone(),
@@ -420,6 +410,7 @@ export class ChessBoard {
     await this.motion.tween(0.22, (t) =>
       piece.position.lerpVectors(from, to, t),
     );
+    await capture;
   }
   async animateMove(move) {
     const piece = this.pieces.get(move.from);

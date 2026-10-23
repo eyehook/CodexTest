@@ -23,7 +23,7 @@ test("capture previews appear beside board, synchronize once and reset with a ne
   assert.equal(f.board.capturedPieces.length, 1);
   assert.equal(victim.userData.color, "b");
   assert.ok(victim.position.distanceTo(squarePosition("d5")) < 1e-9);
-  assert.equal(f.board.capturePhase, "lifting");
+  assert.equal(f.board.capturePhase, "arc");
   assert.equal(victim.userData.square, undefined);
   f.game.move("exd5");
   f.board.sync(f.game);
@@ -95,7 +95,7 @@ test("full trays fit table, avoid controls and remain fixed when changing playin
 });
 
 for (const rate of [30, 72, 120])
-  test(`capture lifts, carries and lands continuously at ${rate} Hz`, async () => {
+  test(`capture follows a continuous arc at ${rate} Hz`, async () => {
     const f = fixture();
     for (const m of ["e4", "d5"]) f.game.move(m);
     f.board.sync(f.game);
@@ -128,33 +128,30 @@ for (const rate of [30, 72, 120])
         victim.position.distanceTo(previous) < 0.09,
         "no teleport between frames",
       );
-      if (f.board.capturePhase === "lifting")
-        assert.ok(Math.abs(victim.position.x - previous.x) < 1e-9);
+      if (frame === 4) assert.ok(Math.abs(victim.position.x - previous.x) > 0);
       highest = Math.max(highest, victim.position.y);
       previous.copy(victim.position);
     }
     await pending;
-    assert.ok(
-      phases.has("lifting") && phases.has("carrying") && phases.has("landing"),
-    );
+    assert.ok(phases.has("arc"));
     assert.ok(highest >= 0.1269);
     assert.ok(Math.abs(victim.position.y + 0.029) < 1e-9);
     assert.ok(victim.position.x > 0.45);
     assert.equal(f.game.history().length, 2);
   });
-for (const phase of ["lifting", "carrying", "landing"])
-  test(`restart during capture ${phase} removes pending flight and restores victim`, async () => {
+for (const progress of [0.1, 0.4, 0.7])
+  test(`restart during capture arc at ${progress}s removes pending flight and restores victim`, async () => {
     const f = fixture();
     for (const m of ["e4", "d5"]) f.game.move(m);
     f.board.sync(f.game);
     const clone = new Chess(f.game.fen()),
       move = clone.move("exd5");
     const pending = f.board.removeCapture(move);
-    for (let i = 0; i < 150 && f.board.capturePhase !== phase; i++) {
+    for (let i = 0; i < Math.ceil(progress * 72); i++) {
       f.board.update(1 / 72);
       await Promise.resolve();
     }
-    assert.equal(f.board.capturePhase, phase);
+    assert.equal(f.board.capturePhase, "arc");
     f.board.sync(f.game);
     assert.equal(await pending, false);
     assert.equal(f.board.motion.jobs.size, 0);

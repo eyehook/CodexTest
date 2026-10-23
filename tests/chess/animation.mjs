@@ -154,3 +154,54 @@ test("opponent uses each closest arm for far-board moves, including a flipped bo
       assert.ok(f.board.pieces.get(to));
     }
 });
+
+for (const rate of [30, 72, 120])
+  test(`victim stays put until attacker nears destination at ${rate}Hz`, async () => {
+    const f = setup("4k3/8/8/8/8/4p3/3P4/4K3 b - - 0 1");
+    const move = new Chess(f.game.fen()).move("exd2+");
+    const victim = f.board.pieces.get("d2"),
+      attacker = f.board.pieces.get("e3");
+    const initial = victim.getWorldPosition(new THREE.Vector3());
+    const destination = squarePosition("d2"),
+      source = squarePosition("e3");
+    let started = false;
+    await run(f.opponent, f.opponent.movePiece(move), rate, () => {
+      if (victim.parent === f.board.root) {
+        assert.ok(
+          victim.getWorldPosition(new THREE.Vector3()).distanceTo(initial) <
+            1e-9,
+        );
+        assert.equal(f.board.capturedPieces.length, 0);
+      } else if (!started) {
+        started = true;
+        f.root.updateWorldMatrix(true);
+        const point = f.board.root.worldToLocal(
+          attacker.getWorldPosition(new THREE.Vector3()),
+        );
+        point.y = 0;
+        assert.ok(
+          point.distanceTo(destination) <=
+            source.distanceTo(destination) * 0.15 + 1e-8,
+        );
+        assert.equal(f.opponent.state, "carry");
+      }
+    });
+    assert.ok(started);
+  });
+
+test("attacking arm places and returns while captured piece is still in flight", async () => {
+  const f = setup("4k3/8/8/8/8/4p3/3P4/4K3 b - - 0 1");
+  const move = new Chess(f.game.fen()).move("exd2+");
+  let placeDuringFlight = false,
+    returnDuringFlight = false;
+  await run(f.opponent, f.opponent.movePiece(move), 72, () => {
+    assert.notEqual(f.opponent.state, "capture");
+    if (f.board.capturePhase === "arc") {
+      if (f.opponent.state === "place") placeDuringFlight = true;
+      if (f.opponent.state === "return") returnDuringFlight = true;
+    }
+  });
+  assert.ok(placeDuringFlight);
+  assert.ok(returnDuringFlight);
+  assert.equal(f.board.capturePhase, "idle");
+});
