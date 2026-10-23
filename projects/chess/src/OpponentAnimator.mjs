@@ -40,6 +40,15 @@ export class OpponentAnimator {
     // Any final capture settling happens only after the arm has returned normally.
     if (generation === this.generation) await this.board.captureTask;
   }
+  async pinch(amount, generation) {
+    if (!this.avatar.setPinch) return true;
+    const start = this.avatar.arms[this.avatar.activeArm].pinch;
+    this.state = amount ? "pinch" : "release";
+    const ok = await this.motion.tween(0.16, (t) =>
+      this.avatar.setPinch(start + (amount - start) * t),
+    );
+    return ok && generation === this.generation;
+  }
   async travel(
     target,
     seconds,
@@ -60,7 +69,11 @@ export class OpponentAnimator {
     const piece = this.board.pieces.get(from);
     if (!piece) throw new Error(`Missing piece at ${from}`);
     const box = new THREE.Box3().setFromObject(piece);
-    const grip = Math.max(0.04, (box.max.y - box.min.y) * 0.85);
+    const height = box.max.y - box.min.y;
+    const grip = this.avatar.setPinch
+      ? Math.max(0.025, height - 0.003)
+      : Math.max(0.04, height * 0.85);
+    this.avatar.prepareGrip?.(piece);
     const target = (square, height) => {
       const p = squarePosition(square);
       p.y = height;
@@ -70,13 +83,19 @@ export class OpponentAnimator {
       destLow = target(to, grip);
     const arm = this.avatar.closestArm?.(sourceLow);
     if (arm !== undefined && arm !== this.avatar.activeArm) {
-      // Finish returning the previous arm before switching (also during castling).
-      if (!(await this.travel(this.avatar.restTarget, 0.3, generation)))
-        return false;
+      // Completed moves already return to rest. Repeating an arched return
+      // makes the old hand lift before the correct hand starts reaching.
+      // Only an in-progress multi-piece move (castling) needs this return.
+      if (this.state !== "rest") {
+        this.state = "return";
+        if (!(await this.travel(this.avatar.restTarget, 0.3, generation)))
+          return false;
+      }
       this.avatar.selectArm(arm);
     }
     this.state = "reach";
     if (!(await this.travel(sourceLow, 0.55, generation))) return false;
+    if (!(await this.pinch(1, generation))) return false;
     this.avatar.attachment.updateWorldMatrix(true, true);
     this.avatar.attachment.attach(piece);
     this.state = "carry";
@@ -103,6 +122,7 @@ export class OpponentAnimator {
     this.board.pieces.delete(from);
     this.board.pieces.set(to, piece);
     piece.userData.square = to;
+    if (!(await this.pinch(0, generation))) return false;
     return true;
   }
 }

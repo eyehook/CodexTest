@@ -145,31 +145,17 @@ function gameFixture() {
   });
   return { game, engine, scores };
 }
-test("game evaluates from opponent perspective and stale analysis cannot replace restart expression", async () => {
+test("game starts and completes turns without requesting expression analysis", async () => {
   const f = gameFixture();
+  f.engine.evaluate = () => {
+    throw new Error("Unexpected expression analysis");
+  };
+  const phases = [];
+  f.game.onChange = (state) => phases.push(state.phase);
   await f.game.restart(1500, "white");
-  assert.equal(f.scores.at(-1).value, -200);
+  assert.equal(f.game.phase, "player");
   await f.game.restart(1500, "black");
-  assert.equal(f.scores.at(-1).value, 200);
-  let release;
-  f.engine.evaluate = () => new Promise((resolve) => (release = resolve));
-  const pending = f.game.refreshEvaluation(f.game.epoch);
-  f.engine.evaluate = async (fen) => ({ type: "cp", value: 0, fen });
-  await f.game.restart(1500, "white");
-  release({ type: "cp", value: 900, fen });
-  await pending;
-  assert.equal(f.scores.at(-1).value, 0);
-});
-test("mate smiles for opponent win, frowns for loss; draws are flat", () => {
-  const f = gameFixture();
-  f.game.playerColor = "w";
-  f.game.game.load("7k/6Q1/6K1/8/8/8/8/8 b - - 0 1");
-  assert.ok(f.game.finish());
-  assert.equal(f.scores.at(-1).value, -1);
-  f.game.playerColor = "b";
-  assert.ok(f.game.finish());
-  assert.equal(f.scores.at(-1).value, 1);
-  f.game.game.load("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1");
-  assert.ok(f.game.finish());
-  assert.equal(f.scores.at(-1).value, 0);
+  assert.equal(f.game.phase, "player");
+  assert.equal(f.game.game.history().length, 1);
+  assert.ok(!phases.includes("evaluating"));
 });

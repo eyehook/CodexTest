@@ -4,18 +4,18 @@ import { TableHandle } from "./TableHandle.mjs?v=air-grip-1";
 import { Settings } from "./Settings.mjs?v=ratings-2";
 import { ChessBoard } from "./ChessBoard.mjs?v=coordinates-1";
 import { EngineController } from "./EngineController.mjs?v=face-1";
-import { GameController } from "./GameController.mjs?v=promotion-flight-1";
+import { GameController } from "./GameController.mjs?v=no-face-1";
 import { InputController } from "./InputController.mjs?v=game-over-1";
 import { TableControls } from "./TableControls.mjs?v=move-display-1";
-import { ProceduralAvatar } from "./ProceduralAvatar.mjs?v=two-arms-1";
-import { OpponentAnimator } from "./OpponentAnimator.mjs?v=arm-arc-1";
+import { RiggedAvatar } from "./RiggedAvatar.mjs?v=straight-index-1";
+import { OpponentAnimator } from "./OpponentAnimator.mjs?v=arm-switch-1";
 const $ = (id) => document.getElementById(id);
 const settings = new Settings();
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x29383f);
 const camera = new THREE.PerspectiveCamera(43, 1, 0.02, 20);
 camera.position.set(0.45, 0.65, 1.05);
-camera.lookAt(0, 0.1, -0.15);
+camera.lookAt(0, 0.15, -0.15);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.xr.enabled = true;
@@ -33,7 +33,11 @@ const board = new ChessBoard(world);
 const ui = new TableControls(world);
 const gameOverPanel = new GameOverPanel(world);
 ui.root.visible = false;
-const avatar = new ProceduralAvatar(world);
+const avatar = await RiggedAvatar.load(world).catch((error) => {
+  $("engine").textContent =
+    `Character failed to load: ${error.message}. Refresh to retry.`;
+  throw error;
+});
 const opponent = new OpponentAnimator(board, avatar);
 let engineReady = false;
 const engine = new EngineController({
@@ -47,12 +51,6 @@ const game = new GameController({
   board,
   engine,
   opponent,
-  onEvaluation: (score) => {
-    avatar.setEvaluation(score);
-    $("viewport").dataset.opponentEvaluation = score
-      ? `${score.type}:${score.value}`
-      : "neutral";
-  },
   onChange: (state) => {
     engineReady = engine.ready;
     refreshEnter();
@@ -110,9 +108,7 @@ const tableHandle = new TableHandle({
   parent: world,
   settings,
   canGrab: () =>
-    !["moving", "grabbing", "promotion", "thinking", "evaluating"].includes(
-      game.phase,
-    ),
+    !["moving", "grabbing", "promotion", "thinking"].includes(game.phase),
   onMove: () => applyPosition(false),
   onEnd: () => applyPosition(),
 });
@@ -205,13 +201,13 @@ renderer.xr.addEventListener("sessionend", () => {
   anchor.position.set(0, 0, 0);
   anchor.rotation.set(0, 0, 0);
   camera.position.set(0.45, 0.65, 1.05);
-  camera.lookAt(0, 0.1, -0.15);
+  camera.lookAt(0, 0.15, -0.15);
   applyPosition();
 });
 const resize = () => {
   const view = $("viewport");
   camera.aspect = view.clientWidth / view.clientHeight;
-  camera.fov = camera.aspect < 1.2 ? 55 : 43; // Keep both capture trays in narrow desktop previews.
+  camera.fov = camera.aspect < 1.2 ? 55 : 47; // Keep both capture trays in narrow desktop previews.
   camera.updateProjectionMatrix();
   renderer.setSize(view.clientWidth, view.clientHeight);
 };
@@ -265,7 +261,6 @@ globalThis.chessDiagnostics = () => ({
   animation: opponent.state,
   engineReady: engine.ready,
   engineElo: engine.elo,
-  opponentExpression: avatar.face.amount,
   drawCalls: renderer.info.render.calls,
   triangles: renderer.info.render.triangles,
 });
