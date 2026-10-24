@@ -559,3 +559,24 @@ test("restart during promotion glide restores tray meshes and prevents stale pro
   assert.equal(f.board.promotionPanel.visible, false);
   assert.equal(f.game.game.history().length, 0);
 });
+
+test("gaze exposes only a currently valid held piece and clears on release or tracking loss", async () => {
+  const f = await fixture();
+  assert.equal(f.input.getHeldPiece(), null);
+  f.move(0, "e2");
+  f.press(0, 0, 1);
+  assert.equal(f.input.getHeldPiece(), f.board.pieces.get("e2"));
+  f.move(0, "e4");
+  f.press(0, 0, 0);
+  assert.equal(f.input.getHeldPiece(), null);
+  const cancelled = await fixture();
+  cancelled.move(0, "d2");
+  cancelled.press(0, 1, 1);
+  cancelled.lose(0);
+  assert.equal(cancelled.input.getHeldPiece(), null);
+  const stale = await fixture();
+  stale.move(0, "e2");
+  stale.press(0, 0, 1);
+  stale.game.epoch++;
+  assert.equal(stale.input.getHeldPiece(), null);
+});

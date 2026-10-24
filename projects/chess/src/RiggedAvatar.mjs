@@ -41,7 +41,7 @@ export function repairMirroredWinding(geometry) {
 export class RiggedAvatar extends OpponentAvatar {
   static async load(parent) {
     const gltf = await new GLTFLoader().loadAsync(
-      OPPONENT_URL.href + "?v=articulated-1",
+      OPPONENT_URL.href + "?v=neck-blend-1",
     );
     return new RiggedAvatar(parent, gltf.scene);
   }
@@ -81,6 +81,13 @@ export class RiggedAvatar extends OpponentAvatar {
         throw new Error(`Opponent rig missing bone: ${name}`);
       return this.bones[name];
     };
+    this.head = bone("head");
+    this.headRest = this.head.quaternion.clone();
+    this.headModelRest = model
+      .getWorldQuaternion(new THREE.Quaternion())
+      .invert()
+      .multiply(this.head.getWorldQuaternion(new THREE.Quaternion()));
+    this.lookTarget = null;
     this.spine = bone("spine");
     this.spineRest = this.spine.quaternion.clone();
     const rootQ = this.root.getWorldQuaternion(new THREE.Quaternion()).invert();
@@ -538,6 +545,44 @@ export class RiggedAvatar extends OpponentAvatar {
     this.root.updateWorldMatrix(true, true);
     return this.getHandPosition().distanceTo(worldPosition);
   }
+  setLookTarget(worldPosition) {
+    this.lookTarget = worldPosition ? worldPosition.clone() : null;
+  }
+  update(dt) {
+    const desired = this.headRest.clone();
+    if (this.lookTarget) {
+      this.root.updateWorldMatrix(true, true);
+      const modelQ = this.model.getWorldQuaternion(new THREE.Quaternion());
+      const direction = this.lookTarget
+        .clone()
+        .sub(this.head.getWorldPosition(new THREE.Vector3()))
+        .applyQuaternion(modelQ.clone().invert());
+      const yaw = THREE.MathUtils.clamp(
+        Math.atan2(direction.x, direction.z),
+        -0.8,
+        0.8,
+      );
+      const pitch = THREE.MathUtils.clamp(
+        Math.atan2(-direction.y, Math.hypot(direction.x, direction.z)),
+        -0.2,
+        1.05,
+      );
+      const worldQ = modelQ
+        .multiply(
+          new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(pitch, yaw, 0, "YXZ"),
+          ),
+        )
+        .multiply(this.headModelRest);
+      desired
+        .copy(
+          this.head.parent.getWorldQuaternion(new THREE.Quaternion()).invert(),
+        )
+        .multiply(worldQ);
+    }
+    this.head.quaternion.slerp(desired, 1 - Math.exp(-10 * Math.max(0, dt)));
+    this.head.updateWorldMatrix(true, true);
+  }
   closestArm(worldPosition) {
     const p = this.root.worldToLocal(worldPosition.clone());
     return this.arms[0].rest.distanceToSquared(p) <
@@ -560,6 +605,8 @@ export class RiggedAvatar extends OpponentAvatar {
     return this.attachment.getWorldPosition(new THREE.Vector3());
   }
   reset() {
+    this.lookTarget = null;
+    this.head.quaternion.copy(this.headRest);
     this.setPosture(0);
     for (const arm of this.arms) {
       arm.pinch = 0;

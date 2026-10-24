@@ -148,6 +148,10 @@ export class InputController {
       this.board.setInteraction();
     }
   }
+  getHeldPiece() {
+    this.checkHeld();
+    return this.held?.piece ?? null;
+  }
   beginPromotion(owner, piece, point) {
     if (
       this.held ||

@@ -34,7 +34,7 @@ test("actual Blender skeleton reaches all squares and carry heights with fixed a
   avatar.model.traverse((o) => {
     if (o.isSkinnedMesh) skins++;
   });
-  assert.equal(skins, 24);
+  assert.equal(skins, 32);
   for (let i = 0; i < 64; i++)
     for (const y of [0.04, 0.12, 0.23, 0.38]) {
       const point = squarePosition(squareName(i));
@@ -456,5 +456,230 @@ test("alternating moves begin with the selected hand without lifting the resting
       movedArms.every((index) => index === expected),
       "only the hand closest to this piece receives movement targets",
     );
+  }
+});
+
+test("HeadLP face assembly replaces the original head and follows its bone", async () => {
+  const { root, avatar } = await fixture();
+  const eyes = [];
+  avatar.model.traverse((o) => {
+    if (o.name.startsWith("GEO-eye_")) eyes.push(o);
+  });
+  assert.equal(eyes.length, 2);
+  const parts = [];
+  avatar.model.traverse((o) => {
+    if (
+      /^GEO-(head|ear|eye|eyelid_lower|eyelid_upper|nose|nose_bridge)_/.test(
+        o.name,
+      )
+    )
+      parts.push(o);
+  });
+  assert.equal(parts.length, 11);
+  assert.ok(parts.some((o) => o.name.startsWith("GEO-nose_")));
+  assert.ok(parts.some((o) => o.name.startsWith("GEO-eyelid_upper_")));
+  assert.ok(!avatar.model.getObjectByName("Opponent_eye_L"));
+  for (const part of parts) {
+    part.geometry.computeBoundingBox();
+    const center = part.geometry.boundingBox.getCenter(new THREE.Vector3());
+    assert.ok(center.y < 1.0, "head is fitted to the existing body height");
+  }
+
+  for (const eye of eyes) {
+    assert.ok(eye.isSkinnedMesh);
+    assert.ok(eye.geometry.index.count / 3 <= 400);
+    assert.equal(
+      eye.material,
+      parts.find((o) => o.name.startsWith("GEO-head_")).material,
+      "eyes share the face material",
+    );
+    const idx = eye.skeleton.bones.indexOf(avatar.bones.head);
+    const weights = eye.geometry.attributes.skinWeight,
+      indices = eye.geometry.attributes.skinIndex;
+    for (let i = 0; i < weights.count; i++) {
+      assert.equal(indices.getX(i), idx);
+      assert.equal(weights.getX(i), 1);
+    }
+  }
+});
+
+test("head follows world-space piece targets smoothly while the torso leans", async () => {
+  const { root, avatar } = await fixture();
+  const faceForward = new THREE.Vector3(0, 0, 1).applyQuaternion(
+    avatar.headModelRest.clone().invert(),
+  );
+  for (const lean of [0, 0.6])
+    for (const x of [-0.22, 0.22]) {
+      avatar.reset();
+      avatar.setPosture(lean);
+      const target = root.localToWorld(new THREE.Vector3(x, 0.15, 0.1));
+      avatar.setLookTarget(target);
+      const before = avatar.head.quaternion.clone();
+      avatar.update(1 / 72);
+      assert.ok(avatar.head.quaternion.angleTo(before) > 0.001);
+      assert.ok(
+        avatar.head.quaternion.angleTo(before) < 0.2,
+        "no abrupt head snap",
+      );
+      for (let i = 0; i < 120; i++) avatar.update(1 / 72);
+      const facing = faceForward
+        .clone()
+        .applyQuaternion(
+          avatar.head.getWorldQuaternion(new THREE.Quaternion()),
+        );
+      const direction = target
+        .clone()
+        .sub(avatar.head.getWorldPosition(new THREE.Vector3()))
+        .normalize();
+      assert.ok(
+        facing.angleTo(direction) < 0.03,
+        "face points toward piece in rotated table frame",
+      );
+      avatar.setLookTarget(null);
+      for (let i = 0; i < 120; i++) avatar.update(1 / 72);
+      assert.ok(avatar.head.quaternion.angleTo(avatar.headRest) < 1e-5);
+    }
+  avatar.setLookTarget(root.localToWorld(new THREE.Vector3(0, 0, 0)));
+  avatar.update(0.1);
+  avatar.reset();
+  assert.equal(avatar.lookTarget, null);
+  assert.ok(avatar.head.quaternion.angleTo(avatar.headRest) < 1e-6);
+});
+
+test("move gaze tracks the piece through pickup and carry and clears on return/cancel", async () => {
+  const { root, avatar } = await fixture();
+  const board = new ChessBoard(root);
+  board.sync(new Chess());
+  const opponent = new OpponentAnimator(board, avatar);
+  const piece = board.pieces.get("a7");
+  const pending = opponent.movePiece({ from: "a7", to: "a6", flags: "n" });
+  let sawCarry = false,
+    sawReturn = false;
+  for (let i = 0; i < 500 && opponent.state !== "rest"; i++) {
+    board.update(1 / 72);
+    opponent.update(1 / 72);
+    avatar.update(1 / 72);
+    if (opponent.state === "carry") {
+      sawCarry = true;
+      const expected = piece.localToWorld(
+        piece.geometry.boundingBox.getCenter(new THREE.Vector3()),
+      );
+      assert.ok(avatar.lookTarget.distanceTo(expected) < 1e-6);
+    }
+    if (opponent.state === "return") {
+      sawReturn = true;
+      assert.equal(avatar.lookTarget, null);
+    }
+    await Promise.resolve();
+  }
+  await pending;
+  assert.ok(sawCarry && sawReturn);
+  const cancelled = opponent.movePiece({ from: "h7", to: "h6", flags: "n" });
+  opponent.update(1 / 72);
+  avatar.update(1 / 72);
+  opponent.cancel();
+  await cancelled;
+  assert.equal(opponent.lookPiece, null);
+  assert.equal(avatar.lookTarget, null);
+  assert.ok(avatar.head.quaternion.angleTo(avatar.headRest) < 1e-6);
+});
+
+test("neck blends from chest to head and its collar stays anchored during head turns", async () => {
+  const { root, avatar } = await fixture();
+  let neck;
+  avatar.model.traverse((o) => {
+    if (o.name.startsWith("GEO-neck_")) neck = o;
+  });
+  const chest = neck.skeleton.bones.indexOf(avatar.bones.chest),
+    head = neck.skeleton.bones.indexOf(avatar.bones.head);
+  const weights = neck.geometry.attributes.skinWeight,
+    ids = neck.geometry.attributes.skinIndex;
+  const groups = { bottom: [], top: [], blend: [] };
+  for (let i = 0; i < weights.count; i++) {
+    let cw = 0,
+      hw = 0,
+      total = 0;
+    for (let j = 0; j < 4; j++) {
+      const w = weights.getComponent(i, j),
+        id = ids.getComponent(i, j);
+      total += w;
+      if (id === chest) cw += w;
+      if (id === head) hw += w;
+    }
+    assert.ok(Math.abs(total - 1) < 1e-6);
+    assert.ok(Math.abs(cw + hw - 1) < 1e-6);
+    if (cw > 0.999) groups.bottom.push(i);
+    else if (hw > 0.999) groups.top.push(i);
+    else groups.blend.push(i);
+  }
+  for (const group of Object.values(groups)) assert.ok(group.length > 0);
+  const points = () => {
+    root.updateMatrixWorld(true);
+    neck.skeleton.update();
+    return Array.from({ length: weights.count }, (_, i) =>
+      neck
+        .getVertexPosition(i, new THREE.Vector3())
+        .applyMatrix4(neck.matrixWorld),
+    );
+  };
+  for (const lean of [0, 0.6, 1]) {
+    avatar.reset();
+    avatar.setPosture(lean);
+    const before = points();
+    avatar.setLookTarget(root.localToWorld(new THREE.Vector3(0.22, 0.08, 0.1)));
+    for (let i = 0; i < 120; i++) avatar.update(1 / 72);
+    const after = points();
+    assert.ok(
+      groups.bottom.every((i) => before[i].distanceTo(after[i]) < 1e-6),
+      "collar follows chest without being pulled by head",
+    );
+    assert.ok(
+      groups.top.some((i) => before[i].distanceTo(after[i]) > 0.005),
+      "upper neck follows head",
+    );
+    assert.ok(after.every((p) => p.toArray().every(Number.isFinite)));
+  }
+  avatar.reset();
+});
+
+test("opponent smoothly watches player-held pieces on either board orientation without moving arms", async () => {
+  for (const color of ["w", "b"]) {
+    const { root, avatar } = await fixture();
+    const board = new ChessBoard(root);
+    board.sync(new Chess());
+    board.setPlayerColor(color);
+    const opponent = new OpponentAnimator(board, avatar),
+      piece = board.pieces.get(color === "w" ? "e2" : "e7");
+    const wrists = avatar.arms.map((arm) =>
+      arm.hand.getWorldPosition(new THREE.Vector3()),
+    );
+    for (const x of [-0.2, 0.2]) {
+      piece.position.set(x, 0.12, 0);
+      opponent.update(1 / 72, piece);
+      const expected = piece.localToWorld(
+        piece.geometry.boundingBox.getCenter(new THREE.Vector3()),
+      );
+      assert.ok(avatar.lookTarget.distanceTo(expected) < 1e-6);
+      const before = avatar.head.quaternion.clone();
+      avatar.update(1 / 72);
+      assert.ok(
+        avatar.head.quaternion.angleTo(before) < 0.2,
+        "gaze change is smoothed",
+      );
+      for (let i = 0; i < 80; i++) {
+        opponent.update(1 / 72, piece);
+        avatar.update(1 / 72);
+      }
+    }
+    avatar.arms.forEach((arm, i) =>
+      assert.ok(
+        arm.hand.getWorldPosition(new THREE.Vector3()).distanceTo(wrists[i]) <
+          1e-6,
+      ),
+    );
+    opponent.update(1 / 72, null);
+    assert.equal(avatar.lookTarget, null);
+    for (let i = 0; i < 120; i++) avatar.update(1 / 72);
+    assert.ok(avatar.head.quaternion.angleTo(avatar.headRest) < 1e-5);
   }
 });

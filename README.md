@@ -6,7 +6,7 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
-- [VR Chess](projects/chess/): seated chess against a local Stockfish opponent, with controller selection and an articulated procedural avatar; [setup and licensing](projects/chess/README.md).
+- [VR Chess](projects/chess/): seated chess against a local Stockfish opponent, with direct hand pickup, a rigged Blender opponent and smooth piece-following head motion; [setup and licensing](projects/chess/README.md), [agent handoff](projects/chess/HANDOFF.md).
 
 - [Fishing](projects/fishing/): independent copy of Terrain as the foundation for a fishing simulator; [setup and validation](projects/fishing/README.md).
 
@@ -23,9 +23,11 @@ The root `index.html` is the project directory. Add future projects under `proje
 
 ## Local preview
 
-From the repository root, run `python3 -m http.server 8080` and open http://localhost:8080/. The included Racer build and the Forest run without installing anything. To edit Racer, install the Vite development dependency and rebuild as described in its README. Desktop controls: WASD to walk, left/right arrows to turn, R to reset.
+From the repository root, run `python3 -m http.server 8080` and open http://localhost:8080/. Chess, Forest and the included Racer build run without installing anything. To edit Racer, install the Vite development dependency and rebuild as described in its README. Forest desktop controls: WASD to walk, left/right arrows to turn, R to reset. Chess uses drag-and-drop; other projects document their own controls.
 
 ## GitHub Pages and Quest 3
+
+Pages is already configured for `main`, `/(root)`. Test locally and publish only when the user requests commit/push. The following describes the existing setup:
 
 1. Commit and push these files to `main`.
 2. In repository **Settings → Pages**, choose **Deploy from a branch**, select **main** and **/(root)**, and save.
@@ -42,9 +44,13 @@ GitHub documentation: [publishing source](https://docs.github.com/en/pages/getti
 
 `projects/forest/vendor/` contains Three.js r180, GLTFLoader, BufferGeometryUtils, and their MIT license. Runtime models are in `projects/forest/trees/` and `projects/forest/butterflies/`. Editable butterfly Blender source and generation script are in `assets/forest/butterfly/`; Blender is only needed to edit/rebuild that model. Tree Blender sources were not present in the original Quest folder.
 
+Chess editable sources live in `assets/chess/`: the active opponent is `opponent/ManLP-articulated.blend` (see its [export workflow](assets/chess/opponent/README.md)); the edited knight has its own [source/exporter](assets/chess/knight/README.md). Exported runtime assets stay under `projects/chess/`. Preserve the active combined rig; early generation scripts do not recreate its later head/neck edits.
+
 ## Validation
 
-Run `npm test` with Node.js to verify wrapping, planting, input deadzone, day/night lighting, and loading/animation of all tree and butterfly models. No external npm dependencies are required.
+Run `npm test` with Node.js for the root suite covering Forest, Racer, Surface, Terrain, Fishing and Chess. No external npm dependencies are required for these tests. Swarm has its own package and tests; see its README. Use project-specific scripts from `package.json` for focused checks and `git diff --check` before committing.
+
+For the current Chess handoff, see [HANDOFF.md](projects/chess/HANDOFF.md): 115 Chess tests and the full root suite passed on 2026-10-24. The user authorized the HeadLP, gaze, blended-neck and documentation release on that date; consult Git status/log for current publication state. Automated checks do not establish headset appearance or performance.
 
 Migrated from `Documents/Codex/Quest`; the original files are retained as a backup.
 

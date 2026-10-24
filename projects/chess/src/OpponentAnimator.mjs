@@ -9,10 +9,18 @@ export class OpponentAnimator {
     this.generation = 0;
     this.state = "rest";
   }
-  update(dt) {
+  update(dt, playerPiece = null) {
     this.motion.update(dt);
+    const piece = this.lookPiece ?? playerPiece;
+    if (piece) {
+      if (!piece.geometry.boundingBox) piece.geometry.computeBoundingBox();
+      const center = piece.geometry.boundingBox.getCenter(new THREE.Vector3());
+      this.avatar.setLookTarget?.(piece.localToWorld(center));
+    } else this.avatar.setLookTarget?.(null);
   }
   cancel() {
+    this.lookPiece = null;
+    this.avatar.setLookTarget?.(null);
     ++this.generation;
     this.motion.cancel();
     this.board.motion.cancel();
@@ -34,6 +42,8 @@ export class OpponentAnimator {
       )
         return;
     }
+    this.lookPiece = null;
+    this.avatar.setLookTarget?.(null);
     this.state = "return";
     await this.travel(this.avatar.restTarget, 0.45, generation);
     if (generation === this.generation) this.state = "rest";
@@ -93,6 +103,8 @@ export class OpponentAnimator {
       }
       this.avatar.selectArm(arm);
     }
+    piece.geometry.computeBoundingBox();
+    this.lookPiece = piece;
     this.state = "reach";
     if (!(await this.travel(sourceLow, 0.55, generation))) return false;
     if (!(await this.pinch(1, generation))) return false;

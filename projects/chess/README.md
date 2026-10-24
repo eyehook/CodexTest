@@ -1,63 +1,108 @@
 # VR Chess
 
-Single-player seated chess for Meta Quest 3 and desktop browsers. The player chooses White, Black or Random; the opponent uses a locally bundled, single-threaded Stockfish WASM worker. A procedural seated opponent moves pieces using an analytic two-bone arm solver. The opponent has a cube head, two low-poly black sphere eyes that blink at irregular intervals, and a simple curved mouth showing its view of the position: a smile when ahead, a flat line near equal, and a frown when behind. No backend, API, CDN, account, or build step is used.
+Single-player seated chess for Meta Quest 3 and desktop browsers. A locally bundled Stockfish worker plays against the user; a skinned Blender opponent physically moves its pieces and smoothly watches either player's held piece. The game is buildless, with no backend, account, CDN or runtime network service.
 
-## Local development
+For a new agent, start with [HANDOFF.md](HANDOFF.md), then this document and the repository [AGENTS.md](../../AGENTS.md). [MILESTONES.md](MILESTONES.md) records the current delivery/validation state.
 
-From the CodexTest repository root:
+## Run and test
+
+Serve the **repository root**, because Chess shares Three.js with Forest:
 
 ```sh
 python3 -m http.server 8080 --bind 127.0.0.1
 ```
 
-Open `http://localhost:8080/projects/chess/`. Edit ES modules in `projects/chess/src/` directly. The root index links here. With Node available, run `npm run test:chess`; `npm test` includes these tests. Tests require no package installation. The live engine test launches the checked-in WASM in a subprocess; its small vendor `package.json` enables CommonJS for Node without altering browser worker loading.
+Open `http://localhost:8080/projects/chess/`. Edit `src/*.mjs` directly; no build or dependency installation is needed for Chess.
 
-## Controls and seated setup
+```sh
+npm run test:chess
+npm test
+git diff --check
+```
 
-Choose White, Black or Random and an opponent target Elo, then Enter VR. White is the default; the side preference persists. Random assigns a color once per new game. The board faces the player’s color, and Stockfish opens as White when the player is Black. The launcher shows the assigned color. Changing side or Elo restarts the game. Each tracked controller grip displays a 50% transparent sphere of 1-inch radius. When it intersects a piece square’s vertical column from the board surface to 6 inches (15.24 cm) above it, the nearest piece highlights. Reach above one of your pieces, hold trigger or grip to pick it up, carry it, and release over a legal destination to commit the move. When both buttons are held, release both to drop. The square beneath the carried piece highlights green for a legal destination or red for an illegal one. Illegal/offboard releases return the piece without making a move. Only one piece can be held across both hands. Captured White and Black pieces lift five inches, glide to separate side trays, then land outside the playable squares and controls. The original victim mesh stays visible throughout the roughly one-second flight. They follow table adjustments and clear on restart. Promotion displays Queen/Rook/Bishop/Knight buttons. Gold marks the selection, olive the last move, and red a checked king. VR status sits on the far tabletop edge; restart and promotion buttons sit on the right tabletop. Bring a hand sphere to a button and press trigger or grip to activate it. The VR side menu and controller pointing rays are removed. Invalid selections show instructions in the tabletop status. There is no VR pointing functionality; interaction uses physical hand proximity. Desktop uses drag-and-drop, with launcher buttons for promotion and restart. A promotion pawn stays on its dropped square until a menu choice commits it.
+`pnpm test:chess` / `pnpm test` are equivalent. Tests use Node's built-in runner and the checked-in assets. The live Stockfish test launches the bundled WASM in a subprocess. Latest validation: **115 Chess tests and the full repository suite passed** on 2026-10-24. Automated and desktop checks do not establish headset performance.
 
-In VR, grab the gold handle on the near edge of the tabletop using trigger or grip. Move your hand up/down, left/right and toward/away from your seat; the table, board, opponent and tabletop controls follow together. Move left/right to adjust side offset, within ±25 cm of the seat center. Release all held buttons to save the setup. Only one hand can adjust the table, and pieces cannot be picked up during adjustment. The handle is unavailable while a piece is being carried or the computer is thinking/moving. Tracking loss, disconnects, hiding VR or restart end adjustment at its last position and save it.
+## Play and controls
 
-The launcher offers height (10–65 cm below the initial eyes), forward distance (45–100 cm), and lateral offset (±25 cm). These settings and Elo persist in localStorage when storage is available. During pickup/carry and piece animation, table movement is locked. Tracking loss, hidden sessions, disconnects and restart cancel a held piece without a move; recovery requires a fresh button press. Elo changes restart the game. Settings changes need no build. Game history is not persisted.
+Choose White, Black or Random in the desktop launcher. White is the default. Random resolves once per new game; the launcher shows the assigned color. Changing side or Elo restarts. Only the playing board rotates for Black; the opponent, side trays and status panels retain their positions. Rank/file labels on the left and bottom edges follow the player's orientation.
 
-Uses WebXR `local` reference space. On the first tracked frame, the environment anchors to the initial seated headset position and horizontal heading. The XR camera is never repositioned, and there is no artificial player locomotion. Adjustments move the table and opponent together. Animation pauses when the immersive session is hidden or viewer tracking is unavailable. Ending VR cancels pending work and asks for a fresh game; restart also cancels any pending search/animation.
+In VR, each tracked controller grip has a 50%-transparent sphere with a 1-inch radius. Intersecting the column above a player's piece highlights it; columns extend 6 inches above the square, with sphere-radius overlap included. Hold trigger or grip to pick it up, move the hand, and release over a legal square to commit. If both buttons are held, release both. The destination highlights green/red. Invalid or off-board drops restore the piece. Only one hand owns a piece at a time. Tracking loss, disconnect, hidden XR or restart cancels the grab; recovery requires a fresh press. There are no controller rays or VR side menus. Desktop uses drag-and-drop.
 
-## HTTPS / Quest testing
+For table positioning, press **grip in open space outside occupied piece pickup columns**. The owner sphere becomes six RGB axis arrows. Move up/down, forward/back or left/right; release grip to save, even if trigger remains held. This moves the table and opponent together without moving the XR camera. There is no gold handle mesh. Positioning is exclusive and locked during piece movement, promotion and computer thinking/movement; pickup columns remain reserved regardless of piece color/turn. Interruptions end positioning at the last valid position.
 
-WebXR needs a secure context. Use the repository's USB Quest launcher (`Start-Quest-VR.command` outside this repository), which serves this checkout and reverse-forwards port 8080, then open `http://localhost:8080/projects/chess/` in Quest Browser. Alternatively use static HTTPS hosting. A plain LAN HTTP URL is not sufficient for immersive WebXR. The engine must be served over HTTP(S), not opened as a `file:` URL. Serve `.wasm` as `application/wasm` and `.js` as JavaScript. Python's server and GitHub Pages do this.
+The desktop seated setup persists height, distance and lateral offset with side/Elo in `localStorage` (`codextest.chess.v1`), with safe unavailable/corrupt-storage fallback:
 
-No physical Quest 3 testing or headset frame-time measurements have been performed by the implementing agent. Check seat alignment, both controllers, tracking loss/recovery, tabletop buttons and the handle, arm appearance, stereo, comfort and sustained 72 FPS on hardware. The single-threaded engine does not need cross-origin isolation headers, so it is compatible with ordinary GitHub Pages hosting.
+| Setting                   | Default | Range              |
+| ------------------------- | ------- | ------------------ |
+| Height below initial eyes | 35 cm   | 10–65 cm           |
+| Forward distance          | 65 cm   | 45–100 cm          |
+| Lateral offset            | 0       | ±25 cm             |
+| Opponent target Elo       | 1500    | 1350–2000, step 50 |
 
-## Opponent expression
+Game history is not persisted. In VR, status and move history occupy two viewer-facing boxes above/behind the opponent on the viewer's right. History has fixed White/Black headings, numbered SAN columns and the newest eight rows. The table has no restart or promotion buttons. Restart remains in the desktop launcher. At game over, a win/loss/draw illustration appears above the board with a proximity-highlighted **New Game** button, activated by trigger/grip in VR or a desktop click.
 
-After each committed move, a bounded 150 ms full-strength analysis runs in the existing Stockfish worker. It is serialized with the 300 ms strength-limited move search; playing strength is restored immediately after analysis. Only the main principal variation's exact score is used. Scores normalize from side-to-move to White, then to the opponent's color, so the expression stays correct for White/Black/Random player choices.
+## Promotion and captures
 
-A ±0.20-pawn band is flat. Outside that band, curvature grows smoothly with the advantage, saturating for large advantages; forced mate uses the full smile/frown. Checkmate and draw results set the final expression directly. Score failures or a restart return the face to neutral; generation guards discard stale results. The mouth transitions smoothly and reuses one small ribbon mesh; the two black low-poly sphere eyes briefly flatten together for a blink. A new open-eye interval is sampled uniformly from 2.5–6.5 seconds after each 180 ms blink (60 ms close, 25 ms closed, 95 ms open). Blinking runs even with a neutral mouth, uses elapsed frame time, and pauses with hidden/untracked VR instead of catching up. No fonts or textures are used for the face. Headset appearance and the extra analysis CPU cost still require Quest validation.
+After the player's pawn lands on the back rank, a floating tray 22 cm above the board offers queen, rook, bishop and knight meshes. Hover highlights a choice like an ordinary piece. Grab a choice and release outside the tray: the pawn disappears and the actual selected mesh glides to its square over 0.5 seconds, then the move commits. Release within the tray's return bounds to cancel the selection and ease it back to its slot over 0.22 seconds. The tray glows gold when return is eligible. Lost tracking restores the choice; restart clears the tray. Desktop sidebar promotion buttons remain available.
 
-## Difficulty
+Captured pieces use the actual victim mesh, including en passant, moving to separate White/Black side trays in one eased 0.8-second arc with 15 cm lift. Opponent captures start only at 85% of the attacker's carry. The attacking arm continues without pausing for the victim; geometry intersections are allowed. Player captures start after release at the destination; placement/settling and victim flight are coordinated before committing. Restart cancels and rebuilds from authoritative verbose history, including captured promotion types. Custom FENs do not manufacture missing pieces as captures.
 
-Options run from **1350 to 2000 in increments of 50**, with **1500 default**. The selected rating persists. Older saved choices outside this range reset to 1500. Initialization reads the actual engine's advertised `UCI_Elo` min/max before enabling `UCI_LimitStrength`; the bundled engine advertises **1320–3190**, which includes every launcher option. These are approximate targets, especially with the Lite network and 300 ms search limit, and not guaranteed playing ratings. No artificial weakening is added.
+## Opponent model and movement
+
+The live avatar is `src/RiggedAvatar.mjs`, loading `assets/opponent/manlp.glb`: **32 skinned meshes**, approximately 776 KiB at this handoff. The editable combined source is [`ManLP-articulated.blend`](../../assets/chess/opponent/ManLP-articulated.blend). See the [asset workflow](../../assets/chess/opponent/README.md).
+
+The rig has 46 authoring bones / 41 exported deform bones. Body parts mostly have rigid weights; fingers have blended knuckle weights, three bones per finger and two per thumb. The complete eleven-part `HeadLP.blend` face replaces the initial head, ears and temporary added sphere eyes. Eyes currently share the face's skin material. Neck weights blend smoothly from chest to head so the collar stays anchored while the head turns. **No blinking, animated mouth or position-evaluation phase runs in the game.**
+
+The runtime measures native upper-arm/forearm lengths (~0.273/0.237 m), solves bone rotations without stretching, leans the torso and adds bounded forward travel for distant targets. The closest resting hand is selected per piece. Switching after a completed move does not lift the old resting hand; castling returns the king hand before switching to the rook if necessary.
+
+Approach and return use gentle 8 cm arcs. Carry is one continuous 0.9-second arc with 18 cm lift. At the piece top, fingers close over 0.16 seconds before attaching; after placement they open over 0.16 seconds, then return. The upright attachment follows a virtual pinch anchor, with wrist IK compensating for its offset. Palms face the board, hands extend nearly straight from the forearms with slight downward flexion, and forearm roll distributes the twist. Thumb contact stays fixed. The first index phalanx extends along hand-local +Y; its last two joints reach toward a lower, forward contact near the thumb, clamped to native reach. Middle/ring/pinky curl through all joints in their own knuckle lanes. Reset restores all joints.
+
+Head gaze follows the actual moving piece center during the opponent's reach/pinch/carry/place. When the player holds a board or promotion piece, the same smoothed gaze follows that mesh without moving the arms. Head turns are bounded (yaw ±0.8 rad, pitch −0.2 to 1.05 rad) and smoothed at rate 10/s, accounting for table transforms and torso lean. Release/return clears the target and eases to rest; cancel/reset restores immediately. Hidden/untracked XR pauses animation.
 
 ## Architecture
 
-- `GameController.mjs`: authoritative chess.js instance, selection, promotion, status, turn flow and generation-guarded transactions. Validate on a clone → lock → animate → commit → synchronize → unlock. Repetition/history remain in the authoritative instance.
-- `ChessBoard.mjs`: square/world conversion, merged reusable piece geometries, instanced colored board squares, highlights and synchronization. The player’s chosen color sits closest; h1 is light; queens begin on d1/d8.
-- `InputController.mjs` / `HandInteraction.mjs`: finite sphere/column proximity, tracked grip spheres, trigger/grip edge polling, exclusive pickup/carry/drop, desktop dragging and tabletop button proximity. Only visible tracked controller input is accepted in XR.
-- `EngineController.mjs`: dedicated classic Worker, UCI handshake, advertised Elo range, bounded single outstanding move/analysis search, score parsing, timeouts, failures and worker termination. Each restart replaces the worker so stale responses cannot enter a new game.
-- `OpponentAvatar.mjs` / `ProceduralAvatar.mjs`: replaceable world-space hand-target, attachment and rest-pose interface. No chess rules or square notation in avatar geometry.
-- `Evaluation.mjs` / `OpponentFace.mjs`: score perspective, near-equal band and bounded expression mapping; two sphere eyes and a smoothly curved mesh mouth on the head.
-- `ArmIK.mjs`: geometry-independent analytic two-bone solver with consistent pole direction, 15–155° bend bounds and distance clamping. All squares are reachable without moving the torso.
-- `OpponentAnimator.mjs`: cancellable asynchronous reach/lower/attach/lift/carry/place/clear/return sequence. The carried piece remains upright; `Object3D.attach` preserves its world transform. Transport clearance is 24 cm, above the tallest pieces. Captured pieces complete their lift/carry/landing flight to a side tray first; en passant removes the adjacent pawn; castling carries king then rook. Promotion replaces the mesh after placement and commit.
-- `Motion.mjs`: elapsed-time easing, paused with rendering visibility/tracking, cancellable jobs.
-- `TableControls.mjs`: tabletop status, promotion and restart labels drawn using local system fonts, with sphere-proximity activation.
-- `TableHandle.mjs`: near-edge procedural handle, sphere proximity, seated-anchor drag axes, bounded height/distance/side offset and save-on-release.
-- `Settings.mjs`: bounded persisted configuration with storage/corruption fallback.
+| Module                                       | Responsibility                                                                                                                                                                             |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `main.mjs`                                   | Scene, seated XR anchor, awaited GLB load, controllers, per-frame gaze routing and render loop.                                                                                            |
+| `GameController.mjs`                         | Authoritative chess.js rules/history and turn phases. Validate a clone → lock → animate → commit → synchronize. Epoch guards reject stale async work.                                      |
+| `ChessBoard.mjs`                             | Reusable piece geometry, instanced squares, highlights, captures, promotion tray/flights and visual reconstruction from history.                                                           |
+| `BoardCoordinates.mjs`                       | One canvas/plane for correctly oriented rank/file labels.                                                                                                                                  |
+| `InputController.mjs`, `HandInteraction.mjs` | Proximity pickup/drop, trigger/grip edges, exclusive ownership, promotion choice grabs and desktop pointer dragging. `getHeldPiece()` validates ownership before exposing the gaze target. |
+| `EngineController.mjs`                       | Classic Worker, UCI handshake, Elo limiting, serialized searches, timeouts and termination.                                                                                                |
+| `OpponentAnimator.mjs`                       | Cancellable hand sequence and piece attachment; shared gaze target selection, preferring its own move over a player-held mesh.                                                             |
+| `RiggedAvatar.mjs`, `ArmIK.mjs`              | Actual skin/bone posing, native-length arm IK, fingers, torso and smoothed head gaze. Mirrored triangle winding is repaired once at load; materials stay opaque.                           |
+| `OpponentAvatar.mjs`                         | Replaceable world-space target/attachment/rest contract; optional pinch/gaze methods.                                                                                                      |
+| `Motion.mjs`                                 | Elapsed-time eased tweens with cancellation.                                                                                                                                               |
+| `TableHandle.mjs`, `Settings.mjs`            | Open-space positioning state/math (despite historical name), persisted bounded configuration.                                                                                              |
+| `TableControls.mjs`, `GameOverPanel.mjs`     | Status/move canvases and result artwork/New Game contact interaction.                                                                                                                      |
 
-No full-body IK, textures for pieces/avatar, fingers, legs, shadows, dynamic per-piece lights, idle animation, sound, alternative themes or rigged GLBs. Typical initial desktop rendering measured 45 draw calls and 9,316 triangles, in the original scene before the handle and tabletop control updates. This is a desktop scene count, not a Quest FPS measurement. `chessDiagnostics()` and the viewport/status DOM data attributes expose read-only diagnostics.
+`ProceduralAvatar.mjs`, `OpponentFace.mjs` and `Evaluation.mjs` remain as reference/tested utilities. The procedural avatar is not instantiated by the game. `EngineController.evaluate()` is still available but normal gameplay never calls it. Do not infer live behavior from these legacy modules or old `?v=face-*` cache labels.
 
-## Deployment
+## Engine strength
 
-Changes remain local until the user requests commit/push. GitHub Pages serves the root of `main`; preserve `projects/chess/`, its local vendors, source archive, notices and the shared licensed `projects/forest/vendor/` Three.js files. All runtime URLs are relative and work under `/CodexTest/`. No generated build outputs are required. After an authorized deployment, the entry URL is `https://eyehook.github.io/CodexTest/projects/chess/`.
+Stockfish 17.1.0 Lite single-threaded uses `UCI_LimitStrength=true`, `UCI_Elo=<selected rating>`, a 300 ms move search and 16 MB hash. Initialization reads the actual advertised Elo range (1320–3190), which contains every launcher option. Ratings are approximate targets, not guaranteed playing ratings; no extra artificial weakening is applied. Restart replaces the worker; epochs and worker termination prevent stale responses from changing a new game.
+
+## Editable assets and export
+
+Edit the combined active opponent file, preserving bone names/rest transforms, weights and native scale. `HeadLP.blend` is an unmodified source, not the directly exported file. Export from the repository root:
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender --background --python assets/chess/opponent/export.py
+```
+
+The exporter opens `ManLP-articulated.blend` and rewrites `projects/chess/assets/opponent/manlp.glb`, without baked clips. Blender constraints are authoring aids; the browser drives deform bones directly. Regeneration scripts create earlier rig stages and **do not reproduce the later HeadLP/neck edits**; preserve the active file.
+
+The edited knight source/exporter lives in [`assets/chess/knight/`](../../assets/chess/knight/README.md); it generates `src/KnightGeometry.mjs` (186 triangles). The runtime applies a 90° Y rotation. Game-over artwork is bundled in `assets/game-over/{win,loss,draw}.png`. Update changed-module import/entry query versions, and the GLB URL query in `RiggedAvatar.mjs` when exporting, to avoid stale headset caches.
+
+## WebXR, validation and publishing
+
+WebXR uses `local` reference space. The first tracked viewer pose establishes the environment's seated origin and horizontal heading; the camera is never artificially moved. Session exit cancels pending work and asks for restart.
+
+Use the USB launcher `/Users/mm/Documents/Start-Quest-VR.command` (outside the repository) to serve/reverse-forward port 8080, or use static HTTPS. A plain LAN HTTP URL is insufficient for immersive WebXR. Serve engine JS/WASM over HTTP(S), not `file:`; WASM needs `application/wasm`. Python's server and GitHub Pages work. Single-threaded Stockfish needs no cross-origin isolation headers.
+
+The user has accepted the visual refinements during interactive testing, including the blended neck. No formal Quest frame-time, stereo or comfort benchmark was recorded by the agent. Verify controller behavior, promotion reach, gaze/neck extremes and sustained performance on hardware after substantial changes. Historical draw-call/triangle counts from the procedural avatar are obsolete; use `chessDiagnostics()` and the viewport's live DOM diagnostic attributes for current scene information.
+
+Changes stay local until the user asks to commit/push. Publishing `main` updates GitHub Pages from the repository root. Preserve relative URLs, vendors/licenses, corresponding Stockfish source, `.nojekyll`, editable assets and exported runtime assets. Live entry: `https://eyehook.github.io/CodexTest/projects/chess/`.
 
 ## Dependency licensing and source
 
@@ -70,49 +115,3 @@ Chess application code in this directory is licensed under **GPL-3.0-or-later**,
 [Stockfish corresponding source](vendor/stockfish/source-17.1.0.tar.gz) is distributed locally, pinned to npm's `gitHead` **602fd7e1a571a2be71f242942db90483731f2a1f**. It includes engine C++/JS, upstream build scripts/Makefile, bundled minifier and the Lite network `nn-9067e33176e8.nnue` (SHA-256 prefix verified against its filename). Generated binaries for other engine variants are omitted; no engine source is modified. Source snapshot: https://github.com/nmrugg/stockfish.js/tree/602fd7e1a571a2be71f242942db90483731f2a1f .
 
 To rebuild the engine, extract the archive into a separate working directory, use the Emscripten version identified by upstream `build.js` and follow the included README. Run `node build.js --lite --single-threaded --no-split` with Node, make, Python and the activated Emscripten toolchain available. The Lite network is already in `src/`; no network download is needed for that evaluation file. The source archive includes upstream's build instructions. Exact byte reproduction has not been tested here. Preserve all dependency notices and provide corresponding source with any distribution. These links are documentation only; the game makes no runtime requests to them.
-
-## Milestones and validation
-
-See [MILESTONES.md](MILESTONES.md) for implemented behavior, desktop/automated evidence, known limitations and next steps for A–D.
-
-Chess knight now uses the user-edited Blender mesh (186 triangles), shared by White/Black, promotion and capture displays. Editable source and portable exporter: `assets/chess/knight/`; generated runtime geometry: `projects/chess/src/KnightGeometry.mjs`. Colors remain game materials.
-
-Chess positioning update: the gold handle mesh is removed. A fresh grip press in open space outside every occupied square's sphere-expanded 6-inch pickup column starts table positioning; columns are reserved regardless of side/turn. Tabletop buttons retain priority. The owner hand sphere becomes six RGB axis arrows aligned with seated axes until grip release (trigger does not keep positioning active). Existing height/distance/lateral bounds, exclusive ownership, interruption handling and save-on-end remain. `TableHandle` now owns only positioning state/math; `InputController` owns the gesture and arrows.
-
-Chess status display is now centered at the near tabletop edge (z = +0.345 m), in the former gold handle location; restart/promotion buttons retain their positions.
-
-Chess promotion: once a player pawn lands on the back rank (including capture flight/settling), a floating tray 22 cm above the board presents Queen/Rook/Bishop/Knight meshes in the player's color. Fresh trigger/grip picks one up; releasing all pickup buttons commits that choice and replaces the pawn. Tracking loss returns the choice to the tray without committing; restart clears it. Table positioning is locked during promotion, and VR promotion buttons are hidden. Desktop sidebar promotion buttons remain available.
-
-Promotion release outside the tray removes the pawn and glides the actual selected mesh to its square over 0.5 s before committing. Release back over the tray cancels the choice, easing the mesh to its slot over 0.22 s; the pawn and pending promotion remain. Returning choices cannot be picked up mid-return. Restart cancels flight/return and restores authoritative state.
-
-Chess opponent arms: `ProceduralAvatar` now has matching left/right upper-arm, forearm and hand meshes, sharing geometry/materials. Each arm has fixed 0.30 m upper and 0.28 m forearm lengths; the rig supplies these lengths to the independent IK solver. `OpponentAnimator` selects the closest resting hand to the source piece in world space and keeps that arm throughout the carry; it returns the previous arm before switching for a second castling piece. The upper body/head lean about a hip pivot as targets move across the board (up to 0.5 radians and 4 cm forward hip travel); shoulders follow the torso while the inactive hand stays at its resting target. Returning to rest removes the lean. No arm stretching or camera movement.
-
-Chess game-over display: `GameOverPanel.mjs` shows a viewer-facing billboard above the board with two lines, “Game Over” and “You Won!”, “You Lost!” or “Draw!”, based on the player color and terminal chess result. A “New Game” button beneath it restarts with current side/Elo settings via hand contact plus trigger/grip in VR, or mouse click on desktop. The panel hides on restart and appears only in the over phase. Table labels support explicit newlines.
-
-Chess result artwork: the plain game-over heading/result canvas is replaced with three generated 1536×1024 dark-teal/gold illustrations in `projects/chess/assets/game-over/{win,loss,draw}.png`. `GameOverPanel` preloads them as sRGB textures, selects the player-relative result and displays a 3:2 billboard. New Game retains its contact/click behavior and gold hover border beneath the artwork. Images are local; no runtime image service or external requests.
-
-Chess status/move display: two upright framed boxes now sit above and behind the opponent on the viewer’s right, centered at (0.52, 0.66, -0.70) in table coordinates. Both face the viewer. Status is on top; below is a fixed White/Black header and eight numbered SAN rows. Committed verbose chess history supplies the actual full-move numbers, including custom Black-to-move starts. Once full, the display retains the newest eight rows, scrolling older rows off the top; reset clears the list. Canvas textures repaint only when displayed content changes.
-
-Opponent capture timing: victims remain on their squares through reach, pickup and lift. Capture flight begins only once the attacker has covered 85% of its horizontal carry toward the destination. The attacker waits above the destination for the victim to land in its tray before lowering. Player captures already begin after release over the destination. Generation guards and restart cancellation remain active.
-
-Capture arc update: captured pieces follow a single eased 0.8 s parabolic arc with 15 cm lift, rather than separate lift/carry/land stages. The opponent still starts the victim flight near arrival (85% carry progress), but proceeds directly through lowering, placement, clearance and return without waiting for the victim. Player placement also settles concurrently with capture flight. Geometry intersections are allowed. Restart cancels the shared motion safely.
-
-Board coordinates: `BoardCoordinates.mjs` draws ivory rank/file labels on the left and bottom frame edges using one transparent canvas texture and mesh. The label group stays in the table frame, independent of board rotation; White sees a–h left-to-right and 1–8 near-to-far, Black sees h–a and 8–1. Labels stay upright and update once on side changes. No external fonts/assets.
-
-Opponent hand motion: approach and return now follow gentle 8 cm arches. Carrying uses one continuous 0.9 s arc from the actual pickup grip to destination grip with 18 cm peak lift, replacing separate vertical lift, horizontal carry and lower/clear stages. Piece intersections near endpoints are allowed. Closest-hand selection, fixed bone lengths, torso lean and late/concurrent capture flight remain.
-
-Rigged opponent replacement: the live game now loads `RiggedAvatar.mjs` and the user-supplied `projects/chess/assets/opponent/manlp.glb` (24 skinned meshes, about 497 KiB). `assets/chess/opponent/` preserves the original and rigged Blender sources, rigging script and portable GLB exporter. The original ProceduralAvatar remains as a reference/test fixture but is no longer instantiated by main. Browser loading awaits the rig, with an explicit load-error message.
-
-The runtime solves the existing world-space hand targets and rotates actual upper-arm/forearm/hand bones with their measured native lengths (~0.273/0.237 m), preserving bind transforms and skin weights. Blender IK constraints are authoring controls, not a browser dependency. Closest-hand selection, smooth pickup/place arcs, torso lean, upright wrist-following piece attachments, captures/castling/promotion, cancellation, random blinks and evaluation mouth remain. Spine lean and a bounded forward shift compensate for this mesh’s shorter arms, with no stretching. Facial geometry is mounted to the head bone. The supplied mesh had no materials, so runtime applies the prior cloth/skin palette. Desktop framing is slightly raised/widened to include the new head; XR camera/anchor logic is unchanged.
-
-Facial overlays/analysis removed: the live RiggedAvatar no longer constructs the procedural eyes/mouth or updates blinks/expressions. GameController no longer enters an evaluating phase or runs extra position-analysis searches at startup or between turns. Normal strength-limited Stockfish move searches remain unchanged. The engine’s standalone evaluate API and the old procedural reference remain available but are unused by live gameplay.
-
-Fingertip pinch pickup: RiggedAvatar now targets an anchor between the thumb/index fingertips rather than the wrist. Finger lengths come from bind-pose mesh vertices; a two-sphere construction finds opposing contacts with a piece-top-sized gap. Wrist IK compensates for the grip offset and uses a downward palm approach without stretching the arms. Thumb/index rotate to the pinch contacts, with other fingers folding slightly. OpponentAnimator reaches the top of the piece, closes over 0.16 s, attaches/carries on the existing smooth arc, places/detaches, opens over 0.16 s, then returns relaxed. Reset restores all finger rest rotations. Normal captures still fly concurrently near arrival.
-
-Overhead pinch refinement: the wrist-to-thumb/index contact vector now points vertically downward, keeping the hand directly above the piece. Thumb/index bones reach down to opposite top contacts; middle/ring/pinky bones fold back toward the palm while closed and restore on release. A bounded additional forward torso shift (up to 8 cm, only when needed) preserves reach to high/far targets with fixed arm lengths. Each finger has one rigid bone, so unused fingers fold as whole low-poly segments.
-
-Natural-wrist pinch refinement supersedes the vertically-under-wrist pose: the hand now follows the solved forearm direction with about 10 degrees of downward flexion, with axial palm roll keeping the contact below the knuckles. Wrist position and hand orientation are solved together to maintain exact fingertip targeting. The pinch lies slightly ahead of and below the thumb/index knuckle midpoint, preserving pickup from above rather than from the side. Middle/ring/pinky remain tucked while gripping. Reconfiguring for a new piece preserves the current hand pose as the starting offset.
-
-Articulated opponent fingers: `ManLP-articulated.blend` extends the preserved initial rig with three phalanges per finger and two per thumb (46 authoring bones, 41 exported deform bones). `upgrade-fingers.py` adds knuckle cross sections and blended skin weights; the original mesh and initial rig remain available. Export now uses this articulated copy. Runtime solves thumb/index chains to the existing top pinch contacts and curls unused fingers through all three joints, preserving knuckle spacing and palm orientation. Release/reset restores every joint. No new evaluation or facial overlays.
-
-Nearest-side pinch correction: thumb/index contacts derive from each mirrored hand’s knuckle layout across the palm. The pinch center stays ahead of/below the knuckles and between their lateral lanes. Finger IK bows the joints outward on their own sides, preventing crossed chains during close/open. Regression covers both hands, 8–25 mm contact gaps and intermediate closing poses.

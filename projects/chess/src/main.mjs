@@ -5,10 +5,10 @@ import { Settings } from "./Settings.mjs?v=ratings-2";
 import { ChessBoard } from "./ChessBoard.mjs?v=coordinates-1";
 import { EngineController } from "./EngineController.mjs?v=face-1";
 import { GameController } from "./GameController.mjs?v=no-face-1";
-import { InputController } from "./InputController.mjs?v=game-over-1";
+import { InputController } from "./InputController.mjs?v=player-gaze-1";
 import { TableControls } from "./TableControls.mjs?v=move-display-1";
-import { RiggedAvatar } from "./RiggedAvatar.mjs?v=straight-index-1";
-import { OpponentAnimator } from "./OpponentAnimator.mjs?v=arm-switch-1";
+import { RiggedAvatar } from "./RiggedAvatar.mjs?v=neck-blend-1";
+import { OpponentAnimator } from "./OpponentAnimator.mjs?v=player-gaze-1";
 const $ = (id) => document.getElementById(id);
 const settings = new Settings();
 const scene = new THREE.Scene();
@@ -238,7 +238,7 @@ renderer.setAnimationLoop((time, frame) => {
   }
   if (tracked) {
     board.update(dt);
-    opponent.update(dt);
+    opponent.update(dt, input.getHeldPiece());
     avatar.update(dt);
   }
   ui.faceCamera(renderer.xr.isPresenting ? renderer.xr.getCamera() : camera);
