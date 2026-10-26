@@ -31,8 +31,16 @@ export class MoveEvaluation {
     this.hintFrom = square;
     this.onHint(square);
   }
+  baselineFor(fen, epoch) {
+    const key = `${epoch}:${fen}`;
+    if (this.boardBaseline?.key === key) return this.boardBaseline.score;
+    if (this.cache?.key === key) return this.cache.baseline;
+    return this.key === key ? this.baselinePending ?? null : null;
+  }
   cancel(dispose = false) {
     ++this.generation;
+    this.resolveBaseline?.(null);
+    this.resolveBaseline = this.baselinePending = null;
     this.key = null;
     this.results = null;
     this.displayKey = null;
@@ -42,7 +50,7 @@ export class MoveEvaluation {
       this.engine.dispose();
       this.engine = null;
     }
-    if (dispose) this.cache = null;
+    if (dispose) this.cache = this.boardBaseline = null;
   }
   render() {
     this.setHint(this.displayActive && this.eligible() && this.getHintHeld() && this.cache?.key === this.key
@@ -71,7 +79,9 @@ export class MoveEvaluation {
     }
     const allMoves = this.game.game.moves({ verbose: true });
     this.render(); // Pending squares remain ordinary until their endpoint is scored.
-    let baseline = null;
+    let baseline = null, resolveBaseline;
+    this.baselinePending = new Promise((resolve) => { resolveBaseline = resolve; });
+    this.resolveBaseline = resolveBaseline;
     const publish = (scores) => {
       if (!this.current(key, generation)) return;
       const byPiece = new Map();
@@ -94,7 +104,9 @@ export class MoveEvaluation {
         if (!engine.ready) await engine.initialize(1500);
         if (!this.current(key, generation)) return;
         baseline = await engine.scorePosition(fen);
-        if (!this.current(key, generation)) return;
+        if (!this.current(key, generation)) { resolveBaseline(null); return; }
+        this.boardBaseline = { key, score: baseline };
+        resolveBaseline(baseline);
         const scores = new Map();
         if (baseline) {
           // This search chooses each opponent reply; its scores are NOT the
@@ -141,12 +153,15 @@ export class MoveEvaluation {
         this.cache = { key, baseline, byPiece: this.results, bestFrom: best?.[0].slice(0, 2) ?? null };
         this.render();
       } catch {
+        resolveBaseline(null);
         // Failure is attempted only once for this position; never block normal play.
         if (this.current(key, generation)) {
           this.results = null;
           ++this.revision;
           this.render();
         }
+      } finally {
+        resolveBaseline(null); // Also settle shared-score readers after stale initialization.
       }
     })();
   }

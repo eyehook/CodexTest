@@ -23,7 +23,11 @@ function fixture() {
   const update = (tracked = true) => menu.update(frame, {}, tracked, camera);
   const press = (i, button, down) => { sources[i].gamepad.buttons[button].pressed = down; return update(); };
   update();
-  return { menu, settings, storage, world, sources, position, update, press, resets: () => resets };
+  const aim = (index) => {
+    menu.root.updateWorldMatrix(true, true);
+    menu.targets[index].getWorldPosition(position); position.z = 0;
+  };
+  return { menu, settings, storage, world, sources, position, update, press, aim, resets: () => resets };
 }
 test("Evaluate Move defaults off, validates stored booleans, and round-trips with other settings", () => {
   const f = fixture();
@@ -51,7 +55,7 @@ test("either pointer toggles on fresh trigger only; Save Changes closes and hide
   const f = fixture();
   f.press(0, 0, true); // Held trigger must not select on opening.
   f.press(0, 5, true);
-  f.position.set(0.27, 0.05, 0); f.update();
+  f.aim(0); f.update();
   assert.equal(f.menu.draft.evaluateMove, false);
   assert.equal(f.menu.pointers[0].visible, true);
   f.press(0, 0, false); f.press(0, 0, true);
@@ -59,14 +63,14 @@ test("either pointer toggles on fresh trigger only; Save Changes closes and hide
   f.update(); assert.equal(f.menu.draft.evaluateMove, true);
   f.press(1, 0, true); assert.equal(f.menu.draft.evaluateMove, false);
   f.press(1, 0, false);
-  f.position.set(0, -0.19, 0); f.press(1, 0, true);
+  f.aim(f.menu.targets.length - 1); f.press(1, 0, true);
   assert.equal(f.menu.open, false);
   assert.equal(f.menu.pointers.every((p) => !p.visible), true);
 });
 test("tracking recovery consumes held buttons and disables rays until tracked", () => {
   const f = fixture();
   f.press(0, 5, true); f.press(0, 5, false);
-  f.position.set(0.27, 0.05, 0);
+  f.aim(0);
   f.update(false);
   assert.equal(f.menu.pointers.every((p) => !p.visible), true);
   f.sources[0].gamepad.buttons[0].pressed = true;
@@ -75,4 +79,25 @@ test("tracking recovery consumes held buttons and disables rays until tracked", 
   assert.equal(f.menu.open, true); assert.equal(f.menu.draft.evaluateMove, false);
   f.press(0, 0, false); f.press(0, 0, true);
   assert.equal(f.menu.draft.evaluateMove, true);
+});
+
+test("Show Evaluation toggle is independent, defaults off and persists on Save Changes", () => {
+  const f = fixture();
+  assert.equal(f.settings.showEvaluation, false);
+  f.press(0, 5, true); f.aim(1); f.update(); f.press(0, 0, true);
+  assert.equal(f.menu.draft.showEvaluation, true);
+  assert.equal(f.menu.draft.evaluateMove, false);
+  assert.equal(f.settings.showEvaluation, false);
+  f.press(0, 0, false); f.aim(f.menu.targets.length - 1); f.press(0, 0, true);
+  assert.equal(f.menu.open, false);
+  assert.equal(new Settings(f.storage).showEvaluation, true);
+  assert.equal(new Settings(f.storage).evaluateMove, false);
+  assert.equal(new Settings({ getItem: () => '{"showEvaluation":"true"}' }).showEvaluation, false);
+});
+
+test("another modal blocks Options without leaving a deferred menu-button press", () => {
+  const f = fixture(); f.menu.canOpen = () => false;
+  f.press(0, 5, true); assert.equal(f.menu.open, false);
+  f.menu.canOpen = () => true; f.update(); assert.equal(f.menu.open, false);
+  f.press(0, 5, false); f.press(0, 5, true); assert.equal(f.menu.open, true);
 });

@@ -50,7 +50,7 @@ Chess editable sources live in `assets/chess/`: the active opponent is `opponent
 
 Run `npm test` with Node.js for the root suite covering Forest, Racer, Surface, Terrain, Fishing and Chess. No external npm dependencies are required for these tests. Swarm has its own package and tests; see its README. Use project-specific scripts from `package.json` for focused checks and `git diff --check` before committing.
 
-For the current Chess handoff, see [HANDOFF.md](projects/chess/HANDOFF.md): 115 Chess tests and the full root suite passed on 2026-10-24. The user authorized the HeadLP, gaze, blended-neck and documentation release on that date; consult Git status/log for current publication state. Automated checks do not establish headset appearance or performance.
+For the current Chess handoff, see [HANDOFF.md](projects/chess/HANDOFF.md): 188 Chess tests and the full root suite passed on 2026-10-26. The user authorized the glasses/mustache, blinking, evaluation gauge, undo and modal release on that date; consult Git status/log for actual publication state. Automated checks do not establish headset appearance or performance.
 
 Migrated from `Documents/Codex/Quest`; the original files are retained as a backup.
 

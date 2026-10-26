@@ -16,7 +16,7 @@ From the repository root, after saving Blender edits:
 
 | File                      | Role                                                                                                                                                                  |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ManLP-articulated.blend` | **Authoritative combined editable character.** 46 authoring bones; 32 runtime skinned meshes / 41 deform bones.                                                       |
+| `ManLP-articulated.blend` | **Authoritative combined editable character.** 46 authoring bones; 34 runtime skinned meshes / 41 deform bones.                                                       |
 | `ManLP.blend`             | Original user-supplied body; preserved.                                                                                                                               |
 | `ManLP-rigged.blend`      | Earlier bound rig with one bone per finger; preserved, no longer exported.                                                                                            |
 | `HeadLP.blend`            | Unmodified user-supplied eleven-part head/ears/eyes/eyelids/nose source. Not exported directly.                                                                       |
@@ -30,9 +30,23 @@ Do not use similarly named `.blend1` or `.blend2.blend` backups as the active so
 
 Body parts mostly use rigid weights. Each finger has three phalanges and each thumb has two, with blended weights at added knuckle cross sections. Keep bone names, rest orientations, native scale, armature modifiers and skin weights when editing. Arm lengths are approximately 0.273 m upper / 0.237 m forearm; no stretch is used.
 
-The eleven visible HeadLP parts were translated −0.8 m in Blender Z to align their head origin with the body. All head parts follow the existing `head` bone. Their materials are unassigned in the active source, so the browser supplies the existing skin palette, including eyes; the temporary charcoal sphere eyes are removed. There are no blink/mouth animation overlays or gameplay evaluation searches.
+The eleven visible HeadLP parts were translated −0.8 m in Blender Z to align their head origin with the body. All head parts follow the existing `head` bone. Their materials are unassigned in the active source, so the browser supplies the existing skin palette, including eyes; the temporary charcoal sphere eyes are removed. The existing upper/lower eyelids blink at runtime; there are no mouth animation overlays or evaluation-driven facial expressions.
 
 The separate neck mesh blends chest→head weights with smoothstep between Blender Z 0.60 and 0.71 m. Vertices below/above are fully chest/head weighted. The rest surface was preserved (measured drift below 0.000001 m); the collar stays with the chest during head turns. Preserve these groups when sculpting/editing.
+
+## Separate wire-rim glasses
+
+`GEO-wire_rim_glasses` is a separate mesh in the active combined Blender file: two oval wire rims, an arched bridge and temple wires curling behind the ears. No lenses are present. The rims are spaced 6 mm farther outward per side and sit 15 mm closer to the face than the initial accessory; the bridge is fitted against the nose-bridge mesh surface. Its `head` vertex group has full weight, with the same armature modifier as the head assembly, so it follows all head/torso motion. The named **Wire rim brushed silver** material is retained by the runtime (metalness 0.65, roughness 0.32). The export adds one skinned mesh and 3,524 triangles; existing bones and head/neck meshes are unchanged.
+
+`add-glasses.py` creates/recreates only its tagged accessory object, saves the active file and invokes `export.py`. Ordinary manual edits should be made directly in the active `.blend`, followed by the normal exporter. The generator disables automatic `.blend1` replacement to preserve existing user backups. If sandboxed Blender crashes, use the same command manually in Terminal as requested by the user.
+
+## Separate handlebar mustache
+
+The separate `mustache` mesh is a thick dark-brown handlebar shape with tapered curled tips, bound 100% to the existing head bone. Its named **Mustache dark brown hair** material remains distinct from skin and glasses. It adds one skinned mesh and 2,632 triangles. `add-mustache.py` creates/replaces only its tagged mustache object, fits the body below the actual nose (explicitly excluding the nose-bridge object), saves the active document and runs the normal exporter. Face and glasses geometry remain unchanged. As with the glasses generator, run manually in Terminal if sandboxed Blender crashes; user backups are preserved.
+
+## Runtime eyelid blinking
+
+The existing upper/lower eyelid objects blink together at randomized 2.5–6.5-second intervals. Closing takes 55–85 ms, holds for 15–35 ms, then reopens over 90–140 ms. `EyelidBlink.mjs` measures the matching eyeball center and rotates each lid's rest geometry around that pivot (upper +0.50 rad, lower −0.16 rad around model X); head skinning then applies normally. It does not scale the eyes, add meshes, alter Blender geometry or add bones. Lid normals rotate with the vertices, idle frames do not upload geometry, and reopening/reset restores exact rest arrays. `RiggedAvatar.update()` advances blinks alongside gaze, so hidden/untracked XR and Options pause both without catch-up.
 
 ## Browser animation
 

@@ -68,6 +68,27 @@ export class GameController {
       }
     }
   }
+  canUndo() {
+    return ["player", "grabbing"].includes(this.phase) && this.game.turn() === this.playerColor &&
+      this.game.history({ verbose: true }).some((move) => move.color === this.playerColor);
+  }
+  undoLastPlayerMove() {
+    if (!this.canUndo()) return false;
+    ++this.epoch;
+    this.opponent.cancel();
+    // Return to before the player's move, including the opponent's reply.
+    let move;
+    do { move = this.game.undo(); } while (move && move.color !== this.playerColor);
+    this.selected = this.promotion = null;
+    this.promotionPlaced = false;
+    this.last = this.game.history({ verbose: true }).at(-1) ?? null;
+    this.board.setBestMoveHint?.(null);
+    this.board.setMoveEvaluations?.(null);
+    this.board.sync(this.game);
+    this.phase = "player";
+    this.notify(this.status());
+    return true;
+  }
   beginGrab(square) {
     if (
       this.phase !== "player" ||

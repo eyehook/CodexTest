@@ -1,3 +1,4 @@
+import { EvaluationGauge } from "./EvaluationGauge.mjs?v=gauge-deadzone-1";
 import * as THREE from "../../forest/vendor/three.module.js";
 export function moveRows(history, limit = 8) {
   const rows = [];
@@ -21,14 +22,12 @@ export class TableControls {
     parent.add(this.root);
     this.root.position.set(0.52, 0.66, -0.7);
     this.targets = [];
-    this.status = this.label("Loading…", 0.44, 0.09);
-    this.status.rotation.x = 0;
-    this.root.add(this.status);
+    this.gauge = new EvaluationGauge(this.root);
     this.moves = this.label("", 0.44, 0.36);
     this.moves.rotation.x = 0;
     this.moves.position.y = -0.245;
     this.root.add(this.moves);
-    for (const panel of [this.status, this.moves]) {
+    for (const panel of [this.moves]) {
       const { width, height } = panel.geometry.parameters;
       const backing = new THREE.Mesh(
         new THREE.BoxGeometry(width + 0.012, height + 0.012, 0.012),
@@ -135,6 +134,12 @@ export class TableControls {
     });
     this.moves.material.map.needsUpdate = true;
   }
+  setEvaluation(visible, score, playerColor) {
+    this.gauge.update(visible, score, playerColor);
+  }
+  animate(dt) {
+    this.gauge.tick(dt);
+  }
   faceCamera(camera) {
     if (!this.root.visible) return;
     camera.getWorldPosition(this.viewerPosition);
@@ -142,10 +147,7 @@ export class TableControls {
   }
   update(message, history = []) {
     this.paintMoves(history);
-    if (message !== this.message) {
-      this.paint(this.status, message);
-      this.message = message;
-    }
+    this.message = message;
     this.targets = [];
     for (const mesh of this.buttons.values()) {
       mesh.visible = true;

@@ -1,3 +1,4 @@
+import { EyelidBlink } from "./EyelidBlink.mjs?v=eyelid-blink-1";
 import * as THREE from "../../forest/vendor/three.module.js";
 import { GLTFLoader } from "../../forest/vendor/GLTFLoader.js";
 import { OpponentAvatar } from "./OpponentAvatar.mjs";
@@ -41,11 +42,11 @@ export function repairMirroredWinding(geometry) {
 export class RiggedAvatar extends OpponentAvatar {
   static async load(parent) {
     const gltf = await new GLTFLoader().loadAsync(
-      OPPONENT_URL.href + "?v=neck-blend-1",
+      OPPONENT_URL.href + "?v=handlebar-mustache-1",
     );
     return new RiggedAvatar(parent, gltf.scene);
   }
-  constructor(parent, model) {
+  constructor(parent, model, { random = Math.random } = {}) {
     super();
     this.root = new THREE.Group();
     parent.add(this.root);
@@ -163,6 +164,7 @@ export class RiggedAvatar extends OpponentAvatar {
         .multiply(arm.handQ);
       this.configurePinch(arm, 0.014);
     }
+    this.blink = new EyelidBlink(model, { random });
     this.activeArm = 1;
     this.lean = 0;
     this.reset();
@@ -549,6 +551,7 @@ export class RiggedAvatar extends OpponentAvatar {
     this.lookTarget = worldPosition ? worldPosition.clone() : null;
   }
   update(dt) {
+    this.blink.update(dt);
     const desired = this.headRest.clone();
     if (this.lookTarget) {
       this.root.updateWorldMatrix(true, true);
@@ -605,6 +608,7 @@ export class RiggedAvatar extends OpponentAvatar {
     return this.attachment.getWorldPosition(new THREE.Vector3());
   }
   reset() {
+    this.blink.reset();
     this.lookTarget = null;
     this.head.quaternion.copy(this.headRest);
     this.setPosture(0);

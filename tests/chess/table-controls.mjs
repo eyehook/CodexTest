@@ -50,7 +50,7 @@ test("move columns group committed SAN by full-move number and retain newest row
     [{ number: 27, white: "", black: "O-O" }],
   );
 });
-test("status and move panels sit behind opponent right side with fixed column headers", () => {
+test("move list and optional evaluation gauge replace the status panel above the board", () => {
   const previous = globalThis.document,
     painted = [];
   globalThis.document = {
@@ -67,7 +67,9 @@ test("status and move panels sit behind opponent right side with fixed column he
     assert.ok(controls.root.position.x > 0.3);
     assert.ok(controls.root.position.y > 0.55);
     assert.ok(controls.root.position.z < -0.52);
-    assert.ok(controls.moves.position.y < controls.status.position.y);
+    assert.equal(controls.status, undefined);
+    assert.equal(controls.gauge.root.visible, false);
+    assert.ok(controls.moves.position.y < controls.gauge.root.position.y);
     assert.ok(painted.some(([text]) => text === "White"));
     assert.ok(painted.some(([text]) => text === "Black"));
     controls.update("Your turn", [{ color: "w", san: "e4" }]);

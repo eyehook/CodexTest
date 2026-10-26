@@ -34,7 +34,7 @@ test("actual Blender skeleton reaches all squares and carry heights with fixed a
   avatar.model.traverse((o) => {
     if (o.isSkinnedMesh) skins++;
   });
-  assert.equal(skins, 32);
+  assert.equal(skins, 34);
   for (let i = 0; i < 64; i++)
     for (const y of [0.04, 0.12, 0.23, 0.38]) {
       const point = squarePosition(squareName(i));
@@ -682,4 +682,80 @@ test("opponent smoothly watches player-held pieces on either board orientation w
     for (let i = 0; i < 120; i++) avatar.update(1 / 72);
     assert.ok(avatar.head.quaternion.angleTo(avatar.headRest) < 1e-5);
   }
+});
+
+test("separate wire glasses retain metal material, open rims and rigid head attachment", async () => {
+  const { root, avatar } = await fixture();
+  const glasses = avatar.model.getObjectByName("GEO-wire_rim_glasses");
+  assert.ok(glasses?.isSkinnedMesh);
+  assert.equal(glasses.material.name, "Wire rim brushed silver");
+  assert.ok(glasses.material.metalness > 0.6);
+  assert.equal(glasses.material.transparent, false);
+  assert.ok(glasses.geometry.index.count / 3 < 4000);
+  const head = glasses.skeleton.bones.indexOf(avatar.head);
+  const weights = glasses.geometry.attributes.skinWeight, ids = glasses.geometry.attributes.skinIndex;
+  for (let i = 0; i < weights.count; i++) {
+    assert.equal(ids.getX(i), head);
+    assert.equal(weights.getX(i), 1);
+  }
+  root.updateMatrixWorld(true); glasses.skeleton.update();
+  for (const x of [-0.0315, 0.0315]) {
+    const origin = avatar.model.localToWorld(new THREE.Vector3(x, 0.7814, 0.25));
+    const direction = new THREE.Vector3(0, 0, -1).transformDirection(avatar.model.matrixWorld);
+    const ray = new THREE.Raycaster(origin, direction);
+    assert.equal(ray.intersectObject(glasses, false).length, 0, "open rim contains no lens surface");
+  }
+  const sample = () => {
+    root.updateMatrixWorld(true); glasses.skeleton.update();
+    return [0, 512, weights.count - 1].map((i) => {
+      const world = glasses.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(glasses.matrixWorld);
+      return { world, local: avatar.head.worldToLocal(world.clone()) };
+    });
+  };
+  const before = sample();
+  avatar.setLookTarget(root.localToWorld(new THREE.Vector3(0.22, 0.08, 0.1)));
+  for (let i = 0; i < 120; i++) avatar.update(1 / 72);
+  const after = sample();
+  assert.ok(after.some((p, i) => p.world.distanceTo(before[i].world) > 0.005));
+  assert.ok(after.every((p, i) => p.local.distanceTo(before[i].local) < 1e-5));
+  avatar.reset();
+  assert.ok(sample().every((p, i) => p.world.distanceTo(before[i].world) < 1e-5));
+});
+
+test("separate handlebar mustache sits below the actual nose and follows the head rigidly", async () => {
+  const { root, avatar } = await fixture();
+  const mustache = avatar.model.getObjectByName("mustache");
+  assert.ok(mustache?.isSkinnedMesh);
+  assert.ok(avatar.model.getObjectByName("GEO-wire_rim_glasses"));
+  assert.equal(mustache.material.name, "Mustache dark brown hair");
+  assert.equal(mustache.material.transparent, false);
+  assert.ok(mustache.material.roughness >= 0.8);
+  assert.ok(mustache.geometry.index.count / 3 < 3000);
+  const weights = mustache.geometry.attributes.skinWeight, ids = mustache.geometry.attributes.skinIndex;
+  const head = mustache.skeleton.bones.indexOf(avatar.head);
+  for (let i = 0; i < weights.count; i++) {
+    assert.equal(ids.getX(i), head); assert.equal(weights.getX(i), 1);
+  }
+  root.updateMatrixWorld(true); mustache.skeleton.update();
+  const positions = Array.from({ length: weights.count }, (_, i) =>
+    avatar.model.worldToLocal(mustache.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(mustache.matrixWorld)));
+  const body = positions.filter((p) => Math.abs(p.x) < 0.025);
+  assert.ok(body.length > 0);
+  assert.ok(Math.max(...body.map((p) => p.y)) < 0.745, "body must anchor below the nose, not the nose bridge");
+  assert.ok(Math.min(...positions.map((p) => p.x)) < -0.06);
+  assert.ok(Math.max(...positions.map((p) => p.x)) > 0.06);
+  const sample = () => {
+    root.updateMatrixWorld(true); mustache.skeleton.update();
+    return [0, 600, weights.count - 1].map((i) => {
+      const world = mustache.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(mustache.matrixWorld);
+      return { world, local: avatar.head.worldToLocal(world.clone()) };
+    });
+  };
+  const before = sample();
+  avatar.setLookTarget(root.localToWorld(new THREE.Vector3(-0.22, 0.08, 0.1)));
+  for (let i = 0; i < 120; i++) avatar.update(1 / 72);
+  const after = sample();
+  assert.ok(after.some((p, i) => p.world.distanceTo(before[i].world) > 0.005));
+  assert.ok(after.every((p, i) => p.local.distanceTo(before[i].local) < 1e-5));
+  avatar.reset(); assert.ok(sample().every((p, i) => p.world.distanceTo(before[i].world) < 1e-5));
 });

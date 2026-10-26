@@ -2,10 +2,13 @@ import * as THREE from "../../forest/vendor/three.module.js";
 import { TableControls } from "./TableControls.mjs?v=move-display-1";
 
 // Add future option rows here; draft values are committed only on close.
-export const OPTION_ROWS = [{ key: "evaluateMove", label: "Evaluate Move" }];
+export const OPTION_ROWS = [
+  { key: "evaluateMove", label: "Evaluate Move" },
+  { key: "showEvaluation", label: "Show Evaluation" },
+];
 export class OptionsMenu {
-  constructor({ scene, world, settings, input, label }) {
-    Object.assign(this, { world, settings, input });
+  constructor({ scene, world, settings, input, label, menuButton = true, canOpen = () => true, panelHeight, buildContent }) {
+    Object.assign(this, { world, settings, input, menuButton, canOpen });
     this.root = new THREE.Group();
     this.root.visible = false;
     scene.add(this.root);
@@ -23,9 +26,11 @@ export class OptionsMenu {
       this.root.add(mesh);
       return mesh;
     };
-    const height = 0.40 + OPTION_ROWS.length * 0.14;
+    const height = panelHeight ?? 0.40 + OPTION_ROWS.length * 0.14;
     this.root.add(new THREE.Mesh(new THREE.PlaneGeometry(0.86, height),
       new THREE.MeshBasicMaterial({ color: 0x182a2c, side: THREE.DoubleSide })));
+    if (buildContent) buildContent({ addLabel, root: this.root, targets: this.targets });
+    else {
     addLabel("Options", 0.70, 0.11, 0, height / 2 - 0.08);
     OPTION_ROWS.forEach((row, i) => {
       const y = height / 2 - 0.22 - i * 0.14;
@@ -37,6 +42,7 @@ export class OptionsMenu {
     const save = addLabel("Save Changes", 0.46, 0.10, 0, -height / 2 + 0.08);
     save.userData.action = "save";
     this.targets.push(save);
+    }
     this.pointers = [0, 1].map(() => {
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(), new THREE.Vector3(0, 0, -1),
@@ -48,8 +54,8 @@ export class OptionsMenu {
   }
   paint(mesh, text) {
     const canvas = mesh.userData.canvas, ctx = canvas.getContext("2d");
-    const button = ["On", "Off", "Save Changes"].includes(text);
-    ctx.fillStyle = button ? text === "On" ? "#286854" : "#344e52" : "#182a2c";
+    const button = ["On", "Off", "Save Changes", "Yes", "No"].includes(text);
+    ctx.fillStyle = button ? ["On", "Yes"].includes(text) ? "#286854" : "#344e52" : "#182a2c";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#f1f0e8";
     ctx.textAlign = "center";
@@ -109,7 +115,7 @@ export class OptionsMenu {
       }
       const previous = this.states.get(source);
       const down = (index) => !!(source.gamepad.buttons[index]?.pressed || source.gamepad.buttons[index]?.value > 0.5);
-      const state = { menu: down(5), trigger: down(0), selecting: false };
+      const state = { menu: this.menuButton && down(5), trigger: down(0), selecting: false };
       state.menuEdge = !!previous && state.menu && !previous.menu;
       // Consume trigger until released after opening or tracking recovery.
       state.selecting = (this.open && !!previous && previous.selecting) || !state.trigger;
@@ -119,7 +125,7 @@ export class OptionsMenu {
     });
     if (samples.some((sample) => sample?.state.menuEdge)) {
       if (this.open) this.close();
-      else this.show(camera);
+      else if (this.canOpen()) this.show(camera);
       for (const sample of samples) if (sample) sample.state.selecting = false;
       return true;
     }

@@ -1,16 +1,18 @@
-import { MoveEvaluation } from "./MoveEvaluation.mjs?v=neutral-zero-1";
+import { UndoDialog } from "./UndoDialog.mjs?v=modal-hide-1";
+import { CurrentEvaluation } from "./CurrentEvaluation.mjs?v=gauge-turn-2";
+import { MoveEvaluation } from "./MoveEvaluation.mjs?v=gauge-1";
 import { MoveEvaluationOverlay } from "./MoveEvaluationOverlay.mjs?v=eval-surface-1";
 import { GameOverPanel } from "./GameOverPanel.mjs?v=result-art-1";
 import * as THREE from "../../forest/vendor/three.module.js";
 import { TableHandle } from "./TableHandle.mjs?v=air-grip-1";
-import { Settings } from "./Settings.mjs?v=options-1";
-import { OptionsMenu } from "./OptionsMenu.mjs?v=options-1";
+import { Settings } from "./Settings.mjs?v=gauge-1";
+import { OptionsMenu } from "./OptionsMenu.mjs?v=undo-1";
 import { ChessBoard } from "./ChessBoard.mjs?v=best-piece-1";
 import { EngineController } from "./EngineController.mjs?v=two-ply-1";
-import { GameController } from "./GameController.mjs?v=no-face-1";
+import { GameController } from "./GameController.mjs?v=undo-1";
 import { InputController } from "./InputController.mjs?v=best-piece-1";
-import { TableControls } from "./TableControls.mjs?v=move-display-1";
-import { RiggedAvatar } from "./RiggedAvatar.mjs?v=neck-blend-1";
+import { TableControls } from "./TableControls.mjs?v=gauge-deadzone-1";
+import { RiggedAvatar } from "./RiggedAvatar.mjs?v=eyelid-blink-1";
 import { OpponentAnimator } from "./OpponentAnimator.mjs?v=player-gaze-1";
 const $ = (id) => document.getElementById(id);
 const settings = new Settings();
@@ -133,13 +135,20 @@ const input = new InputController({
   tableHandle,
   onAction: action,
 });
-const options = new OptionsMenu({ scene, world, settings, input });
+let undoDialog;
+const options = new OptionsMenu({ scene, world, settings, input, canOpen: () => !undoDialog?.open });
+undoDialog = new UndoDialog({ scene, world, input, game });
 const moveEvaluation = new MoveEvaluation({
   game, settings,
   getHeld: () => input.getHeldPiece() ? input.held : null,
   overlay: new MoveEvaluationOverlay(board),
   getHintHeld: () => input.isBestMoveHintHeld(),
   onHint: (square) => board.setBestMoveHint(square),
+});
+const currentEvaluation = new CurrentEvaluation({
+  game, settings,
+  getSharedScore: (fen, epoch) => moveEvaluation.baselineFor(fen, epoch),
+  onChange: (score) => ui.setEvaluation(settings.showEvaluation, score, game.playerColor),
 });
 $("side").value = settings.side;
 $("side").onchange = () => {
@@ -208,7 +217,9 @@ renderer.xr.addEventListener("sessionstart", () => {
 });
 renderer.xr.addEventListener("sessionend", () => {
   options.close();
+  undoDialog.close();
   moveEvaluation.cancel(true);
+  currentEvaluation.cancel(true);
   game.interrupt();
   ui.root.visible = false;
   anchor.position.set(0, 0, 0);
@@ -250,13 +261,16 @@ renderer.setAnimationLoop((time, frame) => {
     const optionsConsumed = options.update(
       frame, reference, tracked, renderer.xr.getCamera(),
     );
-    if (!optionsConsumed) input.update(frame, reference, tracked);
+    const undoConsumed = undoDialog.update(frame, reference, tracked, renderer.xr.getCamera(), options.open);
+    if (!optionsConsumed && !undoConsumed) input.update(frame, reference, tracked);
   }
-  moveEvaluation.update(tracked && !options.open);
-  if (tracked && !options.open) {
+  moveEvaluation.update(tracked && !options.open && !undoDialog.open);
+  currentEvaluation.update();
+  if (tracked && !options.open && !undoDialog.open) {
     board.update(dt);
     opponent.update(dt, input.getHeldPiece());
     avatar.update(dt);
+    ui.animate(dt);
   }
   ui.faceCamera(renderer.xr.isPresenting ? renderer.xr.getCamera() : camera);
   gameOverPanel.faceCamera(
@@ -273,7 +287,10 @@ void game.restart(settings.elo, settings.side);
 // Read-only diagnostics for desktop/headset inspection.
 globalThis.chessDiagnostics = () => ({
   optionsOpen: options.open,
+  undoOpen: undoDialog.open,
   evaluateMove: settings.evaluateMove,
+  showEvaluation: settings.showEvaluation,
+  boardEvaluation: currentEvaluation.cache?.score ?? null,
   fen: game.game.fen(),
   phase: game.phase,
   playerColor: game.playerColor,
