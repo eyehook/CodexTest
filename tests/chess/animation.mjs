@@ -58,15 +58,9 @@ for (const rate of [30, 72, 120])
           piece.getWorldPosition(new THREE.Vector3()),
         );
         peakCarry = Math.max(peakCarry, local.y);
-        const source = squarePosition(move.from),
-          destination = squarePosition(move.to);
-        const delta = destination.clone().sub(source);
-        const horizontal = local.clone();
-        horizontal.y = 0;
-        const progress = horizontal.sub(source).dot(delta) / delta.lengthSq();
         assert.ok(
-          Math.abs(local.y - 4 * 0.18 * progress * (1 - progress)) < 1e-6,
-          "piece follows a single smooth arc without lift/carry corners",
+          Math.abs(local.y) < 1e-6,
+          "adjacent diagonal capture slides at board height",
         );
         assert.ok(
           piece
@@ -77,7 +71,7 @@ for (const rate of [30, 72, 120])
       }
     });
     assert.ok(carried);
-    assert.ok(peakCarry > 0.13);
+    assert.ok(Math.abs(peakCarry) < 1e-6);
     assert.equal(game.fen(), before);
     assert.equal(piece.parent, board.root);
     assert.ok(piece.position.distanceTo(squarePosition("d2")) < 1e-9);
@@ -215,3 +209,113 @@ test("attacking arm places and returns while captured piece is still in flight",
   assert.ok(returnDuringFlight);
   assert.equal(f.board.capturePhase, "idle");
 });
+
+for (const [from, to, slides] of [
+  ["d4", "d5", true], ["d4", "e4", true], ["d4", "e5", true],
+  ["d4", "c3", true], ["d4", "d2", false], ["d4", "f6", false],
+]) {
+  test(`opponent ${from}-${to} ${slides ? "slides" : "lifts"} on transformed boards`, async () => {
+    for (const flipped of [false, true]) {
+      const f = setup("7k/8/8/8/3q4/8/8/K7 b - - 0 1");
+      f.board.setPlayerColor(flipped ? "b" : "w");
+      f.root.updateMatrixWorld(true);
+      const piece = f.board.pieces.get(from);
+      let samples = 0, peak = 0;
+      const move = new Chess(f.game.fen()).move({ from, to });
+      await run(f.opponent, f.opponent.movePiece(move), 72, () => {
+        if (!["carry", "place"].includes(f.opponent.state)) return;
+        f.root.updateMatrixWorld(true);
+        const local = f.board.root.worldToLocal(piece.getWorldPosition(new THREE.Vector3()));
+        peak = Math.max(peak, local.y);
+        samples++;
+        if (slides) assert.ok(Math.abs(local.y) < 1e-6, "piece stays on board");
+      });
+      assert.ok(samples > 10);
+      if (!slides) assert.ok(peak > 0.17, "long move retains its lift");
+      assert.ok(piece.position.distanceTo(squarePosition(to)) < 1e-9);
+    }
+  });
+}
+
+
+for (const color of ["w", "b"])
+  test(`two-square ${color} pawn move slides for 0.9 seconds`, async () => {
+    const f = setup();
+    f.board.setPlayerColor(color === "w" ? "b" : "w");
+    const from = color === "w" ? "e2" : "e7";
+    const to = color === "w" ? "e4" : "e5";
+    const piece = f.board.pieces.get(from);
+    const move = new Chess(color === "w" ? undefined :
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1").move({ from, to });
+    let samples = 0;
+    const travel = f.opponent.travel.bind(f.opponent);
+    f.opponent.travel = (target, seconds, generation, onProgress, arcHeight) => {
+      if (f.opponent.state === "carry") assert.equal(seconds, 0.9);
+      return travel(target, seconds, generation, onProgress, arcHeight);
+    };
+    await run(f.opponent, f.opponent.movePiece(move), 72, () => {
+      if (!["carry", "place"].includes(f.opponent.state)) return;
+      f.root.updateMatrixWorld(true);
+      const local = f.board.root.worldToLocal(piece.getWorldPosition(new THREE.Vector3()));
+      assert.ok(Math.abs(local.y) < 1e-6, "pawn remains on board throughout slide");
+      samples++;
+    });
+    assert.ok(samples > 50);
+    assert.ok(piece.position.distanceTo(squarePosition(to)) < 1e-9);
+  });
+
+for (const color of ["w", "b"])
+  for (const side of ["k", "q"])
+    for (const placed of [true, false])
+      test(`player ${color} ${side}-side castling rook arcs after ${placed ? "placed" : "animated"} king`, async () => {
+        const f = setup(`r3k2r/8/8/8/8/8/8/R3K2R ${color} KQkq - 0 1`);
+        f.board.setPlayerColor(color);
+        const rank = color === "w" ? "1" : "8";
+        const from = `e${rank}`, to = `${side === "k" ? "g" : "c"}${rank}`;
+        const rookFrom = `${side === "k" ? "h" : "a"}${rank}`;
+        const rookTo = `${side === "k" ? "f" : "d"}${rank}`;
+        const move = new Chess(f.game.fen()).move({ from, to });
+        const king = f.board.pieces.get(from), rook = f.board.pieces.get(rookFrom);
+        if (placed) king.position.copy(squarePosition(to));
+        const before = f.game.fen();
+        const pending = placed ? f.board.finishPlacement(move) : f.board.animateMove(move);
+        let peak = 0, samples = 0;
+        await run(f.opponent, pending, 72, () => {
+          assert.equal(f.game.fen(), before, "animation does not commit rules");
+          f.root.updateMatrixWorld(true);
+          const local = f.board.root.worldToLocal(rook.getWorldPosition(new THREE.Vector3()));
+          if (local.y > 1e-6) {
+            samples++;
+            peak = Math.max(peak, local.y);
+            assert.ok(king.position.distanceTo(squarePosition(to)) < 1e-8,
+              "rook flight starts after king lands");
+            const source = squarePosition(rookFrom), dest = squarePosition(rookTo);
+            const t = (local.x - source.x) / (dest.x - source.x);
+            assert.ok(t > 0 && t < 1);
+            assert.ok(Math.abs(local.y - 4 * 0.15 * t * (1 - t)) < 1e-8);
+          }
+        });
+        assert.ok(samples > 20 && peak > 0.14);
+        assert.ok(rook.position.distanceTo(squarePosition(rookTo)) < 1e-9);
+      });
+
+for (const placed of [true, false])
+  test(`restart cancels player castling rook flight (${placed ? "placed" : "animated"})`, async () => {
+    const f = setup("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1");
+    const move = new Chess(f.game.fen()).move("O-O");
+    const rook = f.board.pieces.get("h1");
+    if (placed) f.board.pieces.get("e1").position.copy(squarePosition("g1"));
+    const pending = placed ? f.board.finishPlacement(move) : f.board.animateMove(move);
+    for (let i = 0; i < 100 && rook.position.y < 0.03; i++) {
+      f.board.update(1 / 72);
+      await Promise.resolve();
+    }
+    assert.ok(rook.position.y > 0.03);
+    f.board.sync(f.game);
+    await pending;
+    f.board.update(1);
+    assert.equal(rook.parent, null);
+    assert.ok(f.board.pieces.get("h1").position.distanceTo(squarePosition("h1")) < 1e-9);
+    assert.ok(f.board.pieces.get("e1"));
+    assert.equal(f.board.motion.jobs.size, 0);
+  });

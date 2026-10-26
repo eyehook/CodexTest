@@ -547,7 +547,8 @@ export class RiggedAvatar extends OpponentAvatar {
     this.root.updateWorldMatrix(true, true);
     return this.getHandPosition().distanceTo(worldPosition);
   }
-  setLookTarget(worldPosition) {
+  setLookTarget(worldPosition, response = 10) {
+    this.gazeResponse = response;
     this.lookTarget = worldPosition ? worldPosition.clone() : null;
   }
   update(dt) {
@@ -583,7 +584,7 @@ export class RiggedAvatar extends OpponentAvatar {
         )
         .multiply(worldQ);
     }
-    this.head.quaternion.slerp(desired, 1 - Math.exp(-10 * Math.max(0, dt)));
+    this.head.quaternion.slerp(desired, 1 - Math.exp(-(this.gazeResponse ?? 10) * Math.max(0, dt)));
     this.head.updateWorldMatrix(true, true);
   }
   closestArm(worldPosition) {

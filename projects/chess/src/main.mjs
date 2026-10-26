@@ -7,13 +7,13 @@ import * as THREE from "../../forest/vendor/three.module.js";
 import { TableHandle } from "./TableHandle.mjs?v=air-grip-1";
 import { Settings } from "./Settings.mjs?v=gauge-1";
 import { OptionsMenu } from "./OptionsMenu.mjs?v=undo-1";
-import { ChessBoard } from "./ChessBoard.mjs?v=best-piece-1";
+import { ChessBoard } from "./ChessBoard.mjs?v=castle-rook-1";
 import { EngineController } from "./EngineController.mjs?v=two-ply-1";
 import { GameController } from "./GameController.mjs?v=undo-1";
 import { InputController } from "./InputController.mjs?v=best-piece-1";
 import { TableControls } from "./TableControls.mjs?v=gauge-deadzone-1";
-import { RiggedAvatar } from "./RiggedAvatar.mjs?v=neck-jaw-refit-1";
-import { OpponentAnimator } from "./OpponentAnimator.mjs?v=player-gaze-1";
+import { RiggedAvatar } from "./RiggedAvatar.mjs?v=idle-gaze-1";
+import { OpponentAnimator } from "./OpponentAnimator.mjs?v=head-tracking-1";
 const $ = (id) => document.getElementById(id);
 const settings = new Settings();
 const scene = new THREE.Scene();
@@ -238,16 +238,20 @@ const resize = () => {
 new ResizeObserver(resize).observe($("viewport"));
 resize();
 applyPosition();
+const playerHeadPosition = new THREE.Vector3();
 let previous = 0;
 let lastDiagnostics = 0;
 renderer.setAnimationLoop((time, frame) => {
   const dt = previous ? Math.min((time - previous) / 1000, 0.05) : 0;
   previous = time;
   let tracked = true;
+  if (!frame) camera.getWorldPosition(playerHeadPosition);
   if (frame) {
     const reference = renderer.xr.getReferenceSpace(),
       pose = frame.getViewerPose(reference);
     tracked = !!pose && renderer.xr.getSession().visibilityState === "visible";
+    // The XR reference space is the scene frame; only the table has an anchor.
+    if (pose) playerHeadPosition.copy(pose.transform.position);
     if (needsAnchor && pose) {
       const p = pose.transform.position,
         q = pose.transform.orientation;
@@ -268,7 +272,13 @@ renderer.setAnimationLoop((time, frame) => {
   currentEvaluation.update();
   if (tracked && !options.open && !undoDialog.open) {
     board.update(dt);
-    opponent.update(dt, input.getHeldPiece());
+    opponent.update(
+      dt, input.getHeldPiece(),
+      game.phase === "thinking" || game.phase === "promotion" ||
+        (game.phase === "moving" && opponent.state === "rest"),
+      game.phase === "player",
+      playerHeadPosition,
+    );
     avatar.update(dt);
     ui.animate(dt);
   }

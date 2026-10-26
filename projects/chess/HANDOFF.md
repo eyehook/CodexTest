@@ -10,6 +10,10 @@ Snapshot: **2026-10-26**. Includes wire-rim glasses, a separate handlebar mustac
 
 Repository: `/Users/mm/Documents/GitHub/CodexTest`; remote `https://github.com/eyehook/CodexTest.git`; branch `main`. Chess is buildless. Do not edit the original Quest backup or create a Sites project for this existing local application.
 
+## Movement and gaze release — 2026-10-26
+
+The user reviewed and approved the movement/gaze changes and requested a GitHub push on 2026-10-26. This release builds on neck-refit commit `6375ad3`: adjacent opponent moves and all pawn moves slide (0.5 seconds for one square, 0.9 seconds for double pawn advances), the player-to-opponent gaze gap stays on the board, player-turn idle gaze alternates slowly between live head tracking and pieces of either color, and player castling animates the rook in an arc. All 211 Chess tests, the full root suite and `git diff --check` passed. The user reported that it all looks good. Blender backups remain excluded. Consult Git log for this release commit and actual publication state.
+
 ## Working-tree and publication state
 
 Published baseline: **a9e68c0 — Add chess avatar details, evaluation gauge and modal undo** (after **fa4af74**, Options and cached move hints). That baseline includes:
@@ -88,6 +92,22 @@ The undo-label disappearance was reproduced in a browser at oblique views with t
 ## Neck/jaw fit — 2026-10-26
 
 The active Blender source and GLB now have a tapered/recessed upper neck beneath the jaw. `assets/chess/opponent/refit-neck.py` changes only neck vertices, with smooth influence from Blender Z 0.64–0.73 m; source originals are stored on the neck object for idempotent reruns. The user ran the generator manually. Verification against the prior release: 116 changed neck vertices, 76 unchanged collar vertices, unchanged skin weights and unchanged geometry in all other 33 meshes. Existing chest/head blending and collar anchors remain intact. Cache URLs are updated for this asset revision. The user approved its appearance and authorized commit/push on 2026-10-26. All 188 Chess tests and the full root suite passed; no formal Quest performance benchmark was recorded.
+
+## Adjacent opponent moves — 2026-10-26
+
+In this release: opponent moves whose file/rank distance is at most one square slide along the board, including diagonal captures and single-step promotions. One-square slides take 0.5 seconds. All pawn moves slide, with two-square pawn advances taking 0.9 seconds; longer moves by other pieces retain the existing 0.9-second arch. Reach, pinch, release, capture timing and return remain unchanged.
+
+## Gaze handoff — 2026-10-26
+
+In this release: retain the last board gaze target during player placement, promotion and opponent thinking, bridging the gap before the opponent starts reaching. His own piece still takes gaze priority throughout its motion; the existing look back toward the player on arm return is preserved. Cancellation clears the retained target; an initial computer turn defaults to board center.
+
+## Player-turn idle gaze — 2026-10-26
+
+In this release: during an idle player turn, alternate a gaze that follows the current player head position with random board pieces of either color, dwelling 3–6 seconds per target. Successive board glances choose different pieces when available. Idle head transitions use a slower response; held-piece and opponent-move tracking retain their existing priority and speed. Idle timing pauses with scene animation, resets on active tracking/turn changes, and cancellation clears retained state.
+
+## Player castling rook — 2026-10-26
+
+In this release: after the player places the castling king, the rook floats to its castled square on a 0.55-second, 0.15 m-high arc. Desktop animated king moves use the same rook flight. The transaction commits and opponent thinking begins only after the rook lands. Board sync/restart cancels the flight; opponent castling retains its existing hand-driven sequence.
 
 ## Current behavior to preserve
 

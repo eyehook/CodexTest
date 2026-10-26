@@ -282,7 +282,7 @@ test("unavailable storage and malformed advertised range are safe", () => {
   assert.doesNotThrow(() => s.save());
   assert.throws(() => effectiveElo(1500, {}));
 });
-test("player capture, en passant and castling snap correctly and commit once", async () => {
+test("player capture, en passant and castling settle before committing once", async () => {
   for (const [fen, from, to, captured] of [
     ["4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1", "e4", "d5", "d5"],
     ["4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1", "e5", "d6", "d5"],
@@ -302,10 +302,17 @@ test("player capture, en passant and castling snap correctly and commit once", a
         0,
         "capture must land before commit",
       );
+    let rookInFlight = false;
     for (let frame = 0; frame < 150; frame++) {
       f.board.update(1 / 72);
+      if (from === "e1" && f.board.pieces.get("h1")?.position.y > 0.01) {
+        rookInFlight = true;
+        assert.equal(f.game.game.history().length, 0, "castling waits for rook landing");
+        assert.equal(f.game.phase, "moving");
+      }
       await Promise.resolve();
     }
+    if (from === "e1") assert.ok(rookInFlight);
     await tick();
     assert.ok(f.game.game.get(to));
     assert.equal(f.game.game.history().length, 1);

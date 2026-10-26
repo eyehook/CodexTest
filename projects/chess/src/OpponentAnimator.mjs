@@ -2,23 +2,69 @@ import * as THREE from "../../forest/vendor/three.module.js";
 import { Motion } from "./Motion.mjs";
 import { squarePosition } from "./ChessBoard.mjs";
 export class OpponentAnimator {
-  constructor(board, avatar) {
+  constructor(board, avatar, { random = Math.random } = {}) {
     this.board = board;
     this.avatar = avatar;
+    this.random = random;
     this.motion = new Motion();
     this.generation = 0;
     this.state = "rest";
   }
-  update(dt, playerPiece = null) {
+  update(dt, playerPiece = null, keepBoardGaze = false, idleGaze = false, playerHead = null) {
     this.motion.update(dt);
     const piece = this.lookPiece ?? playerPiece;
     if (piece) {
+      this.idleGaze = null;
       if (!piece.geometry.boundingBox) piece.geometry.computeBoundingBox();
       const center = piece.geometry.boundingBox.getCenter(new THREE.Vector3());
-      this.avatar.setLookTarget?.(piece.localToWorld(center));
-    } else this.avatar.setLookTarget?.(null);
+      this.boardLookTarget = piece.localToWorld(center);
+      this.avatar.setLookTarget?.(this.boardLookTarget);
+    } else if (keepBoardGaze) {
+      this.idleGaze = null;
+      // Bridge player placement and engine thinking without looking back up.
+      this.avatar.setLookTarget?.(
+        this.boardLookTarget ?? this.board.root.localToWorld(new THREE.Vector3()),
+      );
+    } else if (idleGaze && this.state === "rest") {
+      this.updateIdleGaze(dt, playerHead);
+    } else {
+      this.idleGaze = null;
+      this.boardLookTarget = null;
+      this.avatar.setLookTarget?.(null);
+    }
+  }
+  updateIdleGaze(dt, playerHead = null) {
+    const dwell = () => 3 + this.random() * 3;
+    if (!this.idleGaze) this.idleGaze = { piece: null, remaining: dwell() };
+    const gaze = this.idleGaze;
+    gaze.remaining -= Math.min(0.05, Math.max(0, dt));
+    // Both colors are eligible; captured pieces are outside this map.
+    const pieces = [...this.board.pieces.values()];
+    if (gaze.remaining <= 0) {
+      if (gaze.piece) gaze.piece = null;
+      else {
+        const candidates = pieces.filter((piece) => piece !== this.lastIdlePiece);
+        const choices = candidates.length ? candidates : pieces;
+        gaze.piece = choices[Math.floor(this.random() * choices.length)] ?? null;
+        this.lastIdlePiece = gaze.piece;
+      }
+      gaze.remaining = dwell();
+    }
+    if (gaze.piece && !pieces.includes(gaze.piece)) gaze.piece = null;
+    if (gaze.piece) {
+      const piece = gaze.piece;
+      if (!piece.geometry.boundingBox) piece.geometry.computeBoundingBox();
+      this.boardLookTarget = piece.localToWorld(
+        piece.geometry.boundingBox.getCenter(new THREE.Vector3()),
+      );
+    } else this.boardLookTarget = null;
+    // A slower response gives idle glances a relaxed transition in both directions.
+    this.avatar.setLookTarget?.(gaze.piece ? this.boardLookTarget : playerHead, 1.5);
   }
   cancel() {
+    this.idleGaze = null;
+    this.lastIdlePiece = null;
+    this.boardLookTarget = null;
     this.lookPiece = null;
     this.avatar.setLookTarget?.(null);
     ++this.generation;
@@ -112,18 +158,22 @@ export class OpponentAnimator {
     this.avatar.attachment.attach(piece);
     this.state = "carry";
     let capture = null;
-    // One uninterrupted arch joins pickup and placement, including descent.
+    // Pawns always slide; other pieces slide only to adjacent squares.
+    const adjacent = Math.max(
+      Math.abs(to.charCodeAt(0) - from.charCodeAt(0)),
+      Math.abs(Number(to[1]) - Number(from[1])),
+    ) === 1;
     if (
       !(await this.travel(
         destLow,
-        0.9,
+        adjacent ? 0.5 : 0.9,
         generation,
         (t) => {
           if (t >= 0.85) this.state = "place";
           if (move?.captured && !capture && t >= 0.85)
             capture = this.board.removeCapture(move);
         },
-        0.18,
+        adjacent || move?.piece === "p" ? 0 : 0.18,
       ))
     )
       return false;

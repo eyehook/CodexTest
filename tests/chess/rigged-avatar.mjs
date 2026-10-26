@@ -767,3 +767,168 @@ test("separate handlebar mustache sits below the actual nose and follows the hea
   assert.ok(after.every((p, i) => p.local.distanceTo(before[i].local) < 1e-5));
   avatar.reset(); assert.ok(sample().every((p, i) => p.world.distanceTo(before[i].world) < 1e-5));
 });
+
+
+test("gaze stays on the board between player release and opponent pickup", async () => {
+  const { root, avatar } = await fixture();
+  const board = new ChessBoard(root);
+  board.sync(new Chess());
+  const opponent = new OpponentAnimator(board, avatar);
+  const playerPiece = board.pieces.get("e2");
+  opponent.update(1 / 72, playerPiece);
+  const releasedTarget = avatar.lookTarget.clone();
+  for (let i = 0; i < 36; i++) {
+    opponent.update(1 / 72, null, true);
+    avatar.update(1 / 72);
+    assert.ok(avatar.lookTarget.distanceTo(releasedTarget) < 1e-6);
+    assert.equal(opponent.state, "rest");
+  }
+  const pending = opponent.movePiece({ from: "a7", to: "a6", flags: "n" });
+  opponent.update(1 / 72, null, true);
+  const piece = board.pieces.get("a7");
+  assert.ok(avatar.lookTarget.distanceTo(piece.localToWorld(
+    piece.geometry.boundingBox.getCenter(new THREE.Vector3()),
+  )) < 1e-6, "own moving piece takes gaze priority");
+  opponent.cancel();
+  await pending;
+  assert.equal(avatar.lookTarget, null);
+  assert.equal(opponent.boardLookTarget, null);
+  opponent.update(1 / 72, null, true);
+  assert.ok(avatar.lookTarget.distanceTo(root.localToWorld(new THREE.Vector3())) < 1e-6,
+    "initial computer turn watches board without a previous held piece");
+  opponent.update(1 / 72);
+  assert.equal(avatar.lookTarget, null);
+});
+
+test("player-turn idle gaze alternates slowly between player and different board pieces", async () => {
+  for (const color of ["w", "b"]) {
+    const { root, avatar } = await fixture();
+    const board = new ChessBoard(root);
+    board.sync(new Chess());
+    board.setPlayerColor(color);
+    const opponent = new OpponentAnimator(board, avatar, { random: () => 0.5 });
+    const wrists = avatar.arms.map((arm) => arm.hand.getWorldPosition(new THREE.Vector3()));
+    const changes = [];
+    let previousTarget, previousChange = 0, maxTurn = 0;
+    for (let frame = 0; frame < 72 * 23; frame++) {
+      const before = avatar.head.quaternion.clone();
+      opponent.update(1 / 72, null, false, true);
+      avatar.update(1 / 72);
+      maxTurn = Math.max(maxTurn, before.angleTo(avatar.head.quaternion));
+      assert.equal(avatar.gazeResponse, 1.5);
+      const target = opponent.idleGaze.piece;
+      if (frame === 0 || target !== previousTarget) {
+        if (frame > 0) assert.ok(Math.abs((frame - previousChange) / 72 - 4.5) < 0.03);
+        changes.push(target);
+        previousTarget = target;
+        previousChange = frame;
+      }
+      if (target) {
+        assert.ok(avatar.lookTarget.distanceTo(target.localToWorld(
+          target.geometry.boundingBox.getCenter(new THREE.Vector3()),
+        )) < 1e-6);
+      } else assert.equal(avatar.lookTarget, null);
+    }
+    assert.equal(changes.length, 6);
+    assert.equal(changes[0], null);
+    assert.ok(changes[1] && changes[3] && changes[5]);
+    assert.equal(changes[2], null);
+    assert.equal(changes[4], null);
+    assert.notEqual(changes[1], changes[3]);
+    assert.notEqual(changes[3], changes[5]);
+    assert.ok(maxTurn > 0.001 && maxTurn < 0.04, "slow head motion without a snap");
+    avatar.arms.forEach((arm, i) => assert.ok(
+      arm.hand.getWorldPosition(new THREE.Vector3()).distanceTo(wrists[i]) < 1e-6,
+    ));
+    const remaining = opponent.idleGaze.remaining;
+    for (let i = 0; i < 100; i++) opponent.update(0, null, false, true);
+    assert.equal(opponent.idleGaze.remaining, remaining, "paused time does not advance idle gaze");
+    const held = board.pieces.get(color === "w" ? "e2" : "e7");
+    opponent.update(1 / 72, held, false, true);
+    assert.equal(opponent.idleGaze, null);
+    assert.equal(avatar.gazeResponse, 10, "held pieces retain responsive tracking");
+    const heldTarget = avatar.lookTarget.clone();
+    opponent.update(1 / 72, null, true);
+    assert.ok(avatar.lookTarget.distanceTo(heldTarget) < 1e-6, "thinking retains held-piece gaze");
+    opponent.update(1 / 72);
+    assert.equal(avatar.lookTarget, null, "outside player turn idle gaze stops");
+    opponent.update(1 / 72, null, false, true);
+    opponent.cancel();
+    assert.equal(opponent.idleGaze, null);
+    assert.equal(opponent.lastIdlePiece, null);
+    assert.equal(avatar.lookTarget, null);
+  }
+});
+
+test("idle dwell randomizes from three to six seconds and tolerates an empty board", async () => {
+  const { root, avatar } = await fixture();
+  const board = new ChessBoard(root);
+  for (const random of [() => 0, () => 0.999]) {
+    const opponent = new OpponentAnimator(board, avatar, { random });
+    opponent.update(0, null, false, true);
+    assert.ok(opponent.idleGaze.remaining >= 3 && opponent.idleGaze.remaining < 6);
+    const initial = opponent.idleGaze.remaining;
+    for (let i = 0; i < Math.ceil(initial * 72) + 1; i++)
+      opponent.update(1 / 72, null, false, true);
+    assert.equal(avatar.lookTarget, null);
+    assert.ok(opponent.idleGaze.remaining > 2.9);
+  }
+});
+
+test("player-facing idle gaze follows the live head position with smooth turns", async () => {
+  for (const color of ["w", "b"]) {
+    const { root, avatar } = await fixture();
+    const board = new ChessBoard(root);
+    board.sync(new Chess());
+    board.setPlayerColor(color);
+    const opponent = new OpponentAnimator(board, avatar, { random: () => 0.999 });
+    const head = root.localToWorld(new THREE.Vector3(0, 0.65, 0.8));
+    opponent.update(0, null, false, true, head);
+    const initialDwell = opponent.idleGaze.remaining;
+    const initialRotation = avatar.head.quaternion.clone();
+    for (let i = 0; i < 144; i++) {
+      head.x += 0.002;
+      head.y += 0.0005;
+      const before = avatar.head.quaternion.clone();
+      opponent.update(1 / 72, null, false, true, head);
+      avatar.update(1 / 72);
+      assert.ok(avatar.lookTarget.distanceTo(head) < 1e-9, "uses current head position each frame");
+      assert.ok(before.angleTo(avatar.head.quaternion) < 0.04, "head tracking remains smooth");
+      assert.equal(opponent.idleGaze.piece, null);
+    }
+    assert.ok(initialRotation.angleTo(avatar.head.quaternion) > 0.1);
+    assert.ok(Math.abs(opponent.idleGaze.remaining - (initialDwell - 2)) < 1e-8,
+      "player movement does not reset the dwell");
+    opponent.idleGaze.remaining = 0;
+    opponent.update(0, null, false, true, head);
+    const selected = opponent.idleGaze.piece;
+    assert.ok(selected);
+    head.addScalar(0.2);
+    opponent.update(1 / 72, null, false, true, head);
+    assert.ok(avatar.lookTarget.distanceTo(selected.localToWorld(
+      selected.geometry.boundingBox.getCenter(new THREE.Vector3()),
+    )) < 1e-9, "board glances remain on the selected piece despite head movement");
+  }
+});
+
+test("random board glances can select every white and black piece on either orientation", async () => {
+  const { root, avatar } = await fixture();
+  const board = new ChessBoard(root);
+  board.sync(new Chess());
+  const pieces = [...board.pieces.values()];
+  for (const color of ["w", "b"]) {
+    board.setPlayerColor(color);
+    const selectedColors = new Set();
+    for (let index = 0; index < pieces.length; index++) {
+      const opponent = new OpponentAnimator(board, avatar, {
+        random: () => (index + 0.5) / pieces.length,
+      });
+      opponent.update(0, null, false, true);
+      opponent.idleGaze.remaining = 0;
+      opponent.update(0, null, false, true);
+      assert.equal(opponent.idleGaze.piece, pieces[index]);
+      selectedColors.add(opponent.idleGaze.piece.userData.color);
+    }
+    assert.deepEqual(selectedColors, new Set(["w", "b"]));
+  }
+});

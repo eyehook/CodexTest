@@ -422,17 +422,34 @@ export class ChessBoard {
     return true;
   }
   async finishPlacement(move) {
-    if (!move.captured) return;
     const generation = this.generation;
-    const capture = this.captureTask;
-    const piece = this.pieces.get(move.from);
-    if (!piece) return;
-    const from = piece.position.clone(),
-      to = squarePosition(move.to);
-    await this.motion.tween(0.22, (t) =>
-      piece.position.lerpVectors(from, to, t),
-    );
-    await capture;
+    if (move.captured) {
+      const capture = this.captureTask;
+      const piece = this.pieces.get(move.from);
+      if (!piece) return;
+      const from = piece.position.clone(),
+        to = squarePosition(move.to);
+      const complete = await this.motion.tween(0.22, (t) =>
+        piece.position.lerpVectors(from, to, t),
+      );
+      if (!complete || generation !== this.generation) return;
+      await capture;
+    }
+    if (generation === this.generation) await this.animateCastlingRook(move, generation);
+  }
+  async animateCastlingRook(move, generation) {
+    const kingSide = move.flags.includes("k");
+    if (!kingSide && !move.flags.includes("q")) return;
+    if (generation !== this.generation) return;
+    const rank = move.from[1];
+    const rook = this.pieces.get(`${kingSide ? "h" : "a"}${rank}`);
+    if (!rook) throw new Error("Missing castling rook");
+    const from = rook.position.clone(),
+      to = squarePosition(`${kingSide ? "f" : "d"}${rank}`);
+    await this.motion.tween(0.55, (t) => {
+      rook.position.lerpVectors(from, to, t);
+      rook.position.y += 4 * 0.15 * t * (1 - t);
+    });
   }
   async animateMove(move) {
     const piece = this.pieces.get(move.from);
@@ -442,10 +459,12 @@ export class ChessBoard {
       return;
     const from = piece.position.clone(),
       to = squarePosition(move.to);
-    await this.motion.tween(0.35, (t) => {
+    const complete = await this.motion.tween(0.35, (t) => {
       piece.position.lerpVectors(from, to, t);
       piece.position.y = Math.sin(t * Math.PI) * 0.15;
     });
+    if (complete && generation === this.generation)
+      await this.animateCastlingRook(move, generation);
   }
   update(dt) {
     this.motion.update(dt);
