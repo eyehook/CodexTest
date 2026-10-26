@@ -580,3 +580,31 @@ test("gaze exposes only a currently valid held piece and clears on release or tr
   stale.game.epoch++;
   assert.equal(stale.input.getHeldPiece(), null);
 });
+
+for (const hand of [0, 1]) {
+  test(`A/X hold on hand ${hand} is read independently of grip/trigger and clears on tracking loss`, async () => {
+    const f = await fixture();
+    for (const source of f.sources) {
+      source.gamepad.mapping = "xr-standard";
+      source.gamepad.buttons[4] = { value: 0 };
+    }
+    f.press(hand, 4, 1);
+    assert.equal(f.input.isBestMoveHintHeld(), true);
+    assert.equal(f.input.held, null);
+    f.press(1 - hand, 4, 1); f.press(hand, 4, 0);
+    assert.equal(f.input.isBestMoveHintHeld(), true);
+    f.press(1 - hand, 4, 0); assert.equal(f.input.isBestMoveHintHeld(), false);
+    f.press(hand, 4, 1); f.lose(hand);
+    assert.equal(f.input.isBestMoveHintHeld(), false);
+  });
+}
+test("hint hold ignores other mappings and clears when hidden or reset", async () => {
+  const f = await fixture();
+  f.sources[0].gamepad.buttons[4] = { value: 1 };
+  f.update(); assert.equal(f.input.isBestMoveHintHeld(), false);
+  f.sources[0].gamepad.mapping = "xr-standard";
+  f.update(); assert.equal(f.input.isBestMoveHintHeld(), true);
+  f.update(false); assert.equal(f.input.isBestMoveHintHeld(), false);
+  f.update(); assert.equal(f.input.isBestMoveHintHeld(), true);
+  f.input.reset(); assert.equal(f.input.isBestMoveHintHeld(), false);
+});

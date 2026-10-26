@@ -1,11 +1,14 @@
+import { MoveEvaluation } from "./MoveEvaluation.mjs?v=neutral-zero-1";
+import { MoveEvaluationOverlay } from "./MoveEvaluationOverlay.mjs?v=eval-surface-1";
 import { GameOverPanel } from "./GameOverPanel.mjs?v=result-art-1";
 import * as THREE from "../../forest/vendor/three.module.js";
 import { TableHandle } from "./TableHandle.mjs?v=air-grip-1";
-import { Settings } from "./Settings.mjs?v=ratings-2";
-import { ChessBoard } from "./ChessBoard.mjs?v=coordinates-1";
-import { EngineController } from "./EngineController.mjs?v=face-1";
+import { Settings } from "./Settings.mjs?v=options-1";
+import { OptionsMenu } from "./OptionsMenu.mjs?v=options-1";
+import { ChessBoard } from "./ChessBoard.mjs?v=best-piece-1";
+import { EngineController } from "./EngineController.mjs?v=two-ply-1";
 import { GameController } from "./GameController.mjs?v=no-face-1";
-import { InputController } from "./InputController.mjs?v=player-gaze-1";
+import { InputController } from "./InputController.mjs?v=best-piece-1";
 import { TableControls } from "./TableControls.mjs?v=move-display-1";
 import { RiggedAvatar } from "./RiggedAvatar.mjs?v=neck-blend-1";
 import { OpponentAnimator } from "./OpponentAnimator.mjs?v=player-gaze-1";
@@ -130,6 +133,14 @@ const input = new InputController({
   tableHandle,
   onAction: action,
 });
+const options = new OptionsMenu({ scene, world, settings, input });
+const moveEvaluation = new MoveEvaluation({
+  game, settings,
+  getHeld: () => input.getHeldPiece() ? input.held : null,
+  overlay: new MoveEvaluationOverlay(board),
+  getHintHeld: () => input.isBestMoveHintHeld(),
+  onHint: (square) => board.setBestMoveHint(square),
+});
 $("side").value = settings.side;
 $("side").onchange = () => {
   settings.side = $("side").value;
@@ -196,6 +207,8 @@ renderer.xr.addEventListener("sessionstart", () => {
   applyPosition();
 });
 renderer.xr.addEventListener("sessionend", () => {
+  options.close();
+  moveEvaluation.cancel(true);
   game.interrupt();
   ui.root.visible = false;
   anchor.position.set(0, 0, 0);
@@ -234,9 +247,13 @@ renderer.setAnimationLoop((time, frame) => {
       anchor.rotation.y = Math.atan2(-forward.x, -forward.z);
       needsAnchor = false;
     }
-    input.update(frame, reference, tracked);
+    const optionsConsumed = options.update(
+      frame, reference, tracked, renderer.xr.getCamera(),
+    );
+    if (!optionsConsumed) input.update(frame, reference, tracked);
   }
-  if (tracked) {
+  moveEvaluation.update(tracked && !options.open);
+  if (tracked && !options.open) {
     board.update(dt);
     opponent.update(dt, input.getHeldPiece());
     avatar.update(dt);
@@ -255,6 +272,8 @@ renderer.setAnimationLoop((time, frame) => {
 void game.restart(settings.elo, settings.side);
 // Read-only diagnostics for desktop/headset inspection.
 globalThis.chessDiagnostics = () => ({
+  optionsOpen: options.open,
+  evaluateMove: settings.evaluateMove,
   fen: game.game.fen(),
   phase: game.phase,
   playerColor: game.playerColor,

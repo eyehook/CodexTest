@@ -75,6 +75,7 @@ export class InputController {
         trigger: false,
         grip: false,
         hover: null,
+        hint: false,
       };
       controller.addEventListener("connected", (e) => {
         this.loseHand(hand);
@@ -112,6 +113,7 @@ export class InputController {
     for (const hand of this.hands) {
       hand.armed = false;
       hand.tracked = false;
+      hand.hint = false;
       hand.sphere.visible = false;
       hand.axes.visible = false;
       hand.hover = null;
@@ -123,6 +125,7 @@ export class InputController {
     hand.controlHover = null;
     if (this.held?.owner === hand) this.cancelHeld();
     hand.tracked = false;
+    hand.hint = false;
     hand.armed = false;
     hand.hover = null;
     hand.sphere.visible = false;
@@ -147,6 +150,9 @@ export class InputController {
       this.held = null;
       this.board.setInteraction();
     }
+  }
+  isBestMoveHintHeld() {
+    return this.hands.some((hand) => hand.tracked && hand.hint);
   }
   getHeldPiece() {
     this.checkHeld();
@@ -237,6 +243,7 @@ export class InputController {
         continue;
       }
       hand.tracked = true;
+      hand.hint = source.gamepad.mapping === "xr-standard" && buttonDown(source.gamepad.buttons[4], hand.hint);
       hand.sphere.visible = true;
       const p = pose.transform.position;
       hand.sphere.position.set(p.x, p.y, p.z);

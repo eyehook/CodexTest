@@ -25,6 +25,7 @@ export class Settings {
       saved =
         JSON.parse(this.storage?.getItem("codextest.chess.v1") || "{}") || {};
     } catch {}
+    this.evaluateMove = saved.evaluateMove === true;
     this.side = SIDES.includes(saved.side) ? saved.side : "white";
     this.elo = RATINGS.includes(Number(saved.elo)) ? Number(saved.elo) : 1500;
     for (const [k, value, min, max] of [
@@ -40,6 +41,7 @@ export class Settings {
       this.storage.setItem(
         "codextest.chess.v1",
         JSON.stringify({
+          evaluateMove: this.evaluateMove,
           elo: this.elo,
           side: this.side,
           height: this.height,

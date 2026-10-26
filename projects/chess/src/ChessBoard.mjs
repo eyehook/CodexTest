@@ -1,3 +1,4 @@
+import { evaluationColor, squareEvaluations } from "./MoveEvaluationOverlay.mjs?v=eval-surface-1";
 import { BoardCoordinates } from "./BoardCoordinates.mjs";
 import { knightGeometry } from "./KnightGeometry.mjs?v=edited-knight-1";
 import * as THREE from "../../forest/vendor/three.module.js";
@@ -95,6 +96,12 @@ export class ChessBoard {
     this.blackHoverMaterial = this.materials.b.clone();
     this.blackHoverMaterial.emissive.setHex(0x99651c);
     this.blackHoverMaterial.emissiveIntensity = 0.65;
+    this.bestMoveMaterials = Object.fromEntries(["w", "b"].map((color) => {
+      const material = this.materials[color].clone();
+      material.emissive.setHex(0x2299ff);
+      material.emissiveIntensity = 0.9;
+      return [color, material];
+    }));
     this.interaction = { hovered: new Set(), over: null, valid: false };
     this.squares = new THREE.InstancedMesh(
       new THREE.BoxGeometry(CELL, 0.008, CELL),
@@ -141,6 +148,16 @@ export class ChessBoard {
     this.coordinates.setPlayerColor(color);
     this.root.rotation.y = color === "b" ? Math.PI : 0;
     this.root.updateWorldMatrix(true, true);
+  }
+  setBestMoveHint(square) {
+    if (this.bestMoveHint === square) return;
+    this.bestMoveHint = square;
+    if (this.highlightState) this.highlight(this.highlightState);
+  }
+  setMoveEvaluations(entries) {
+    this.moveEvaluationActive = entries !== null;
+    this.moveEvaluationDeltas = squareEvaluations(entries ?? []);
+    if (this.highlightState) this.highlight(this.highlightState);
   }
   setInteraction({ hovered = [], over = null, valid = false } = {}) {
     const key = `${[...hovered].sort().join(",")}:${over}:${valid}`;
@@ -312,8 +329,9 @@ export class ChessBoard {
     this.highlightState = state;
     const { game, last, selected } = state;
     for (const [square, piece] of this.pieces) {
-      piece.material =
-        this.interaction.hovered.has(square) || square === selected
+      piece.material = square === this.bestMoveHint
+        ? this.bestMoveMaterials[piece.userData.color]
+        : this.interaction.hovered.has(square) || square === selected
           ? piece.userData.color === "w"
             ? this.hoverMaterial
             : this.blackHoverMaterial
@@ -335,10 +353,14 @@ export class ChessBoard {
       const light = ((i % 8) + Math.floor(i / 8)) % 2 === 1;
       let color = light ? 0xd9d1b9 : 0x607571;
       if (last && (sq === last.from || sq === last.to)) color = 0x9caa64;
-      if (legal.has(sq)) color = 0x67bd9e;
+      if (legal.has(sq)) {
+        color = this.moveEvaluationActive
+          ? evaluationColor(this.moveEvaluationDeltas.get(sq)) ?? (light ? 0xd9d1b9 : 0x607571)
+          : 0x67bd9e;
+      }
       if (sq === selected) color = 0xe9ba59;
       if (sq === checkSquare) color = 0xd96659;
-      if (sq === this.interaction.over)
+      if (sq === this.interaction.over && !(this.moveEvaluationActive && legal.has(sq)))
         color = this.interaction.valid ? 0x32e6a3 : 0xe67255;
       this.squares.setColorAt(i, new THREE.Color(color));
     }
