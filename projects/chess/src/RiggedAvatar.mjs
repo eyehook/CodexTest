@@ -42,7 +42,7 @@ export function repairMirroredWinding(geometry) {
 export class RiggedAvatar extends OpponentAvatar {
   static async load(parent) {
     const gltf = await new GLTFLoader().loadAsync(
-      OPPONENT_URL.href + "?v=handlebar-mustache-1",
+      OPPONENT_URL.href + "?v=neck-jaw-refit-1",
     );
     return new RiggedAvatar(parent, gltf.scene);
   }

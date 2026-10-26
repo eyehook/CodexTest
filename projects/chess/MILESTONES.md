@@ -50,6 +50,10 @@ During a normal player turn, push either thumbstick left to open **“Do you wan
 
 Real-board regressions cover White/Black takebacks, repeated undo, captures, castling, en passant, promotion and turn locks. Modal tests cover either stick, pointer Yes/No, fresh presses, Options exclusion and restart. Browser layout/Yes/No flow checked; Quest controller/comfort review remains pending.
 
+## Neck/jaw fit — 2026-10-26
+
+Upper neck tapers and recedes beneath the jaw instead of flaring beneath the ears. Source/export updated together; existing rig/weights, lower collar and all other meshes are preserved. Real-asset regressions check the narrower upper neck, intact collar and head/chest motion. User approved the appearance and authorized commit/push on 2026-10-26. All 188 Chess tests and the full root suite pass.
+
 ## Latest validation
 
 On 2026-10-26, **188 Chess tests passed**, the full repository test command passed and `git diff --check` passed. Chess tests require no external npm installation. Relevant commands:
@@ -66,7 +70,7 @@ Desktop browser checks during development confirmed real engine loading/play, cu
 
 ## Snapshot of release state
 
-Previous release: **fa4af74**, Options and cached move-evaluation hints. The user authorized the 2026-10-26 commit/push including glasses and mustache source/export/generators, runtime eyelid blinking, the evaluation gauge, undo and modal fixes, tests and documentation. Blender backups remain untracked. Consult Git status/log for the actual publication state; later releases require authorization.
+Published baseline: **a9e68c0**, avatar details, evaluation gauge and modal undo (following **fa4af74**, Options and cached move-evaluation hints). The user also approved the neck/jaw refit and authorized its publication on 2026-10-26. The user authorized the 2026-10-26 commit/push including glasses and mustache source/export/generators, runtime eyelid blinking, the evaluation gauge, undo and modal fixes, tests and documentation. Blender backups remain untracked. Consult Git status/log for the actual publication state; later releases require authorization.
 
 ## Remaining limitations
 

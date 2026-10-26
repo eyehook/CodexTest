@@ -590,6 +590,14 @@ test("neck blends from chest to head and its collar stays anchored during head t
   avatar.model.traverse((o) => {
     if (o.name.startsWith("GEO-neck_")) neck = o;
   });
+  const rest = neck.geometry.attributes.position;
+  const upper = [], collar = [];
+  for (let i = 0; i < rest.count; i++) {
+    if (rest.getY(i) > 0.72) upper.push(Math.abs(rest.getX(i)));
+    if (rest.getY(i) < 0.64) collar.push(Math.abs(rest.getX(i)));
+  }
+  assert.ok(upper.length && Math.max(...upper) < 0.05, "upper neck no longer flares under ears");
+  assert.ok(Math.max(...collar) > 0.1, "broad lower collar is preserved");
   const chest = neck.skeleton.bones.indexOf(avatar.bones.chest),
     head = neck.skeleton.bones.indexOf(avatar.bones.head);
   const weights = neck.geometry.attributes.skinWeight,

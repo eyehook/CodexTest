@@ -1,6 +1,6 @@
 # Chess agent handoff
 
-Snapshot: **2026-10-26**. Includes wire-rim glasses, a separate handlebar mustache, natural eyelid blinking, the player-turn evaluation gauge and modal undo. The user authorized committing and pushing these changes on 2026-10-26; future releases still require authorization.
+Snapshot: **2026-10-26**. Includes wire-rim glasses, a separate handlebar mustache, natural eyelid blinking, the player-turn evaluation gauge modal undo and the approved neck/jaw refit. The user authorized committing and pushing these changes on 2026-10-26; future releases still require authorization.
 
 ## Start here
 
@@ -12,13 +12,15 @@ Repository: `/Users/mm/Documents/GitHub/CodexTest`; remote `https://github.com/e
 
 ## Working-tree and publication state
 
-The previous published release was **fa4af74 — Add chess options and cached move evaluation hints**. This release adds:
+Published baseline: **a9e68c0 — Add chess avatar details, evaluation gauge and modal undo** (after **fa4af74**, Options and cached move hints). That baseline includes:
 
 - Separate frames-only wire glasses and a thick handlebar mustache in the active Blender document and exported GLB, with reproducible accessory generators.
 - Natural blinking of the existing eyelid meshes around eyeball centers.
 - Persisted Show Evaluation option, a red/white/green semicircular player-turn gauge, smooth needle movement and a ±0.1 neutral dead zone.
 - Left-thumbstick Yes/No undo for either hand, restoring the last player move and opponent reply with complete history/capture reconstruction.
 - Stable modal layering and scene hiding while dialogs are open, plus regression tests and updated documentation.
+
+The current user-authorized release adds the approved upper-neck/jaw refit, its Blender generator, source/export, cache updates and regression checks. The user approved its appearance and requested publication on 2026-10-26.
 
 Keep the active Blender source and GLB together. User/Blender backups `ManLP-articulated.blend1` and `ManLP-articulated.blend2.blend` remain untracked and outside this release. The original `HeadLP.blend` source remains untouched. Inspect Git status/log for actual current publication state.
 
@@ -83,6 +85,10 @@ During a normal player turn, push either thumbstick left to open **“Do you wan
 
 The undo-label disappearance was reproduced in a browser at oblique views with the former shared transparent layer; explicit backdrop/content/ray layers correct it. Regression moves one pointer while the other points away and shifts the camera. Quest verification of this fix remains pending.
 
+## Neck/jaw fit — 2026-10-26
+
+The active Blender source and GLB now have a tapered/recessed upper neck beneath the jaw. `assets/chess/opponent/refit-neck.py` changes only neck vertices, with smooth influence from Blender Z 0.64–0.73 m; source originals are stored on the neck object for idempotent reruns. The user ran the generator manually. Verification against the prior release: 116 changed neck vertices, 76 unchanged collar vertices, unchanged skin weights and unchanged geometry in all other 33 meshes. Existing chest/head blending and collar anchors remain intact. Cache URLs are updated for this asset revision. The user approved its appearance and authorized commit/push on 2026-10-26. All 188 Chess tests and the full root suite passed; no formal Quest performance benchmark was recorded.
+
 ## Current behavior to preserve
 
 - Direct controller proximity pickup in normal play; Options mode uses pointers. Open-space grip positions the environment; there is no gold handle. Desktop launcher/dragging remain.
@@ -92,7 +98,7 @@ The undo-label disappearance was reproduced in a browser at oblique views with t
 - Actual Blender skin rig with fixed native arm lengths, torso lean and closest-hand choice. No extra old-hand return arc when already resting.
 - Three bones per finger, two per thumb; palms face down. Thumb contact was accepted by the user. First index bone extends straight from the hand; remaining joints reach forward/down to a lower contact near the thumb. The earlier shared-contact and lateral index-curl experiments are superseded. Unused fingers curl in separate lanes.
 - HeadLP head, ears, eyes, eyelids and nose; eyes match skin. Existing HeadLP eyelid meshes blink around their eyeball centers; no procedural mouth or evaluation-driven facial expressions. Gaze watches the actual piece center; own move has priority over player-held piece. Arms stay idle while observing the player. Clear gaze on drop, interruption and restart.
-- Neck skin is smoothly chest→head weighted (Blender Z 0.60–0.71 m), preserving rest geometry. User approved the improvement. Do not replace this with rigid neck weights.
+- Neck skin is smoothly chest→head weighted (Blender Z 0.60–0.71 m), with the approved upper-neck taper/recession and intact lower collar. User approved the improvement. Do not replace this with rigid neck weights.
 
 Main frame order is input → board motion → opponent motion/gaze (`input.getHeldPiece()`) → avatar gaze smoothing → render. XR animation pauses if hidden/untracked. Keep world/local conversions correct for table translation/yaw and the Black-facing board. Restart cancels tweens/workers and epochs prevent stale commits.
 

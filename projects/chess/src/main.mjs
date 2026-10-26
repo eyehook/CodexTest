@@ -12,7 +12,7 @@ import { EngineController } from "./EngineController.mjs?v=two-ply-1";
 import { GameController } from "./GameController.mjs?v=undo-1";
 import { InputController } from "./InputController.mjs?v=best-piece-1";
 import { TableControls } from "./TableControls.mjs?v=gauge-deadzone-1";
-import { RiggedAvatar } from "./RiggedAvatar.mjs?v=eyelid-blink-1";
+import { RiggedAvatar } from "./RiggedAvatar.mjs?v=neck-jaw-refit-1";
 import { OpponentAnimator } from "./OpponentAnimator.mjs?v=player-gaze-1";
 const $ = (id) => document.getElementById(id);
 const settings = new Settings();

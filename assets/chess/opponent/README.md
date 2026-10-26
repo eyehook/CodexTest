@@ -32,7 +32,7 @@ Body parts mostly use rigid weights. Each finger has three phalanges and each th
 
 The eleven visible HeadLP parts were translated −0.8 m in Blender Z to align their head origin with the body. All head parts follow the existing `head` bone. Their materials are unassigned in the active source, so the browser supplies the existing skin palette, including eyes; the temporary charcoal sphere eyes are removed. The existing upper/lower eyelids blink at runtime; there are no mouth animation overlays or evaluation-driven facial expressions.
 
-The separate neck mesh blends chest→head weights with smoothstep between Blender Z 0.60 and 0.71 m. Vertices below/above are fully chest/head weighted. The rest surface was preserved (measured drift below 0.000001 m); the collar stays with the chest during head turns. Preserve these groups when sculpting/editing.
+The separate neck mesh blends chest→head weights with smoothstep between Blender Z 0.60 and 0.71 m. Vertices below/above are fully chest/head weighted. The 2026-10-26 jaw refit tapers/recesses the upper neck from Blender Z 0.64–0.73 m, removing the lateral flare under the ears. `refit-neck.py` preserves the lower collar and all chest/head weights, stores the original neck vertices for idempotent reruns, saves the active source and exports GLB. Verification against the prior release found 116 changed neck vertices, 76 unchanged collar vertices, identical skin weights and unchanged geometry in the other 33 meshes. The collar stays with the chest during head turns. Preserve these groups when sculpting/editing.
 
 ## Separate wire-rim glasses
 
