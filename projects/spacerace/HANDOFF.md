@@ -58,9 +58,10 @@ Run from the repository root:
 
 ```sh
 npm run test:spacerace
-npm test
 git diff --check
 ```
+
+For isolated Space Race code changes, these project checks suffice before publishing. Run the full root suite only for shared or cross-project changes; documentation-only edits need content/link checks and `git diff --check`.
 
 Twelve Space Race tests and the complete root suite passed before the implementation release. Tests cover units, speed limits/integrated distances across frame rates, coasting, bounds/distribution, recycling/spacing, trigger mapping, FPS sampling, refresh startup ordering and audio model/lifecycle. Desktop browser checks exercised rendering, acceleration, braking, mouse look and sound controls without console warnings/errors. Some browser visual checks preceded the final speed/range changes; automated checks cover the final parameters.
 
@@ -77,3 +78,11 @@ Two unrelated untracked backups existed before this work: `assets/chess/opponent
 `config.mjs` exports the requested `RING_WAKE_SEGMENTS`, `RING_WAKE_FRAME_COUNT`, `RING_WAKE_REFERENCE_HZ`, and `RING_WAKE_ENABLED` constants (8, 12, 120, true). The visual reference rate does not change headset refresh settings. `main.js` delegates only ring updates to the module; particle behavior, movement, controls, HUD and audio remain unchanged. Entry/import cache versions were advanced.
 
 The twelfth project test covers wake lengths including 300 mph (44 feet), continuous topology/radius, material settings, hiding at zero speed, reused geometry and shared transforms through repeated recycling. Desktop full-speed shader/rendering checked without console errors. Physical Quest checks for stereo alignment, transparency appearance, temporal effect and sustained 120 FPS remain pending. The user accepted the final appearance (five rings, #112233, 12-frame wakes) and authorized this release to GitHub. The complete root suite and all twelve project tests passed before release. Formal sustained headset performance measurements remain pending. This handoff is included with the release; use Git history for its final commit ID.
+
+## Additional reference
+
+[Former root project notes](ROOT_CONTEXT.md) preserve the project-specific material removed from AGENTS.md. These are optional historical context; this handoff and current source/Git state take precedence.
+
+## Repository guidance update
+
+Root AGENTS.md now contains shared guidance and a project handoff index. Project-specific root notes were preserved in handoffs or optional ROOT_CONTEXT.md reference files. Isolated project changes use project checks; shared tooling/code changes use the affected broader suite. Documentation-only edits use content/link and whitespace checks. The repository now has a shared release checklist and `npm run test:forest`; there is no CI workflow, and future CI should follow the selective-testing policy. The full root suite and documentation links passed for this tooling/documentation update. Space Race runtime behavior is unchanged. The user authorized publishing this update.

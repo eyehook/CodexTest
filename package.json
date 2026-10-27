@@ -16,7 +16,8 @@
     "build:fishing": "vite build --config projects/fishing/vite.config.mjs",
     "test:fishing": "node --test tests/fishing/*.mjs",
     "test:chess": "node --test tests/chess/*.mjs",
-    "test:spacerace": "node --test tests/spacerace.mjs"
+    "test:spacerace": "node --test tests/spacerace.mjs",
+    "test:forest": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs && node tests/forest-haptics.mjs && node tests/fireflies.mjs && node tests/forest-flight.mjs"
   },
   "devDependencies": {
     "vite": "^7.1.0"
