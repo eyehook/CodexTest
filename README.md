@@ -6,6 +6,8 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
+- [Space Race](projects/spacerace/): a straight-line WebXR speed experiment with instanced particle streaks and rings; [controls and validation](projects/spacerace/README.md).
+
 - [VR Chess](projects/chess/): seated chess against a local Stockfish opponent, with direct hand pickup, a rigged Blender opponent and smooth piece-following head motion; [setup and licensing](projects/chess/README.md), [agent handoff](projects/chess/HANDOFF.md).
 
 - [Fishing](projects/fishing/): independent copy of Terrain as the foundation for a fishing simulator; [setup and validation](projects/fishing/README.md).
