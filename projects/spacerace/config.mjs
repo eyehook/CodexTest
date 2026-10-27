@@ -8,6 +8,12 @@ export const CONFIG = Object.freeze({
   densityCurve: [[0,200],[0.25,400],[0.5,800],[0.75,1500],[1,3000]],
   stretchExponent: 1.7, ringRadius: 20 * FT, ringSpacing: 200 * FT,
   whooshReach: 65 * FT, whooshFrequency: 350, whooshLowpass: 1200, whooshVolume: 0.325,
-  ringCount: 8, // Extend the ring sequence independently of the particle draw distance.
-  ringColor: 0xb6deff, ringThickness: 0.25 * FT,
+  ringCount: 5, // Extend the ring sequence independently of the particle draw distance.
+  ringColor: 0x112233, ringThickness: 0.25 * FT,
 });
+
+// Visual trail reference only; independent of the XR refresh-rate request.
+export const RING_WAKE_SEGMENTS = 8;
+export const RING_WAKE_FRAME_COUNT = 12;
+export const RING_WAKE_REFERENCE_HZ = 120;
+export const RING_WAKE_ENABLED = true;

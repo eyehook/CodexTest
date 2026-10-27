@@ -20,7 +20,7 @@ test('acceleration, braking, coasting and both speed limits integrate across fra
  const capped=integrateSpeed(439*FT,1,0,1);close(capped.distance,(440-1/120)*FT);
 });
 test('fixed pool remains stopped, recycles within cylinder and keeps ring spacing',()=>{
- const sim=new Simulation();assert.equal(sim.rings.length,8);close(sim.rings.at(-1),-1600*FT);const positions=sim.positions.slice(),rings=sim.rings.slice();
+ const sim=new Simulation();assert.equal(sim.rings.length,5);close(sim.rings.at(-1),-1000*FT);const positions=sim.positions.slice(),rings=sim.rings.slice();
  sim.step(1);assert.deepEqual(sim.positions,positions);assert.deepEqual(sim.rings,rings);
  sim.speed=c.maxSpeed;
  for(let frame=0;frame<3000;frame++)sim.step(1/72);
@@ -117,4 +117,32 @@ test('particle annulus samples uniform area between 10 and 200 feet',()=>{
  const middle=new Simulation(c,()=>0.5);
  const expected=Math.sqrt((c.fieldInnerRadius**2+c.fieldRadius**2)/2);
  assert.ok(Math.abs(Math.hypot(middle.positions[0],middle.positions[1])-expected)<1e-5);
+});
+
+test('ring wakes use continuous eight-segment geometry, linear alpha and shared recycling transforms',async()=>{
+ const THREE=await import('../projects/forest/vendor/three.module.js');
+ const {wakeLength,createRings}=await import('../projects/spacerace/rings.js');
+ for(const feet of [0,100,200,300,440])close(wakeLength(feet*FT)/FT,feet*12/120);
+ close(wakeLength(30,3,90),1);
+ const system=createRings(c,c.ringCount),geometry=system.wakes.geometry;
+ assert.equal(geometry.attributes.position.count,9*129);
+ assert.equal(geometry.index.count,8*128*6);
+ for(let row=0;row<=8;row++)for(let col=0;col<=128;col++){
+  const index=row*129+col,p=geometry.attributes.position;
+  close(p.getZ(index),-row/8);
+  assert.ok(Math.abs(Math.hypot(p.getX(index),p.getY(index))-c.ringRadius)<1e-6);
+ }
+ assert.equal(system.wakes.instanceMatrix,system.rings.instanceMatrix);
+ assert.equal(system.wakes.material.blending,THREE.AdditiveBlending);
+ assert.equal(system.wakes.material.depthWrite,false);assert.equal(system.wakes.material.depthTest,true);
+ assert.equal(system.wakes.material.side,THREE.DoubleSide);assert.equal(system.wakes.material.forceSinglePass,true);
+ const sim=new Simulation(c);system.update(sim.rings,0);assert.equal(system.wakes.visible,false);
+ sim.speed=c.maxSpeed;
+ for(let i=0;i<1000;i++){sim.step(1/120);system.update(sim.rings,sim.speed);}
+ for(let i=0;i<c.ringCount;i++)close(system.rings.instanceMatrix.array[i*16+14],Math.fround(sim.rings[i]));
+ assert.equal(system.wakes.visible,true);close(system.wakes.material.uniforms.length.value,c.maxSpeed*12/120);
+ assert.equal(system.wakes.geometry,geometry);
+ system.update(sim.rings,30);close(system.wakes.material.uniforms.length.value,3);
+ assert.match(system.wakes.material.vertexShader,/opacity=1.0\+position.z/);
+ assert.match(system.wakes.material.fragmentShader,/vec4\(color,opacity\)/);
 });

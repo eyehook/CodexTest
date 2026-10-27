@@ -1,6 +1,7 @@
 import * as THREE from '../forest/vendor/three.module.js';
-import {CONFIG as c, FT} from './config.mjs?v=10';
+import {CONFIG as c, FT} from './config.mjs?v=17';
 import {Simulation,densityAt,triggerInput} from './simulation.mjs?v=3';
+import {createRings} from './rings.js?v=7';
 import {createParticles} from './particles.js';
 import {FrameRate} from './frame-rate.mjs?v=1';
 import {RingAudio} from './ring-audio.mjs?v=2';
@@ -21,9 +22,7 @@ soundButton.textContent=sound.available?'Sound: On':'Sound unavailable';
 soundButton.addEventListener('click',()=>{soundButton.textContent=sound.toggle()?'Sound: On':'Sound: Off';});
 const audioPosition=new THREE.Vector3(),audioForward=new THREE.Vector3(),audioUp=new THREE.Vector3(),audioOrientation=new THREE.Quaternion(),worldInverse=new THREE.Quaternion();
 window.addEventListener('pagehide',()=>sound.dispose(),{once:true});
-const rings=new THREE.InstancedMesh(new THREE.RingGeometry(c.ringRadius-c.ringThickness/2,c.ringRadius+c.ringThickness/2,128),new THREE.MeshBasicMaterial({color:c.ringColor,side:THREE.DoubleSide}),sim.rings.length);
-rings.instanceMatrix.setUsage(THREE.DynamicDrawUsage);rings.frustumCulled=false;world.add(rings);
-const matrix=new THREE.Matrix4(), identity=new THREE.Quaternion(), unit=new THREE.Vector3(1,1,1), ringPosition=new THREE.Vector3();
+const rings=createRings(c,sim.rings.length);world.add(rings.group);
 const hudCanvas=document.createElement('canvas');hudCanvas.width=768;hudCanvas.height=160;
 const ctx=hudCanvas.getContext('2d'), texture=new THREE.CanvasTexture(hudCanvas);texture.colorSpace=THREE.SRGBColorSpace;
 const hud=new THREE.Mesh(new THREE.PlaneGeometry(0.74,0.154),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthTest:false,depthWrite:false}));
@@ -75,7 +74,7 @@ renderer.setAnimationLoop((time,frame)=>{
  audioForward.set(0,0,-1).applyQuaternion(audioOrientation);audioUp.set(0,1,0).applyQuaternion(audioOrientation);
  sound.update(sim.rings,sim.speed,active&&!anchorPending,audioPosition,audioForward,audioUp);
  particles.update(density);
- for(let i=0;i<sim.rings.length;i++){ringPosition.set(0,0,sim.rings[i]);matrix.compose(ringPosition,identity,unit);rings.setMatrixAt(i,matrix);}rings.instanceMatrix.needsUpdate=true;
+ rings.update(sim.rings,sim.speed);
  hud.visible=!!session&&active&&!anchorPending;
  if(hud.visible){
   targetOrientation.copy(eyeOrientation);offset.set(0,-0.38,-1.7).applyQuaternion(targetOrientation);targetPosition.copy(eyePosition).add(offset);
