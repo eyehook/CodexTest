@@ -86,3 +86,7 @@ The twelfth project test covers wake lengths including 300 mph (44 feet), contin
 ## Repository guidance update
 
 Root AGENTS.md now contains shared guidance and a project handoff index. Project-specific root notes were preserved in handoffs or optional ROOT_CONTEXT.md reference files. Isolated project changes use project checks; shared tooling/code changes use the affected broader suite. Documentation-only edits use content/link and whitespace checks. The repository now has a shared release checklist and `npm run test:forest`; there is no CI workflow, and future CI should follow the selective-testing policy. The full root suite and documentation links passed for this tooling/documentation update. Space Race runtime behavior is unchanged. The user authorized publishing this update.
+
+## Weather release review — 2026-10-27
+
+Reviewed before the Weather project push as required by root guidance. Space Race runtime and settings are unchanged. The full root suite, including the twelve Space Race tests, passed for the Weather release. Existing headset validation limits remain as documented above.

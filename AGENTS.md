@@ -10,6 +10,7 @@ Read this file, inspect `git status`, then read the target project's handoff and
 
 | Project | Start here | Source/build overview |
 | --- | --- | --- |
+| Weather / Snowfall | [Handoff](projects/weather/HANDOFF.md) | Buildless `projects/weather/`; shared Three.js vendor bundle |
 | Forest / Endless Grove | [Handoff](projects/forest/HANDOFF.md) | Buildless `projects/forest/`; shared Three.js vendor bundle |
 | Racer | [Handoff](projects/racer/HANDOFF.md) | `src/racer/`; Vite output in `projects/racer/` |
 | Swarm 3D | [Handoff](projects/swarm/HANDOFF.md) | Independent package in `projects/swarm/` |
