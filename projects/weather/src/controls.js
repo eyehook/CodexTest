@@ -2,22 +2,29 @@ import * as THREE from '../../forest/vendor/three.module.js';
 export class DesktopControls {
   constructor(container, parameters) {
     this.container = container; this.parameters = parameters; this.rows = new Map();
+    let section = '';
     for (const d of parameters.definitions) {
+      if (d.section && d.section !== section) { const heading = document.createElement('h2'); heading.textContent = d.section; container.append(heading); section = d.section; }
       const label = document.createElement('label'), title = document.createElement('span');
       title.textContent = d.label; const value = document.createElement('output'), input = document.createElement('input');
-      input.type = 'range'; input.min = d.min; input.max = d.max; input.step = d.step; input.value = parameters.values[d.id];
+      input.type = d.kind === 'toggle' ? 'checkbox' : 'range'; input.checked = Boolean(parameters.values[d.id]); input.min = d.min; input.max = d.max; input.step = d.step; input.value = parameters.values[d.id];
       input.setAttribute('aria-label', d.label); value.textContent = d.format(parameters.values[d.id]);
-      input.addEventListener('input', () => parameters.set(d.id, input.value));
+      input.addEventListener('input', () => parameters.set(d.id, d.kind === 'toggle' ? Number(input.checked) : input.value));
       label.append(title, value, input); container.append(label); this.rows.set(d.id, { input, value, d });
     }
-    this.unsubscribe = parameters.subscribe((id, next) => { const row = this.rows.get(id); row.input.value = next; row.value.textContent = row.d.format(next); });
+    this.unsubscribe = parameters.subscribe((id, next) => { const row = this.rows.get(id); row.input.value = next; row.input.checked = Boolean(next); row.value.textContent = row.d.format(next); });
   }
   dispose() { this.unsubscribe(); this.container.replaceChildren(); }
 }
 export class VRControlPanel {
-  constructor(scene, player, parameters) {
+  constructor(scene, player, parameters, options = {}) {
     this.scene = scene; this.player = player; this.parameters = parameters;
-    this.canvas = document.createElement('canvas'); this.canvas.width = 1024; this.canvas.height = 276 + parameters.definitions.length * 138;
+    this.modes = options.modes ?? []; this.onSelect = options.onSelect ?? (() => {}); this.mode = options.mode ?? 'snow';
+    this.onSave = options.onSave; this.saveHeight = this.onSave ? 80 : 0; this.saveMessage = 'Save settings';
+    this.sections = [...new Set(parameters.definitions.map(d => d.section ?? 'Weather'))]; this.section = this.sections[0];
+    this.visibleDefinitions = parameters.definitions.filter(d => (d.section ?? 'Weather') === this.section);
+    this.controlOffset = (this.modes.length ? 100 : 0) + (this.sections.length > 1 ? 80 : 0);
+    this.canvas = document.createElement('canvas'); this.canvas.width = 1024; this.canvas.height = 276 + this.saveHeight + this.controlOffset + this.visibleDefinitions.length * 138;
     this.fps = null;
     this.ctx = this.canvas.getContext('2d'); this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -30,30 +37,77 @@ export class VRControlPanel {
       const ray = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({ color: 0xa8e8ff, depthTest: false }));
       ray.scale.z = 1.5; ray.visible = false; ray.renderOrder = 10; controller.add(ray); return ray;
     });
-    this.unsubscribe = parameters.subscribe(() => this.draw()); this.draw();
+    this.unsubscribe = parameters.subscribe(() => { this.saveMessage = 'Save settings'; this.draw(); }); this.draw();
   }
   draw() {
     const ctx = this.ctx; ctx.fillStyle = '#131d28'; ctx.fillRect(0, 0, 1024, this.canvas.height);
-    ctx.fillStyle = '#f1f6fa'; ctx.font = 'bold 40px sans-serif'; ctx.fillText('SNOW / WEATHER LAB', 55, 70);
+    ctx.fillStyle = '#f1f6fa'; ctx.font = 'bold 40px sans-serif'; ctx.fillText(`${this.modes.find(d => d.id === this.mode)?.label ?? 'Snow'} / WEATHER LAB`, 55, 70);
     ctx.font = '24px sans-serif'; ctx.fillStyle = '#b1c7d7'; ctx.fillText('Point + hold trigger to adjust · B / Y to close', 55, 116);
-    this.parameters.definitions.forEach((d, index) => {
-      const y = 180 + index * 138, value = this.parameters.values[d.id];
+    if (this.modes.length) {
+      const width = 904 / this.modes.length;
+      this.modes.forEach((d, index) => {
+        const x = 60 + index * width;
+        ctx.fillStyle = d.id === this.mode ? '#31566a' : '#243342'; ctx.fillRect(x, 140, width - 8, 60);
+        ctx.fillStyle = '#f1f6fa'; ctx.font = '28px sans-serif'; ctx.fillText(d.label, x + 18, 180);
+      });
+    }
+    if (this.sections.length > 1) {
+      const width = 904 / this.sections.length;
+      this.sections.forEach((section, index) => {
+        const x = 60 + index * width;
+        ctx.fillStyle = section === this.section ? '#31566a' : '#243342'; ctx.fillRect(x, 220, width - 8, 50);
+        ctx.fillStyle = '#f1f6fa'; ctx.font = '27px sans-serif'; ctx.fillText(section, x + 18, 254);
+      });
+    }
+    this.visibleDefinitions.forEach((d, index) => {
+      const y = 180 + this.controlOffset + index * 138, value = this.parameters.values[d.id];
       ctx.font = '30px sans-serif'; ctx.fillStyle = '#f1f6fa'; ctx.textAlign = 'left'; ctx.fillText(d.label, 60, y);
       ctx.textAlign = 'right'; ctx.fillText(d.format(value), 964, y); ctx.textAlign = 'left';
+      if (d.kind === 'toggle') {
+        ctx.fillStyle = value ? '#a8e8ff' : '#435568'; ctx.fillRect(80, y + 25, 864, 40); return;
+      }
       ctx.fillStyle = '#435568'; ctx.fillRect(80, y + 37, 864, 12);
       const x = 80 + (value - d.min) / (d.max - d.min) * 864;
       ctx.fillStyle = '#a8e8ff'; ctx.fillRect(80, y + 37, x - 80, 12);
       ctx.beginPath(); ctx.arc(x, y + 43, 17, 0, Math.PI * 2); ctx.fill();
     });
+    if (this.onSave) {
+      ctx.fillStyle = '#31566a'; ctx.fillRect(544, this.canvas.height - 116, 420, 54);
+      ctx.fillStyle = '#f1f6fa'; ctx.font = '27px sans-serif'; ctx.fillText(this.saveMessage, 562, this.canvas.height - 80);
+    }
     ctx.font = '26px sans-serif'; ctx.fillStyle = '#a8e8ff';
     ctx.fillText(this.fps === null ? 'FPS  —' : `FPS  ${this.fps}`, 60, this.canvas.height - 30);
     this.texture.needsUpdate = true;
+  }
+  setEffect(parameters, mode) {
+    this.unsubscribe(); this.parameters = parameters; this.mode = mode; this.saveMessage = 'Save settings';
+    this.sections = [...new Set(parameters.definitions.map(d => d.section ?? 'Weather'))];
+    this.section = this.sections[0]; this.resizeControls();
+    this.unsubscribe = parameters.subscribe(() => { this.saveMessage = 'Save settings'; this.draw(); });
+  }
+  resizeControls() {
+    this.dragRows.clear();
+    this.visibleDefinitions = this.parameters.definitions.filter(d => (d.section ?? 'Weather') === this.section);
+    this.controlOffset = (this.modes.length ? 100 : 0) + (this.sections.length > 1 ? 80 : 0);
+    this.canvas.height = 276 + this.saveHeight + this.controlOffset + this.visibleDefinitions.length * 138;
+    this.texture.dispose(); this.texture = new THREE.CanvasTexture(this.canvas); this.texture.colorSpace = THREE.SRGBColorSpace;
+    this.mesh.material.map = this.texture; this.mesh.material.needsUpdate = true;
+    this.mesh.geometry.dispose(); this.mesh.geometry = new THREE.PlaneGeometry(0.9, 0.9 * this.canvas.height / this.canvas.width);
+    this.draw();
+  }
+  setSaveResult(success) {
+    this.saveMessage = success === null ? 'Save settings' : success ? 'Settings saved' : 'Save failed';
+    if (this.mesh.visible) this.draw();
   }
   setFPS(fps) {
     const next = Number.isFinite(fps) ? Math.round(fps) : null;
     if (next === this.fps) return;
     this.fps = next;
     if (this.mesh.visible) this.draw();
+  }
+  beginSession() {
+    this.openPending = true; this.mesh.visible = false;
+    this.previousButtons.clear(); this.previousTriggers.clear(); this.dragRows.clear();
   }
   toggle() {
     this.mesh.visible = !this.mesh.visible; this.dragRows.clear();
@@ -66,7 +120,16 @@ export class VRControlPanel {
     this.mesh.updateMatrixWorld(true);
   }
   update(session) {
-    if (!session) { this.mesh.visible = false; this.previousButtons.clear(); this.previousTriggers.clear(); this.dragRows.clear(); this.rays.forEach(ray => ray.visible = false); return; }
+    if (!session) { this.openPending = false; this.mesh.visible = false; this.previousButtons.clear(); this.previousTriggers.clear(); this.dragRows.clear(); this.rays.forEach(ray => ray.visible = false); return; }
+    if (this.openPending) {
+      // Called after PlayerController has obtained the first valid live viewer pose.
+      this.openPending = false;
+      for (const source of session.inputSources) {
+        this.previousButtons.set(source, Boolean(source.gamepad?.buttons[5]?.pressed));
+        this.previousTriggers.set(source, Boolean(source.gamepad?.buttons[0]?.pressed));
+      }
+      if (!this.mesh.visible) this.toggle();
+    }
     let toggle = false;
     for (const source of session.inputSources) {
       const pressed = Boolean(source.gamepad?.buttons[5]?.pressed);
@@ -91,13 +154,27 @@ export class VRControlPanel {
       if (!down) { this.dragRows.delete(source); return; }
       if (!hit) return;
       const x = hit.uv.x * 1024, y = (1 - hit.uv.y) * this.canvas.height;
+      if (!wasDown && this.onSave && x >= 544 && x <= 964 && y >= this.canvas.height - 116 && y <= this.canvas.height - 62) {
+        this.setSaveResult(this.onSave() !== false); return;
+      }
+      if (!wasDown && this.modes.length && y >= 140 && y <= 200 && x >= 60 && x < 964) {
+        const selected = this.modes[Math.floor((x - 60) / (904 / this.modes.length))];
+        if (selected && selected.id !== this.mode) this.onSelect(selected.id);
+        return;
+      }
+      if (!wasDown && this.sections.length > 1 && y >= 220 && y <= 270 && x >= 60 && x < 964) {
+        const section = this.sections[Math.floor((x - 60) / (904 / this.sections.length))];
+        if (section !== this.section) { this.section = section; this.resizeControls(); } return;
+      }
       if (!wasDown) {
-        const row = Math.round((y - 223) / 138);
-        if (row >= 0 && row < this.parameters.definitions.length && Math.abs(y - (223 + row * 138)) < 36) this.dragRows.set(source, row);
+        const row = Math.round((y - 223 - this.controlOffset) / 138);
+        if (row >= 0 && row < this.visibleDefinitions.length && Math.abs(y - (223 + this.controlOffset + row * 138)) < 36) this.dragRows.set(source, row);
       }
       const row = this.dragRows.get(source);
       if (row !== undefined) {
-        const d = this.parameters.definitions[row]; this.parameters.set(d.id, d.min + THREE.MathUtils.clamp((x - 80) / 864, 0, 1) * (d.max - d.min));
+        const d = this.visibleDefinitions[row];
+        if (d.kind === 'toggle') { if (!wasDown) this.parameters.set(d.id, 1 - this.parameters.values[d.id]); return; }
+        this.parameters.set(d.id, d.min + THREE.MathUtils.clamp((x - 80) / 864, 0, 1) * (d.max - d.min));
       }
     });
   }

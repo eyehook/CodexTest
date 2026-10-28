@@ -48,3 +48,11 @@ test('live FPS updates readable panel text and closed panels defer texture redra
  panel.setFPS(119.8);assert.ok(text.includes('FPS  120'));text.length=0;
  panel.setFPS(120);assert.equal(text.length,0);panel.setFPS(null);assert.ok(text.includes('FPS  —'));panel.dispose();
 });
+
+test('panel opens once on first tracked session update, consumes held buttons and reopens on next session',()=>{
+ const {scene,player,panel}=setup(),source={gamepad:{buttons:Array.from({length:6},()=>({pressed:false}))}},session={inputSources:[source]};
+ player.view.position.set(20,1.7,-30);scene.updateMatrixWorld(true);source.gamepad.buttons[5].pressed=true;source.gamepad.buttons[0].pressed=true;
+ panel.beginSession();assert.equal(panel.mesh.visible,false);panel.update(session);assert.equal(panel.mesh.visible,true);assert.ok(panel.mesh.position.x>20);assert.ok(panel.mesh.position.z<-30);
+ panel.update(session);assert.equal(panel.mesh.visible,true);panel.toggle();panel.update(session);assert.equal(panel.mesh.visible,false);
+ panel.update(null);player.view.position.x=40;scene.updateMatrixWorld(true);panel.beginSession();panel.update(session);assert.equal(panel.mesh.visible,true);assert.ok(panel.mesh.position.x>40);panel.dispose();
+});

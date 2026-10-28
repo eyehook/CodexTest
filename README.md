@@ -6,7 +6,7 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
-- [Weather Lab / Snowfall](projects/weather/): adjustable snowfall for desktop and Quest 3; [controls and validation](projects/weather/README.md), [agent handoff](projects/weather/HANDOFF.md).
+- [Weather Lab](projects/weather/): adjustable snow and rain for desktop and Quest 3; [controls and validation](projects/weather/README.md), [agent handoff](projects/weather/HANDOFF.md).
 
 - [Space Race](projects/spacerace/): a straight-line WebXR speed experiment with instanced particle streaks and rings; [controls and validation](projects/spacerace/README.md).
 

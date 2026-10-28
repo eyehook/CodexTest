@@ -1,10 +1,11 @@
 import * as THREE from '../../forest/vendor/three.module.js';
-import { WeatherParameters } from './parameters.js?v=5';
+import { WeatherModes } from './weather-modes.js?v=13';
+import { SettingsStore } from './settings.js?v=11';
+import { weatherDefinitions } from './weather-catalog.js?v=13';
 import { FrameRateCounter } from './fps.js?v=3';
 import { Environment } from './environment.js';
 import { PlayerController } from './player.js?v=2';
-import { SnowEffect } from './effects.js?v=5';
-import { DesktopControls, VRControlPanel } from './controls.js?v=3';
+import { DesktopControls, VRControlPanel } from './controls.js?v=14';
 export class WeatherSimulator {
   constructor() {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -13,21 +14,59 @@ export class WeatherSimulator {
     document.body.prepend(this.renderer.domElement);
     this.scene = new THREE.Scene(); this.environment = new Environment(this.scene);
     this.player = new PlayerController(this.scene, this.renderer);
-    this.effects = new Map([['snow', new SnowEffect()]]); this.selectEffect('snow');
+    this.modes = new WeatherModes(this.scene, weatherDefinitions, { ground: this.environment.ground });
+    this.modeSelect = document.querySelector('#weather-mode');
+    for (const definition of this.modes.definitions) {
+      const option = document.createElement('option'); option.value = definition.id; option.textContent = definition.label; this.modeSelect.append(option);
+    }
+    this.onModeChange = () => this.selectEffect(this.modeSelect.value);
+    this.modeSelect.addEventListener('change', this.onModeChange);
+    this.settingsStore = new SettingsStore(); const saved = this.settingsStore.load();
+    this.selectEffect(this.modes.restore(saved));
+    this.saveButton = document.querySelector('#save-settings'); this.onSaveSettings = () => this.saveSettings();
+    this.saveButton.addEventListener('click', this.onSaveSettings);
+    this.renderSaveStatus();
     this.clock = new THREE.Clock(); this.fpsCounter = new FrameRateCounter();
     this.resize = () => { this.player.camera.aspect = innerWidth / innerHeight; this.player.camera.updateProjectionMatrix(); this.renderer.setSize(innerWidth, innerHeight); };
     window.addEventListener('resize', this.resize);
-    this.renderer.xr.addEventListener('sessionstart', () => { document.body.classList.add('xr'); this.clock.getDelta(); this.fpsCounter.reset(); this.panel.setFPS(null); });
+    this.renderer.xr.addEventListener('sessionstart', () => { document.body.classList.add('xr'); this.panel.beginSession(); this.clock.getDelta(); this.fpsCounter.reset(); this.panel.setFPS(null); });
     this.renderer.xr.addEventListener('sessionend', () => { document.body.classList.remove('xr'); this.panel.update(null); this.fpsCounter.reset(); this.panel.setFPS(null); });
     this.setupXR(); this.renderer.setAnimationLoop((time, frame) => this.update(frame));
   }
   selectEffect(id) {
-    const effect = this.effects.get(id); if (!effect) throw new Error(`Unknown weather: ${id}`);
-    this.desktop?.dispose(); this.panel?.dispose();
-    if (this.activeEffect) { this.activeEffect.deactivate(); this.activeEffect.dispose(); }
-    this.parameters = new WeatherParameters(); effect.initialize(this.scene, this.parameters); effect.activate(); this.activeEffect = effect;
+    if (this.modes.current?.definition.id === id) return;
+    const state = this.modes.select(id, this.player.position);
+    this.activeEffect = state.effect; this.parameters = state.parameters;
+    this.activeEffect.update(0, this.player.position);
+    this.unsubscribeSaveStatus?.();
+    this.desktop?.dispose();
     this.desktop = new DesktopControls(document.querySelector('#parameters'), this.parameters);
-    this.panel = new VRControlPanel(this.scene, this.player, this.parameters);
+    if (this.panel) this.panel.setEffect(this.parameters, id);
+    else this.panel = new VRControlPanel(this.scene, this.player, this.parameters, {
+      modes: this.modes.definitions, mode: id, onSelect: next => this.selectEffect(next), onSave: () => this.saveSettings(),
+    });
+    this.unsubscribeSaveStatus = this.parameters.subscribe(() => this.renderSaveStatus());
+    this.renderSaveStatus();
+    this.modeSelect.value = id;
+    document.querySelector('h1').textContent = state.definition.title ?? state.definition.label;
+    document.title = `Weather Lab · ${state.definition.title ?? state.definition.label}`;
+    this.updateStats();
+  }
+  saveSettings() {
+    const success = this.settingsStore.save(this.modes.snapshot());
+    this.modes.current.saveStatus = success ? 'saved' : 'failed';
+    this.renderSaveStatus(); return success;
+  }
+  renderSaveStatus() {
+    const status = this.modes.current.saveStatus;
+    document.querySelector('#save-settings').textContent = status === 'saved' ? 'Settings saved' : 'Save settings';
+    document.querySelector('#save-status').textContent = status === 'saved' ? 'Settings saved for your next visit' : status === 'failed' ? 'Could not save settings. Please try again.' : '';
+    this.panel.setSaveResult(status === 'idle' ? null : status === 'saved');
+  }
+  updateStats(fps = this.panel.fps) {
+    const definition = this.modes.current.definition, count = this.parameters.values.count;
+    const summary = Number.isFinite(count) && definition.particleLabel ? `${count.toLocaleString()} ${definition.particleLabel}` : definition.label;
+    document.querySelector('#stats').textContent = `${summary} · ${fps === null ? '—' : Math.round(fps)} FPS`;
   }
   async setupXR() {
     const button = document.querySelector('#vr'), status = document.querySelector('#status');
@@ -54,12 +93,12 @@ export class WeatherSimulator {
     const fps = this.fpsCounter.sample(rawDt);
     if (fps !== null) {
       this.panel.setFPS(fps);
-      document.querySelector('#stats').textContent = `${this.parameters.values.count.toLocaleString()} flakes · ${Math.round(fps)} FPS`;
+      this.updateStats(fps);
     }
   }
   dispose() {
     this.renderer.setAnimationLoop(null); window.removeEventListener('resize', this.resize);
-    this.desktop.dispose(); this.panel.dispose(); this.activeEffect.dispose(); this.environment.dispose(); this.player.dispose(); this.renderer.dispose(); this.renderer.domElement.remove();
+    this.unsubscribeSaveStatus?.(); this.desktop.dispose(); this.panel.dispose(); this.modes.dispose(); this.modeSelect.removeEventListener('change', this.onModeChange); this.saveButton.removeEventListener('click', this.onSaveSettings); this.environment.dispose(); this.player.dispose(); this.renderer.dispose(); this.renderer.domElement.remove();
   }
 }
 try { window.weatherSimulator = new WeatherSimulator(); } catch (error) { document.querySelector('#status').textContent = `Unable to start: ${error.message}`; console.error(error); }

@@ -1,5 +1,5 @@
 import * as THREE from '../../forest/vendor/three.module.js';
-import { SnowSimulation } from './simulation.js?v=3';
+import { SnowSimulation } from './simulation.js?v=13';
 import { snowParameters } from './parameters.js?v=5';
 export class WeatherEffect {
   initialize(scene, parameters) { this.scene = scene; this.parameters = parameters; }
@@ -31,6 +31,7 @@ export class SnowEffect extends WeatherEffect {
     this.bufferSize = new THREE.Vector2(); scene.add(this.object);
     this.unsubscribe = parameters.subscribe(() => this.setParameters()); this.setParameters();
   }
+  activate(position) { super.activate(); if (position) this.simulation.resetVolume(position); }
   setParameters() {
     this.object.geometry.setDrawRange(0, this.parameters.values.count);
     this.object.material.uniforms.sizeScale.value = this.parameters.values.size;

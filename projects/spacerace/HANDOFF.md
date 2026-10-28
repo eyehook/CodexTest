@@ -90,3 +90,7 @@ Root AGENTS.md now contains shared guidance and a project handoff index. Project
 ## Weather release review — 2026-10-27
 
 Reviewed before the Weather project push as required by root guidance. Space Race runtime and settings are unchanged. The full root suite, including the twelve Space Race tests, passed for the Weather release. Existing headset validation limits remain as documented above.
+
+## Weather rain release review — 2026-10-28
+
+Reviewed before the authorized Weather rain/ground-effects/settings push as required by root guidance. Space Race runtime, shared vendor files and root tooling are unchanged. This Weather-only runtime release uses its 48 focused passing tests; Space Race settings and prior validation limitations remain unchanged.

@@ -29,6 +29,13 @@ export class SnowSimulation {
       this.phases[n] = random() * Math.PI * 2;
     }
   }
+  resetVolume(position) {
+    this.volume.follow(position.x, position.z); this.time = 0;
+    for (let i = 0; i < this.positions.length; i += 3) {
+      this.volume.randomPosition(this.positions, i, this.random);
+      this.positions[i + 1] = 0 + this.random() * this.volume.height;
+    }
+  }
   update(dt, count, wind, turbulence, x, z) {
     this.time += dt; this.volume.follow(x, z);
     const p = this.positions, strength = turbulence / 100;
