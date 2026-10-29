@@ -1,4 +1,4 @@
-import {Vector3, MathUtils} from 'three';
+import {Vector3, MathUtils} from '../../../shared/vendor/three-r180/three.module.js';
 // Enclose all eight flight-volume corners in a sphere, then fit its angular radius.
 export function overviewDistance(bounds, verticalFov=65, aspect=1) {
   const centerY=(bounds.minY+bounds.maxY)/2;

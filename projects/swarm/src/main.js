@@ -1,14 +1,13 @@
-import * as T from 'three';
-import {VRButton} from 'three/addons/webxr/VRButton.js';
+import * as T from '../../../shared/vendor/three-r180/three.module.js';
+import {VRButton} from '../../../shared/vendor/three-r180/addons/VRButton.js';
 import {config} from './config.js';
 import {Wasp} from './Wasp.js';
 import {Swarm} from './Swarm.js';
 import {createScene} from './scene.js';
-import {createGUI} from './gui.js';
+import {createDesktopTuning} from './tuning.js?v=native-controls-1';
 import {VRPanel} from './VRPanel.js';
 import {overviewDistance,fitDesktop} from './viewer.js';
 import {Locomotion} from './locomotion.js';
-import './style.css';
 const {scene,camera,renderer,rig}=createScene();
 const wasp=new Wasp(config);wasp.update(0);
 // Capture once: entering VR later still uses the wasp's original spawn.
@@ -20,12 +19,15 @@ const geometry=new T.BoxGeometry(1,1,1), material=new T.MeshLambertMaterial({col
 const leader=new T.Mesh(geometry,new T.MeshLambertMaterial({color:0xffffff}));leader.scale.setScalar(.2);scene.add(leader);
 let swarm,bees;
 function resetSwarm(){if(bees){scene.remove(bees);bees.dispose();}swarm=new Swarm(config,wasp.position);bees=new T.InstancedMesh(geometry,material,config.beeCount);bees.instanceMatrix.setUsage(T.DynamicDrawUsage);bees.frustumCulled=false;scene.add(bees);}
-resetSwarm();const gui=createGUI(config,resetSwarm),intro=document.querySelector('#intro');
+resetSwarm();const intro=document.querySelector('#intro');
+const tuning=createDesktopTuning(document.querySelector('#tuning'),config,key=>{
+ if(key==='beeCount')resetSwarm();
+ panel.draw();
+},()=>fitDesktop(camera,config.bounds));
 document.body.append(VRButton.createButton(renderer));
-gui.add({overview:()=>fitDesktop(camera,config.bounds)},'overview').name('Frame full flight volume');
 const panel=new VRPanel(scene,rig,renderer,config,key=>{
  if(key==='beeCount')resetSwarm();
- gui.controllersRecursive().forEach(controller=>controller.updateDisplay());
+ tuning.sync();
 });
 const pose=new T.Vector3(),rotation=new T.Quaternion();
 const headRotation=new T.Quaternion(),headAngles=new T.Euler(0,0,0,'YXZ'),headPosition=new T.Vector3();
@@ -34,8 +36,8 @@ const playerPosition=new T.Vector3();
 let anchorPending=false;
 // Move the previous ground-level overview spawn halfway toward the wasp start.
 const vrStart=new T.Vector3(waspStart.x/2,0,(overviewDistance({x:20,z:20,minY:3,maxY:14},65,1)+waspStart.z)/2);
-renderer.xr.addEventListener('sessionstart',()=>{pose.copy(camera.position);rotation.copy(camera.quaternion);camera.position.set(0,0,0);camera.quaternion.identity();anchorPending=true;locomotion.reset();gui.hide();intro.hidden=true;});
-renderer.xr.addEventListener('sessionend',()=>{rig.position.set(0,0,0);rig.quaternion.identity();camera.position.copy(pose);camera.quaternion.copy(rotation);panel.mesh.visible=false;locomotion.reset();anchorPending=false;gui.show();intro.hidden=false;});
+renderer.xr.addEventListener('sessionstart',()=>{pose.copy(camera.position);rotation.copy(camera.quaternion);camera.position.set(0,0,0);camera.quaternion.identity();anchorPending=true;locomotion.reset();tuning.setVisible(false);intro.hidden=true;});
+renderer.xr.addEventListener('sessionend',()=>{rig.position.set(0,0,0);rig.quaternion.identity();camera.position.copy(pose);camera.quaternion.copy(rotation);panel.mesh.visible=false;locomotion.reset();anchorPending=false;tuning.sync();tuning.setVisible(true);intro.hidden=false;});
 const angles=new T.Euler(0,0,0,'YXZ');let dragging=false;const canvas=renderer.domElement;
 canvas.addEventListener('pointerdown',e=>{if(renderer.xr.isPresenting)return;dragging=true;canvas.setPointerCapture(e.pointerId);});
 for(const event of ['pointerup','pointercancel'])canvas.addEventListener(event,()=>dragging=false);

@@ -1,4 +1,4 @@
-import { Vector3 } from 'three';
+import { Vector3 } from '../../../shared/vendor/three-r180/three.module.js';
 import { Boid } from './Boid.js';
 import { findNeighbors } from './neighbors.js';
 export class Swarm {

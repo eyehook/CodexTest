@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {PerspectiveCamera,Vector3,Scene,Group,Object3D} from 'three';
+import {PerspectiveCamera,Vector3,Scene,Group,Object3D} from '../../../shared/vendor/three-r180/three.module.js';
 import {fitDesktop,overviewDistance} from '../src/viewer.js';
 import {VRPanel} from '../src/VRPanel.js';
 import {config} from '../src/config.js';

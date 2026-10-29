@@ -17,7 +17,11 @@ shared/
 
 Use relative imports to keep GitHub Pages subpaths and local serving working. A project in `projects/<name>/` imports `../../shared/vendor/three-r180/three.module.js`. Deeper source files need the corresponding additional parent segment. Scene Test maps the bare `three` specifier to the same shared module.
 
-Keep addons and core on the same Three.js revision. When upgrading, retain licenses, check every affected consumer, run the full root test suite and Cloud tests, and rebuild Racer, Terrain and Fishing. Swarm retains its independent npm-managed dependencies. Project-specific assets and application behavior remain in their projects.
+Keep addons and core on the same Three.js revision. When upgrading, retain licenses, check every affected consumer, run the full root test suite and Cloud tests, and rebuild Racer, Terrain and Fishing. Swarm also consumes the shared Three.js runtime and needs its separate Node tests and browser checks when affected. Project-specific assets and application behavior remain in their projects.
+
+Swarm uses the canonical Three.js runtime and native HTML desktop controls. It
+requires no GUI library, package installation or bundler. See the
+[Swarm handoff](../projects/swarm/HANDOFF.md).
 
 ## Shared XR functionality
 

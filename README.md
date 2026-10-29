@@ -62,7 +62,7 @@ Chess editable sources live in `assets/chess/`: the active opponent is `opponent
 
 ## Validation
 
-Run `npm test` with Node.js for the root suite covering Forest, Racer, Surface, Terrain, Fishing, Chess, Space Race, Weather, Scene Test and shared modules. Run `npm run test:shared` for focused shared-module regressions; Cloud tests remain separate (`node --test projects/clouds/tests/*.mjs`). No external npm dependencies are required for these tests. Swarm has its own package and tests; see its README. Use project-specific scripts from `package.json` for focused checks and `git diff --check` before committing.
+Run `npm test` with Node.js for the root suite covering Forest, Racer, Surface, Terrain, Fishing, Chess, Space Race, Weather, Scene Test and shared modules. Run `npm run test:shared` for focused shared-module regressions; Cloud tests remain separate (`node --test projects/clouds/tests/*.mjs`). No external npm dependencies are required for these tests. Swarm is buildless and has separate dependency-free Node tests (`node --test projects/swarm/tests/*.mjs`); see its README. Use project-specific scripts from `package.json` for focused checks and `git diff --check` before committing.
 
 For the current Chess handoff, see [HANDOFF.md](projects/chess/HANDOFF.md): 188 Chess tests and the full root suite passed on 2026-10-26. The user authorized the glasses/mustache, blinking, evaluation gauge, undo and modal release on that date; consult Git status/log for actual publication state. Automated checks do not establish headset appearance or performance.
 

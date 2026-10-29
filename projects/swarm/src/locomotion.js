@@ -1,4 +1,4 @@
-import {Vector3} from 'three';
+import {Vector3} from '../../../shared/vendor/three-r180/three.module.js';
 
 export function deadzone(value, threshold) {
   if (!Number.isFinite(value) || Math.abs(value) <= threshold) return 0;

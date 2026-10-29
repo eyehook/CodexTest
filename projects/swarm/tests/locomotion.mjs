@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Group,Vector3,Quaternion} from 'three';
+import {Group,Vector3,Quaternion} from '../../../shared/vendor/three-r180/three.module.js';
 import {Locomotion} from '../src/locomotion.js';
 import {config} from '../src/config.js';
 const source=(hand)=>({handedness:hand,gamepad:{mapping:'xr-standard',axes:[0,0,0,0],buttons:Array.from({length:6},()=>({pressed:false}))}});

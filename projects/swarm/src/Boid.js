@@ -1,4 +1,4 @@
-import { Vector3 } from 'three';
+import { Vector3 } from '../../../shared/vendor/three-r180/three.module.js';
 export class Boid {
   constructor(origin, random = Math.random) {
     this.position = origin.clone().add(new Vector3((random()-.5)*4,(random()-.5)*3,(random()-.5)*4));

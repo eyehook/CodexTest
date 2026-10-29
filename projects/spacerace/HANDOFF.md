@@ -136,3 +136,12 @@ instructions are updated, and `.gitignore` excludes `*.blend1` backups. Space Ra
 runtime and settings are unchanged. Launcher shell syntax, checkout path resolution,
 executable permission, ignore matching, documentation links and whitespace checks
 passed; no runtime suite was rerun for this launcher/documentation-only change.
+
+## Swarm buildless release review — 2026-10-29
+
+Reviewed before the authorized Swarm push. Space Race runtime/settings and shared
+Three.js bytes are unchanged. Swarm now consumes that canonical runtime directly
+and uses native HTML controls; its obsolete Vite/lil-gui artifacts are removed.
+The full root suite, ten Cloud tests, seven Swarm tests and Swarm browser checks
+passed during this work. Swarm tests also passed after deleting its node_modules.
+No new Space Race headset benchmark is implied.

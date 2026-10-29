@@ -1,4 +1,4 @@
-import * as T from 'three';
+import * as T from '../../../shared/vendor/three-r180/three.module.js';
 import {config} from './config.js';
 import {fitDesktop} from './viewer.js';
 export function createScene(){

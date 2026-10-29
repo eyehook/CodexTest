@@ -1,4 +1,4 @@
-import { Vector3, CatmullRomCurve3, MathUtils } from 'three';
+import { Vector3, CatmullRomCurve3, MathUtils } from '../../../shared/vendor/three-r180/three.module.js';
 
 // A sliding four-point spline shares position AND tangent at every join.
 // Arc-length traversal keeps speed independent of waypoint spacing.
