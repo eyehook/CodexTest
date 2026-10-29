@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="icon" href="data:," />
-    <title>Scene Test · Lighting Laboratory</title>
+    <title>Scene Test · Objects and Materials</title>
     <style>
       :root {
         color-scheme: dark;
@@ -139,9 +139,23 @@
           max-width: 300px;
         }
       }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin: 10px 0;
+      }
+      .tabs button {
+        flex: 1;
+      }
+      .tabs [aria-selected="true"] {
+        background: #3c718a;
+        border-color: #8ae1f6;
+      }
     </style>
     <script type="importmap">
-      { "imports": { "three": "../../shared/vendor/three-r180/three.module.js" } }
+      {
+        "imports": { "three": "../../shared/vendor/three-r180/three.module.js" }
+      }
     </script>
   </head>
   <body>
@@ -149,16 +163,16 @@
     <header>
       <a href="../../">← Projects</a>
       <h1>Scene Test</h1>
-      <p>Milestone 1 / Interactive Lighting Laboratory</p>
+      <p>Milestone 2 / Objects and Materials</p>
       <p id="status">
-        Grip a palette light in VR, or add one using the desktop controls.
+        Create lights and objects with the palette or desktop controls.
       </p>
       <button id="panel-toggle">Show / hide desktop controls</button>
     </header>
-    <aside id="controls" aria-label="Lighting controls"></aside>
+    <aside id="controls" aria-label="Scene controls"></aside>
     <output id="performance" aria-label="Performance"
       >Starting renderer…</output
     >
-    <script type="module" src="./app.js?v=shared-xr-1"></script>
+    <script type="module" src="./app.js?v=m2-3"></script>
   </body>
 </html>

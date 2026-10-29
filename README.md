@@ -6,7 +6,7 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
-- [Scene Test](projects/sceneTest/): interactive Quest 3 lighting laboratory; [controls, architecture and validation](projects/sceneTest/HANDOFF.md).
+- [Scene Test](projects/sceneTest/): interactive Quest 3 objects, materials and lighting laboratory; [controls, architecture and validation](projects/sceneTest/HANDOFF.md).
 
 - [Clouds](projects/clouds/): volumetric ray-marching laboratory for desktop and Quest; [setup and limitations](projects/clouds/README.md), [agent handoff](projects/clouds/HANDOFF.md).
 

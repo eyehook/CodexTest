@@ -1,21 +1,27 @@
-import {ControllerPointer, createPointerLine} from '../../shared/xr/pointer.mjs?v=shared-xr-1';
-import {ButtonEdges} from '../../shared/xr/input.mjs?v=shared-xr-1';
+import {
+  ControllerPointer,
+  createPointerLine,
+} from "../../shared/xr/pointer.mjs?v=shared-xr-1";
+import { ButtonEdges } from "../../shared/xr/input.mjs?v=shared-xr-1";
 import * as T from "three";
-import {Locomotion} from "../../shared/xr/locomotion.mjs?v=shared-motion-1";
+import { Locomotion } from "../../shared/xr/locomotion.mjs?v=shared-motion-1";
 const origin = new T.Vector3(),
   direction = new T.Vector3();
 export class Input {
   constructor(app) {
     this.app = app;
     this.locomotion = new Locomotion(app.rig, {
-      moveSpeed: 1.3, turnSpeed: 1.1, rescaleDeadzone: false,
+      moveSpeed: 1.3,
+      turnSpeed: 1.1,
+      rescaleDeadzone: false,
     });
-    this.navigationViewer = {position: null, orientation: null};
+    this.navigationViewer = { position: null, orientation: null };
     this.pointer = new ControllerPointer();
     this.raycaster = this.pointer.raycaster;
     this.buttonEdges = new ButtonEdges();
     this.hands = [];
     this.grabs = new Map();
+    this.grabButtons = new Map();
     this.targets = [];
     this.hits = [];
     this.keys = new Set();
@@ -41,10 +47,12 @@ export class Input {
         trigger: false,
         hit: null,
         dragUI: null,
+        duplicateTracking: false,
       };
       this.hands.push(hand);
       controller.addEventListener("connected", (e) => {
         hand.source = e.data;
+        hand.duplicateTracking = false;
         gripMarker.material.color.set(
           e.data.handedness === "left" ? 0x59cfff : 0xffb56b,
         );
@@ -53,6 +61,7 @@ export class Input {
         this.endGrab(hand);
         this.buttonEdges.reset(hand.source);
         hand.source = null;
+        hand.duplicateTracking = false;
         controller.visible = grip.visible = false;
         hand.trigger = false;
         hand.dragUI = null;
@@ -64,10 +73,14 @@ export class Input {
         if (hand.hit?.ui) {
           app.ui.activate(hand.hit.ui);
           if (hand.hit.ui.control.kind === "slider")
-            hand.dragUI = { index: hand.hit.ui.index, row: hand.hit.ui.row };
+            hand.dragUI = {
+              index: hand.hit.ui.index,
+              row: hand.hit.ui.row,
+              selected: app.interaction.selected,
+              tab: app.ui.tab,
+            };
         } else if (hand.hit?.record) {
-          app.interaction.select(hand.hit.record.data.id);
-          app.ui.refresh();
+          app.select(hand.hit.record.data.id);
         }
       });
       controller.addEventListener("selectend", () => {
@@ -80,7 +93,9 @@ export class Input {
         this.aim(hand);
         this.beginGrab(hand);
       });
-      controller.addEventListener("squeezeend", () => this.endGrab(hand));
+      controller.addEventListener("squeezeend", () =>
+        this.endGrab(hand, "grip"),
+      );
     }
     addEventListener("keydown", (e) => {
       if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
@@ -94,8 +109,7 @@ export class Input {
       if (!e.repeat) {
         if (e.code === "KeyY") app.ui.toggle();
         if (e.code === "KeyB" || e.code === "Escape") {
-          app.interaction.select(null);
-          app.ui.refresh();
+          app.select(null);
         }
       }
     });
@@ -113,8 +127,7 @@ export class Input {
     this.raycaster.far = 8;
     const targets = this.targets;
     targets.length = 0;
-    for (const r of a.lights.records.values())
-      targets.push(r.root.userData.handle);
+    a.entities.fillTargets(targets);
     if (a.ui.group.visible) {
       for (const p of a.ui.panels) targets.push(p.mesh);
       for (const p of a.ui.prototypes) targets.push(p.userData.handle);
@@ -127,6 +140,7 @@ export class Input {
           distance: hit.distance,
           record: hit.object.userData.record,
           prototype: hit.object.userData.prototype,
+          prototypeKind: hit.object.userData.prototypeKind,
           ui: a.ui.hit(hit),
         }
       : null;
@@ -143,6 +157,8 @@ export class Input {
     if (
       hand.trigger &&
       hand.dragUI &&
+      hand.dragUI.selected === a.interaction.selected &&
+      hand.dragUI.tab === a.ui.tab &&
       hand.hit?.ui?.index === hand.dragUI.index &&
       hand.hit.ui.row === hand.dragUI.row
     )
@@ -155,40 +171,66 @@ export class Input {
     hand.grip.getWorldPosition(origin);
     let nearest = null,
       best = 0.18;
-    const handles = a.lights.handles();
-    if (a.ui.group.visible)
-      handles.push(...a.ui.prototypes.map((p) => p.userData.handle));
-    for (const handle of handles) {
-      handle.getWorldPosition(direction);
-      const dist = direction.distanceTo(origin);
+    a.scene.updateMatrixWorld(true);
+    for (const record of a.entities.values()) {
+      const dist = a.entities.nearDistance(record, origin);
       if (dist < best) {
         best = dist;
-        nearest = handle.userData;
+        nearest = { record };
       }
     }
+    if (a.ui.group.visible)
+      for (const proto of a.ui.prototypes) {
+        proto.getWorldPosition(direction);
+        const dist = direction.distanceTo(origin);
+        if (dist < best) {
+          best = dist;
+          nearest = proto.userData;
+        }
+      }
     const target = nearest || hand.hit;
     if (!target) return;
     let record = target.record;
     if (target.prototype) {
-      record = a.lights.create(target.prototype);
+      record = a.entities.create(
+        target.prototypeKind || "light",
+        target.prototype,
+      );
       const proto = a.ui.prototypes.find(
         (p) => p.userData.prototype === target.prototype,
       );
       proto.getWorldPosition(record.root.position);
       proto.getWorldQuaternion(record.root.quaternion);
     }
-    if (!record || !a.interaction.beginGrab(hand, record.data.id)) {
-      if (target.prototype && record) a.lights.remove(record.data.id);
-      return;
+    if (!record || !this.attachGrab(hand, record, !!target.prototype, "grip")) {
+      if (target.prototype && record) a.entities.remove(record.data.id);
     }
-    // Attach computes inverse(controller world) * object world, preserving both offsets.
+  }
+  attachGrab(hand, record, created, button) {
+    const a = this.app;
+    if (
+      this.grabs.has(hand) ||
+      !a.interaction.beginGrab(hand, record.data.id, created)
+    )
+      return false;
+    // Preserve world position, orientation and scale when attaching to a tracked grip.
     hand.grip.updateWorldMatrix(true, false);
     record.root.updateWorldMatrix(true, false);
     hand.grip.attach(record.root);
     this.grabs.set(hand, record);
-    a.ui.refresh();
+    this.grabButtons.set(hand, button);
+    if (created) a.select(record.data.id);
+    else a.ui.refresh();
+    return true;
   }
-  endGrab(hand) {
+  beginDuplicate(hand) {
+    if (this.grabs.has(hand) || !hand.hit?.record) return;
+    const record = this.app.entities.duplicate(hand.hit.record.data.id);
+    if (record && !this.attachGrab(hand, record, true, "duplicate"))
+      this.app.entities.remove(record.data.id);
+  }
+  endGrab(hand, button = null) {
+    if (button && this.grabButtons.get(hand) !== button) return;
     const r = this.grabs.get(hand);
     if (r) {
       this.app.scene.attach(r.root);
@@ -196,6 +238,7 @@ export class Input {
       r.data.rotation = r.root.quaternion.toArray();
       this.grabs.delete(hand);
     }
+    this.grabButtons.delete(hand);
     this.app.interaction.endGrab(hand);
   }
   releaseAll() {
@@ -204,6 +247,7 @@ export class Input {
       this.endGrab(hand);
       hand.trigger = false;
       hand.dragUI = null;
+      hand.duplicateTracking = false;
     }
     this.keys.clear();
     this.desktopDrag = null;
@@ -212,11 +256,12 @@ export class Input {
   update(dt, frame) {
     const a = this.app;
     const active = a.xrFrame.active && !!a.viewerPose;
-    for (const r of a.lights.records.values()) r.hovered = false;
+    for (const r of a.entities.values()) r.hovered = false;
     if (a.renderer.xr.isPresenting) {
       for (const h of this.hands) {
         const source = h.source;
-        const tracked = active && source && a.xrFrame.isTracked(source.targetRaySpace);
+        const tracked =
+          active && source && a.xrFrame.isTracked(source.targetRaySpace);
         const gripTracked = tracked && a.xrFrame.isTracked(source.gripSpace);
         h.controller.visible = !!tracked;
         h.grip.visible = !!gripTracked;
@@ -225,13 +270,29 @@ export class Input {
           h.dragUI = null;
           h.trigger = false;
         }
+        let duplicateButton = null;
+        if (source?.handedness === "right") {
+          duplicateButton = this.buttonEdges.sample(
+            source,
+            4,
+            !gripTracked || !h.duplicateTracking,
+          );
+          h.duplicateTracking = !!gripTracked;
+        }
         if (!tracked) continue;
         this.aim(h);
+        if (
+          gripTracked &&
+          source.gamepad?.mapping === "xr-standard" &&
+          duplicateButton
+        ) {
+          if (duplicateButton.pressed) this.beginDuplicate(h);
+          if (duplicateButton.released) this.endGrab(h, "duplicate");
+        }
         const secondary = this.buttonEdges.sample(source, 5);
         if (secondary.pressed) {
           if (source.handedness === "right") {
-            a.interaction.select(null);
-            a.ui.refresh();
+            a.select(null);
           }
           if (source.handedness === "left") a.ui.toggle();
         }
@@ -244,7 +305,7 @@ export class Input {
         this.move(la?.[2] || 0, la?.[3] || 0, ra?.[2] || 0, dt);
       }
     } else {
-      if (this.desktopHover && a.lights.records.has(this.desktopHover.data.id))
+      if (this.desktopHover && a.entities.get(this.desktopHover.data.id))
         this.desktopHover.hovered = true;
       this.move(
         (this.keys.has("KeyD") ? 1 : 0) - (this.keys.has("KeyA") ? 1 : 0),
@@ -281,10 +342,13 @@ export class Input {
     canvas.addEventListener("pointerdown", (e) => {
       if (a.renderer.xr.isPresenting || e.button !== 0) return;
       cast(e);
-      const hit = this.raycaster.intersectObjects(a.lights.handles(), false)[0];
+      const hit = this.raycaster.intersectObjects(
+        a.entities.fillTargets([]),
+        false,
+      )[0];
       if (!hit) return;
       const r = hit.object.userData.record;
-      a.interaction.select(r.data.id);
+      a.select(r.data.id);
       a.interaction.beginGrab("mouse", r.data.id);
       a.camera.getWorldDirection(direction);
       r.root.getWorldPosition(point);
@@ -307,9 +371,9 @@ export class Input {
         drag.x = e.clientX;
         drag.y = e.clientY;
       } else {
-        for (const r of a.lights.records.values()) r.hovered = false;
+        for (const r of a.entities.values()) r.hovered = false;
         const hit = this.raycaster.intersectObjects(
-          a.lights.handles(),
+          a.entities.fillTargets([]),
           false,
         )[0];
         this.desktopHover = hit?.object.userData.record || null;

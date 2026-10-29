@@ -150,19 +150,19 @@ native desktop controls and a canvas VR panel. Definitions remain in
 `projects/surface/controls.mjs` and `projects/swarm/src/controls.mjs`; Surface's
 numeric bounds/steps continue to come from its existing `settings.mjs` table.
 Weather binds its existing WeatherParameters through `src/control-model.mjs`.
-Clouds and Scene Test retain their current UI implementations. VR slider dragging,
+Clouds retains its current UI implementation. Scene Test uses shared ControlModel bindings, ChoiceBar tabs and sliderValue mapping with its project-owned three-panel native/canvas adapters for scene entities. VR slider dragging,
 segmented context selectors and section tabs are supported by `VRSliderPanel`;
 native dropdown binding remains project-owned.
 
 | Module | Interface | Consumers |
 | --- | --- | --- |
-| `ui/controls.mjs` | `ControlModel` | Surface, Swarm, Weather |
+| `ui/controls.mjs` | `ControlModel` | Surface, Swarm, Weather, Scene Test |
 | `ui/desktop.mjs` | `DesktopControls` | Surface, Swarm, Weather |
 | `ui/desktop.css` | Native layout, focus/disabled styling and numeric interaction styling | Surface, Swarm, Weather |
 | `ui/vr-panel.mjs` | `VRControlPanel` | Surface, Swarm |
 | `ui/vr-slider-panel.mjs` | `VRSliderPanel` | Weather |
-| `ui/slider.mjs` | `sliderValue` pointer mapping | Shared VR slider panel |
-| `ui/choice-bar.mjs` | `ChoiceBar` segmented selectors/tabs | Shared VR slider panel |
+| `ui/slider.mjs` | `sliderValue` pointer mapping | Shared VR slider panel, Scene Test |
+| `ui/choice-bar.mjs` | `ChoiceBar` segmented selectors/tabs | Shared VR slider panel, Scene Test |
 | `ui/theme.mjs` | `DEFAULT_THEME`, `createTheme(overrides)` | Shared VR panel; optional project palettes |
 
 ### Definitions and state
@@ -317,7 +317,7 @@ Weather's adapter owns effect selection, save status, world-locked 1.2 m / 45°
 placement and FPS formatting. Its simulation/persistence store remains
 WeatherParameters, with one UI model shared by desktop and VR in the application.
 Mode switches dispose obsolete UI bindings while preserving effect parameter
-state and current panel pose. Clouds and Scene Test have not been migrated.
+state and current panel pose. Clouds has not been migrated; Scene Test reuses the shared bindings/tabs/mapping while retaining its contextual multi-panel adapters.
 
 ### Slider/Weather validation — 2026-10-29
 

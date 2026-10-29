@@ -1,4 +1,4 @@
-export const VERSION = 1;
+export const VERSION = 2;
 export const STORAGE_KEY = "codex.sceneTest.v1";
 export const TYPES = ["point", "spot", "directional", "area"];
 export const NAMES = {
@@ -45,12 +45,44 @@ export function lightDefaults(type, id = globalThis.crypto.randomUUID()) {
     shadows: false,
   };
 }
+export const OBJECT_TYPES = ["sphere", "cube", "cylinder", "pyramid"];
+export const OBJECT_NAMES = {
+  sphere: "Sphere",
+  cube: "Cube",
+  cylinder: "Cylinder",
+  pyramid: "Pyramid",
+};
+export function objectDefaults(type, id = globalThis.crypto.randomUUID()) {
+  if (!OBJECT_TYPES.includes(type)) throw new Error("Unknown primitive type");
+  return {
+    id,
+    type,
+    position: [0, 1.4, -1.5],
+    rotation: [0, 0, 0, 1],
+    scale: [1, 1, 1],
+    allScale: 1,
+    material: {
+      type: "standard",
+      color: [255, 255, 255],
+      metalness: 0,
+      roughness: 0.5,
+    },
+    castShadow: true,
+    receiveShadow: true,
+  };
+}
+export function setUniformScale(data, value) {
+  if (!Number.isFinite(value) || value < 0.1 || value > 10)
+    throw new RangeError("Invalid scale");
+  data.allScale = value;
+  data.scale = [value, value, value];
+}
 const finite = (v, min, max) =>
   typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
 const vector = (v, n, min, max) =>
   Array.isArray(v) && v.length === n && v.every((x) => finite(x, min, max));
 export function validateScene(raw) {
-  if (!raw || raw.version !== VERSION || !Array.isArray(raw.lights))
+  if (!raw || ![1, VERSION].includes(raw.version) || !Array.isArray(raw.lights))
     throw new Error("Unsupported or invalid saved scene");
   const settings = raw.settings,
     base = defaults();
@@ -110,10 +142,51 @@ export function validateScene(raw) {
       shadows: v.type === "area" ? false : v.shadows,
     };
   });
-  return structuredClone({ version: VERSION, settings, lights });
+  const objectData = raw.version === 1 ? (raw.objects ?? []) : raw.objects;
+  if (!Array.isArray(objectData)) throw new Error("Invalid object collection");
+  const objects = objectData.map((v) => {
+    if (
+      !v ||
+      !OBJECT_TYPES.includes(v.type) ||
+      typeof v.id !== "string" ||
+      !v.id ||
+      ids.has(v.id)
+    )
+      throw new Error("Invalid object identity");
+    ids.add(v.id);
+    if (
+      !vector(v.position, 3, -10000, 10000) ||
+      !vector(v.rotation, 4, -1, 1) ||
+      Math.abs(Math.hypot(...v.rotation) - 1) > 0.01 ||
+      !vector(v.scale, 3, 0.1, 10)
+    )
+      throw new Error("Invalid object transform");
+    const m = v.material;
+    if (
+      !m ||
+      m.type !== "standard" ||
+      !vector(m.color, 3, 0, 255) ||
+      !finite(m.metalness, 0, 1) ||
+      !finite(m.roughness, 0, 1)
+    )
+      throw new Error("Invalid Standard material");
+    if (
+      typeof v.castShadow !== "boolean" ||
+      typeof v.receiveShadow !== "boolean" ||
+      !finite(v.allScale ?? 1, 0.1, 10)
+    )
+      throw new Error("Invalid object settings");
+    return { ...objectDefaults(v.type, v.id), ...v, allScale: v.allScale ?? 1 };
+  });
+  return structuredClone({ version: VERSION, settings, lights, objects });
 }
-export function saveScene(storage, settings, lights) {
-  const snapshot = validateScene({ version: VERSION, settings, lights });
+export function saveScene(storage, settings, lights, objects = []) {
+  const snapshot = validateScene({
+    version: VERSION,
+    settings,
+    lights,
+    objects,
+  });
   storage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   return snapshot;
 }
@@ -121,17 +194,18 @@ export function loadScene(storage) {
   const saved = storage.getItem(STORAGE_KEY);
   return saved === null ? null : validateScene(JSON.parse(saved));
 }
-// Grabbing selects the object; releasing only ends grip ownership.
+// New palette entities select; existing grabs preserve or clear selection.
 export class InteractionState {
   selected = null;
   owners = new Map();
   select(id) {
     this.selected = id;
   }
-  beginGrab(hand, id) {
+  beginGrab(hand, id, created = false) {
     if (this.owners.has(hand) || [...this.owners.values()].includes(id))
       return false;
-    this.selected = id;
+    if (created) this.selected = id;
+    else if (this.selected !== id) this.selected = null;
     this.owners.set(hand, id);
     return true;
   }

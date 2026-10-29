@@ -1,11 +1,11 @@
 # Scene Test
 
-An interactive Three.js / WebXR lighting laboratory for Meta Quest 3.
+A buildless Three.js / WebXR objects, materials and lighting laboratory for Meta Quest 3.
 
-Open `projects/sceneTest/` from the repository preview server, then choose Enter VR. Runtime modules and the procedural reflection environment work without external requests. HTTPS or trusted localhost is required for WebXR; the repository’s Quest USB launcher supports localhost testing.
+Serve the repository root and open `projects/sceneTest/`, then choose Enter VR. Runtime dependencies and the procedural reflection environment are bundled locally. WebXR needs HTTPS or trusted localhost; the repository's `Start-VR.command` supports Quest USB testing.
 
-Use the left stick to walk, right stick to turn, right trigger to select/edit, either grip to create or move lights, B to deselect, and Y to open or close the panels. On desktop, use the native control panel, WASD and arrow keys; click/drag helpers to select/move, Shift-drag to rotate.
+Use the left stick to walk, right stick to turn, right trigger to select/edit, either grip to create/move, B to deselect, and Y to toggle panels. Point at an existing entity and hold right-controller A to duplicate and move/rotate the selected copy; release A to place it. Lights and Objects palette tabs expose four types each. New palette entities select immediately; existing unselected grabs clear selection, as specified in Milestone 2. Object Settings edits RGB, metalness, roughness, uniform/axis scale and shadow preferences. Desktop supports native controls, WASD/arrows and click/drag with Shift-drag rotation.
 
-Save Scene explicitly saves to this browser’s localStorage. Reset changes the live scene while keeping the saved configuration; reload restores the last explicit save.
+New scenes start with the checkerboard floor and no sample objects or wall. Save Scene explicitly saves lighting and objects to localStorage. Milestone 1 saves remain compatible. Reset changes the live scene while preserving the last explicit save; reload restores it.
 
-Run `npm run test:sceneTest` for model tests. See [HANDOFF.md](HANDOFF.md) for architecture, browser tests, settings, performance considerations and outstanding Quest hardware validation.
+Run `npm run test:sceneTest`. See [HANDOFF.md](HANDOFF.md) for architecture, integration checks and remaining Quest validation; [MILESTONE_2.md](MILESTONE_2.md) preserves the requested scope.

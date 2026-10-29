@@ -20,49 +20,6 @@ export function createEnvironment(scene, renderer) {
   floor.rotation.x = -Math.PI / 2;
   floor.castShadow = floor.receiveShadow = true;
   scene.add(floor);
-  const wall = new T.Mesh(
-    new T.BoxGeometry(7, 3, 0.15),
-    new T.MeshStandardMaterial({ color: 0x888888, roughness: 1 }),
-  );
-  wall.position.set(0, 1.5, -4.6);
-  wall.castShadow = wall.receiveShadow = true;
-  scene.add(wall);
-  const definitions = [
-    [-2.1, 0.65, -3, "Matte white", 0, 1],
-    [-0.7, 0.6, -3, "Matte cube", 0, 0.95],
-    [0.7, 0.65, -3, "Metal", 1, 0.19],
-    [2.1, 0.65, -3, "Gloss", 0, 0.06],
-  ];
-  definitions.forEach(([x, y, z, label, metalness, roughness], i) => {
-    const mesh = new T.Mesh(
-      i === 1
-        ? new T.BoxGeometry(1.05, 1.2, 1.05)
-        : new T.SphereGeometry(0.65, 40, 24),
-      new T.MeshStandardMaterial({ color: 0xf4f4f4, metalness, roughness }),
-    );
-    mesh.position.set(x, y, z);
-    mesh.castShadow = mesh.receiveShadow = true;
-    scene.add(mesh);
-    const c = document.createElement("canvas");
-    c.width = 384;
-    c.height = 64;
-    const g = c.getContext("2d");
-    g.fillStyle = "#18222a";
-    g.fillRect(0, 0, 384, 64);
-    g.font = "26px sans-serif";
-    g.fillStyle = "white";
-    g.textAlign = "center";
-    g.fillText(label, 192, 42);
-    const tex = new T.CanvasTexture(c);
-    tex.colorSpace = T.SRGBColorSpace;
-    const sign = new T.Mesh(
-      new T.PlaneGeometry(0.9, 0.15),
-      new T.MeshBasicMaterial({ map: tex }),
-    );
-    sign.position.set(x, 0.14, z + 0.78);
-    sign.rotation.x = -Math.PI / 3;
-    scene.add(sign);
-  });
   // Bake a high-contrast neutral studio once. Window mullions, strip lights
   // and dark flags give curved metal clear features to reflect, without adding
   // geometry or lights to the visible test environment.
@@ -84,7 +41,7 @@ export function createEnvironment(scene, renderer) {
     studio.add(mesh);
     return mesh;
   };
-  // Front-facing window appears in the metal sphere from the starting viewpoint.
+  // Front-facing window gives user-created metallic objects structured reflections.
   const frame = card(0, 1.2, 4.15, 4, 2.65, 0x151515);
   frame.rotation.set(0, Math.PI, 0);
   for (let row = 0; row < 2; row++) {

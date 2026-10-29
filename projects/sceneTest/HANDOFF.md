@@ -1,106 +1,74 @@
-# Scene Test — Milestone 1
+# Scene Test — Milestone 2: Objects and Materials
 
-Buildless Three.js r180 / WebXR lighting laboratory for Meta Quest 3. Entry: `projects/sceneTest/index.html`. Shares the existing `shared/vendor/three-r180/three.module.js` and core; matching MIT area-light addons and VRButton live in `shared/vendor/three-r180/addons/`. All runtime requests stay local.
+Buildless Three.js r180 / WebXR scene laboratory for Meta Quest 3. Entry: `projects/sceneTest/index.html`. Source milestone brief: [MILESTONE_2.md](MILESTONE_2.md). All runtime modules and the reflection environment work offline. Three.js and matching MIT addons come from `shared/vendor/three-r180/`.
 
-## Modules
+## Current behavior
 
-- `model.js`: version 1 scene schema, validated explicit localStorage persistence, defaults and independent selection/grip ownership.
-- `app.js`: renderer, global settings, lifecycle, reset/save, periodic statistics for the Scene Settings performance readout.
-- `environment.js`: checkerboard floor, gray wall, four fixed PBR test objects and procedural neutral PMREM studio reflections.
-- `lights.js`: four light types, unlit persistent helpers, world-space orientation/targets and shadow setup. Local -Z is the emitting direction. Light handles never cast shadows.
-- `input.js`: tracked rays, right-trigger selection/UI, both-hand offset-preserving grips, locomotion/turning around headset position, desktop pointer controls. Loss of tracking/session visibility releases grabs; no stale controller input should move lights.
-- `ui.js`: three world-space canvas panels and matching native desktop controls; changes use shared control descriptors. Dropdowns expand options in VR. Panels open 45 degrees right, 1.85 m away, and remain stationary until reopened.
+Three world-locked panels: Scene Settings, Creation Palette, and contextual Settings immediately to its right. The palette has Lights and Objects tabs. Manually changing tabs preserves selection and the contextual panel. Trigger selection activates the matching tab, shows its properties, and opens hidden panels. Opening/reopening uses the current headset pose, 1.85 m away and 45° right; the group stays stationary while open. Scene Settings and its performance readout stay independent of palette tabs.
 
-## Controls and behavior
+Right trigger selects lights or actual primitive geometry and edits UI. Either grip creates from the active palette or moves an existing entity using near pickup before ray pickup. New palette instances select immediately. **Per the Milestone 2 brief, existing grabs do not auto-select:** grabbing the selected item preserves selection; grabbing a different existing item clears selection. Release only ends the grab. B deselects; Y toggles/repositions panels. Rays remain visible while tracked, including during grabs. Cyan left/orange right grip spheres show the pickup origins. Room-scale offsets and the relative grab position/rotation are preserved.
 
-Left stick walks at 1.3 m/s; right stick smoothly turns at 1.1 rad/s with a 0.15 dead zone. Right trigger selects lights or edits panels. Either grip creates from a palette symbol or moves an existing handle, using near pickup within 18 cm before ray pickup. Grabs preserve position/rotation offsets. Grabbing any light immediately selects it and opens its properties, including palette-created lights. Releasing preserves the current selection without selecting again. Right B deselects; left Y toggles/repositions panels. Rays stay visible, including during grabs, whenever target-ray tracking exists. Helper colors: pale neutral, cyan hover, green selected, orange grabbed. Helpers also remain for disabled lights.
+Desktop controls create/edit entities. Click a helper or primitive to select; drag moves it in the view plane, Shift-drag rotates. WASD walks; left/right arrows turn. B/Escape deselects. The header button hides native controls; selecting an entity restores them. Desktop and VR numeric bounds/steps use the same shared ControlModel.
 
-Desktop: native controls create/edit lights; click a handle to select, drag to move in the view plane, Shift-drag to rotate. WASD walks; left/right arrows turn; B/Escape deselects; Y toggles world panels. Desktop control visibility has its own header button.
+Walking remains 1.3 m/s, turning 1.1 rad/s, raw analog magnitude after a 0.15 deadzone. Preserve shared XR/locomotion helpers and the parented current center-eye viewer pose. Never derive navigation from the renderer's parentless XR ArrayCamera world getters: that previously lost the rig transform and caused wrong headings/pivot drift.
 
-Defaults match the milestone brief. No user-created lights initially; ambient white 0.3, hemisphere off, neutral gray background, Neutral tone mapping, exposure 1, shadows globally on at 512. Procedural reflection environment remains present independently of ambient/hemisphere toggles. Each shadow-capable light stores its own preference; global shadow changes do not erase it. Directional shadow volume is ±5 m, depth 0.05–20 m; point/spot depth is 0.05–40 m. Map sizes 256/512/1024/2048 dispose old maps when changed. Native area lights have no shadow control. Range zero is unlimited; decay remains 2.
+## Objects and materials
 
-Save writes only on an explicit button press to `codex.sceneTest.v1`. Startup validates before restoring, excluding selection and grip state. Reset releases grabs, clears lights/selection and restores settings without touching storage. Save failure or corrupt data is reported in the panels. Reload restores the last explicit save, including after reset.
+Sphere, cube, cylinder and square-based pyramid are 0.5 m in each dimension by default. Sphere/cylinder subdivisions are bounded; the four-sided cone geometry is rotated so its square base aligns with local X/Z. Each shape shares one geometry cache entry. Each instance has its own Standard material: white, metalness 0, roughness 0.5, opacity fixed at 1. New instances cast and receive shadows; cast/receive preferences edit independently. Global shadows suppress casting without erasing those preferences.
 
-## Validation and remaining headset checks
+Object Settings exposes RGB (0–255), a live swatch, metalness/roughness (0–1), All/X/Y/Z scale (0.1–10), cast/receive flags and Delete. Object color has no presets; existing light presets remain. All sets each axis to an absolute value and synchronizes the three controls immediately. Axis edits do not change the last All value. That convenience value is per object and is also saved; selection changes never normalize scales. Reapplying All at its retained value still resets all three axes.
 
-Run `npm run test:sceneTest` (or `node --test projects/sceneTest/tests/*.mjs`). Model tests cover defaults, immediate grab selection and exclusive grip ownership, round-trip persistence, reset/save separation and invalid input. Browser tests cover renderer startup, all four light types, live properties, shadows, helpers, save/reload/reset, selection and controller manipulation simulation. Validated on 2026-10-29: all six model tests passed; headless Chrome WebGL integration checks passed, including actual controller rays against the world panels, the 45-degree opening angle, offset-preserving manipulation, targets, shadow-map allocation and save/reset/reload behavior. The existing root repository suite also passed. Software-renderer FPS is not a Quest performance measurement.
+Entities freely intersect the floor and one another. There is no physics, collision restriction, snapping, grouping, opacity editing or environment-map editing. The checkerboard floor remains uneditable. There are no built-in sample objects, labels or wall; a new scene contains no placeable entities. The richer neutral studio reflection map remains available for user-created materials.
 
-Quest 3 hardware validation remains required: stereo readability, controller mapping, near/ray pickup comfort, panels at 45 degrees, illumination and shadows while manipulating all types, locomotion, and sustained performance. Desktop/automated checks cannot establish these. Shader variants may compile when adding lights or changing shadow counts. Multiple point-light shadow maps and high resolutions are expensive; Scene Settings reports light and shadow counts but imposes no artificial creation limit. No publication is authorized by implementation alone.
+Unlit wireframe overlays mark object hover (cyan), selection (green) and grab (orange), without modifying the Standard material. Light helpers retain the same color states and stay visible even for disabled lights. Object rays use the actual primitive mesh; proximity grabbing uses the transformed geometry bounds. Overlays are excluded from ray hits and cast no shadows.
 
-To run the optional browser integration check, serve the repository on port 8093 and run `node projects/sceneTest/tests/browser.cjs` with Playwright installed. `SCENE_TEST_URL` can override the preview URL; `PLAYWRIGHT_MODULE` and `CHROME_PATH` can point to an existing Playwright package and Chrome executable. `SCENE_SCREENSHOT` optionally writes a screenshot. No browser package is added to runtime dependencies.
+## Modules and shared dependencies
 
-## Navigation correction — 2026-10-29
+- `model.js`: defaults, v1-to-v2 validation/migration, stable IDs, explicit persistence, selection and exclusive grab ownership. Light and object IDs share one namespace.
+- `entities.js`: common entity lookup, iteration, ray targets, creation/removal and near-pickup distance. Managers keep type-specific data/rendering.
+- `lights.js`: existing four light types, unlit persistent helpers, synchronized local -Z direction/targets and shadow maps.
+- `objects.js`: primitive geometry factory/cache, independently materialized mesh instances, temporary overlays, transforms and lifecycle.
+- `materials.js`: material-model factory/editor; only `standard` is currently supported. The serialized type leaves room for future models.
+- `input.js`: shared pointer/button/locomotion adapters with project-owned selection, geometry picking, offset-preserving grips and desktop dragging. UI drags cannot retarget after a selection/tab change.
+- `ui.js`: existing native/canvas panel adapters, contextual light/object rows and shared ControlModel numeric/toggle bindings, ChoiceBar tabs and sliderValue mapping. It retains every Milestone 1 global and light control. Scale synchronization and swatches update without rebuilding native controls during drag.
+- `app.js`: lifecycle, generic selection/deletion, object/light restore/reset, settings and periodic renderer statistics.
+- `environment.js`: checkerboard floor and a once-baked procedural PMREM studio.
 
-Quest feedback identified wrong walking headings and turning that translated the player. The original navigation read `renderer.xr.getCamera()` with normal world-transform getters. Three.js's internal XR ArrayCamera has no rig parent, so those getters can replace its renderer-composed world matrix with its reference-space pose, dropping the accumulated rig translation/yaw.
+Shared consumers: locomotion, ButtonEdges, ControllerPointer/line, XRFrameState, FrameRateCounter, ControlModel, ChoiceBar and sliderValue. See [shared guide](../../shared/README.md). No shared runtime implementation was changed for this milestone. Project-local modules use `m2-1`; environment uses `m2-2`; entry/input/entity registry/UI use `m2-3` for A-button duplication.
 
-`app.js` now copies the current frame's center-eye `XRViewerPose` into a dedicated camera attached to the player rig before controller processing. All view-relative consumers (walking, turn pivot and reopening panels) use that parented pose. Heading reads after turning therefore include the new rig yaw, while the turn pivot includes physical room-scale headset offsets. Rendering continues to use the renderer's XR cameras normally. Entry and changed input module query versions are advanced to `v=2` for cached Quest reloads.
+## Persistence and cleanup
 
-Browser regressions simulate a translated/yawed rig, four walking directions, 120 consecutive turn frames with an offset headset, changing physical head orientation/position, simultaneous diagonal movement/turning, and panel reopening after locomotion. They also prohibit navigation reads of the renderer's internal XR camera. These checks complement, rather than replace, retesting movement on the Quest.
+The JSON schema is version 2. **The storage key remains `codex.sceneTest.v1`** so old scenes remain discoverable. Valid version 1 light-only saves migrate in memory to an empty object collection with all lighting/settings preserved. No startup write occurs. Explicit Save replaces the stored JSON with v2; malformed or unsupported data is reported. No selection, active grip or tab state is restored.
 
-## Controller grip markers — 2026-10-29
+V2 objects save ID, primitive type, world position/quaternion, scale, last All, Standard material type/RGB/metalness/roughness, and cast/receive preferences. Light data/settings retain their existing schema. Quaternion/world transform reads include held entities. Scale saves authoritative editable components to avoid floating-point decomposition pushing a maximum scale beyond 10.
 
-Each tracked controller grip has an unlit sphere with a 3.5 cm radius at its exact pickup/attachment origin: cyan for the left hand, warm orange for the right. Markers follow grip tracking, remain during grabs, and disappear with the grip when tracking is lost or the controller disconnects. They cast no shadows and are excluded from interaction ray targets. Entry/input query versions advance to `v=3`.
+Reset releases grabs, removes all user entities, clears selection and restores global defaults, while leaving the explicit save untouched. The floor remains; sample objects, labels and wall are not recreated. Reload restores the last save. Deletion clears grip ownership and contextual state; object-specific material/overlay resources are disposed. Shared shape geometry remains cached (at most four entries) for reuse, with `ObjectManager.dispose()` available for full teardown.
 
-## Straight test-object row — 2026-10-29
+## Validation
 
-The four test objects now share depth `z = -3`, parallel to the wall, with evenly spaced centers at `x = -2.1, -0.7, 0.7, 2.1`. Their labels retain the same offset in front, placing all labels in a matching straight row at `z = -2.22`. Objects retain their floor-resting heights. Entry/environment module versions advance to `v=4`.
+`npm run test:sceneTest` runs the dependency-free model/geometry/material checks. Optional Playwright checks, against a repository static server:
 
-## Richer reflection environment — 2026-10-29
+- `node projects/sceneTest/tests/browser.cjs`: existing lighting, shadow maps, navigation, panel position, controller rays/grabs and persistence regressions, updated only for the specified existing-grab policy.
+- `node projects/sceneTest/tests/objects-browser.cjs`: v1 startup migration; four primitives; tab/context behavior; live independent materials; All/axis synchronization; hidden-panel opening; actual geometry rays; all four VR prototype grip paths; offset/scale updates; overlay states; deletion during grab; B; explicit v2 save/reset/reload.
 
-The procedural PMREM studio now contains a bright six-pane front window, two vertical light strips, an overhead softbox, dark flags and a darker floor. The window faces the initial viewpoint for visible structured reflections on the metal sphere. Cards use neutral colors with HDR brightness; reflection intensity remains 0.35. These features exist only during the one-time environment bake, so visible scene geometry and ongoing draw calls are unchanged. Entry/environment versions advance to `v=5`.
+Set `SCENE_TEST_URL`, `PLAYWRIGHT_MODULE` and `CHROME_PATH` as needed for an existing preview/Playwright/Chrome installation. `SCENE_SCREENSHOT` optionally writes a preview. No browser automation dependency is added to runtime.
 
-## Performance readout placement — 2026-10-29
+The 15 model/object tests and both Chrome integration suites passed during implementation. Final verification and remaining headset checks are recorded below. Desktop/software-renderer FPS is not a Quest performance measurement. Quest validation remains required for stereo readability, controller feel, near pickup, scaled-object manipulation and sustained performance. Multiple shadow lights/high map resolutions remain expensive. The Milestone 2 release is authorized by the subsequent user request recorded below.
 
-FPS, active lights, shadow-casting lights, draw calls and triangles now appear at the bottom of Scene Settings in both VR and desktop controls, still updating twice per second. The head-attached mesh/texture HUD and fixed desktop overlay are removed. Expanded VR dropdowns temporarily cover the performance area; closing them restores the readout. Entry/UI versions advance to `v=7`.
+Final verification on 2026-10-29: all 15 Scene Test model/object tests, the complete root suite (including 31 shared regressions), both Scene Test Chrome integration suites, local runtime import checks and `git diff --check` passed. Desktop Object Settings and all three VR panels were visually reviewed. Primitive preview edges/spacing were adjusted for readability; all four prototype-grip paths passed again afterward. Quest hardware retesting remains outstanding.
 
-## Select on grab — 2026-10-29
+## Empty default scene — 2026-10-29
 
-Selection now changes immediately on a successful grab, including palette creation. Releasing a light only ends the grab; it does not change selection, so deselecting or choosing another light while holding one is respected on release. Desktop retains selection on pointer-down and no longer selects on release. Rejected grabs leave selection unchanged. Model/browser checks cover the revised behavior. Entry, input, UI and application model versions advance to `v=8`.
+Per subsequent user request, removed the fixed comparison objects, their labels and the wall. New/reset scenes contain only the checkerboard floor, global lighting/background and the UI. Saved user-created lights and primitives still restore normally. The off-scene PMREM studio is retained solely as a reflection map.
 
-## Release review — 2026-10-29
+## A-button duplication — 2026-10-29
 
-The user tested the project, accepted the final behavior, and authorized committing/pushing Scene Test to GitHub. Final behavior includes the corrected headset-relative navigation, controller grip spheres, straight object/label rows, richer studio reflections, performance information inside Scene Settings, and immediate selection on grab. The complete root suite (including six Scene Test model tests) and Chrome WebGL integration checks passed for this release; whitespace checks passed. User acceptance is not a formal sustained frame-rate or stereo/comfort benchmark. No shared vendor runtime was changed. The unrelated Chess backups remain excluded. See Git history for the release commit and deployment status.
+Subsequent user request adds duplication beyond the original milestone scope. While pointing the right-controller ray at an existing light or object, press/hold A (`xr-standard` button 4) to create one duplicate with a new ID. All per-entity settings are deep-copied, including disabled-light state, material properties, scale/last All and shadow preferences. Current world position/quaternion are captured even if the source is held. Materials and light targets are independent; primitive geometry remains shared.
 
-## Shared Three.js relocation — 2026-10-29
+The duplicate selects immediately, opens the matching settings, and attaches to the right grip without snapping. Holding A moves/rotates it; releasing A places it while preserving selection. Holding the button never repeats copies. A hold and ordinary grip ownership are distinct: releasing one button cannot drop the other's entity, and an already-busy hand cannot start a duplicate. Palette prototypes/UI/empty space are not duplicate targets; left X does not duplicate. Tracking loss, disconnection, session cleanup and deletion safely release/clear the hold. A held through tracking recovery must be released and freshly pressed before making another copy. Duplication does not save automatically; the ordinary v2 save/reset/load path includes copies.
 
-Three.js r180 now lives at repository-level `shared/vendor/three-r180/`, with GLTFLoader, BufferGeometryUtils, VRButton and area-light modules in its `addons/` directory. Former Forest/Scene Test vendor directories are removed. Imports, tests, documentation and the knight exporter use the canonical shared paths. Core/license bytes are unchanged; addon code changes only adjust imports. Buildless entry/module queries use `shared-r180-1` to refresh cached module graphs. Racer, Terrain and Fishing static outputs were rebuilt from their updated sources; Swarm retains independent npm dependencies.
+Validation: 16 Scene Test model/object/duplication tests pass. `tests/duplicate-browser.cjs` covers all eight entity types, complete settings, independent materials/targets, immediate selection, initial offset, movement/rotation, one copy per press, independent A/grip release, tracking recovery, deletion during hold and saved-copy restoration. Physical Quest A-button testing remains required. The user subsequently authorized committing and pushing this release.
 
-Validation: the complete root suite, all ten Cloud tests, three Vite builds, Scene Test browser integration and browser startup of all ten affected projects under `/CodexTest/` passed. All 525 inspected local module references resolve. No new Quest hardware benchmark is implied. The user authorized committing and pushing this relocation. See Git history for the release commit; Pages checks were not requested.
+## Milestone 2 release review — 2026-10-29
 
-## Shared locomotion extraction — 2026-10-29
-
-Surface and Scene Test now import `shared/xr/locomotion.mjs`, with reusable
-axis/deadzone helpers in `shared/xr/input.mjs`. Surface's former local module is
-removed. Each project retains its movement/turn speeds and deadzone response:
-Surface rescales outside the deadzone; Scene Test preserves raw analog magnitude.
-Scene Test supplies its parented viewer camera's local pose and keeps desktop
-input and light interaction local. Frame deltas cap at 50 ms. Changed entry/module
-queries use `shared-motion-1` for cache refresh. Other projects are not migrated.
-
-Validation: all existing root-suite checks and all three new shared regression
-tests passed. Scene Test Chrome WebGL integration passed, including its navigation
-regressions. Subsequent Quest feedback is recorded in the shared XR helpers
-section below. Publication is covered by the shared XR helpers release review below.
-
-## Shared XR helpers — 2026-10-29
-
-Scene Test uses shared button edges for B/Y, controller pointer ray construction
-and visuals, XRFrameState for viewer/controller tracking, and FrameRateCounter
-for half-second FPS. Grabs, selection, sliders and panel placement stay local.
-FPS resets through hidden/untracked and session transitions.
-
-Interfaces and current consumers are documented in the
-[shared library guide](../../shared/README.md). Changed entry/import queries use `shared-xr-1`. Shared source
-and tests live under `shared/xr/`, `shared/performance/`, and `tests/shared/`.
-
-Validation: full root suite (including 12 shared regressions), all ten Cloud tests,
-and Scene Test Chrome WebGL integration passed. Chrome startup/module loading
-passed for Surface, Space Race, Weather and Clouds; live FPS reporting passed in
-the latter three.
-
-The user subsequently reported that Quest works correctly after these shared-helper
-changes on 2026-10-29. This is user headset feedback for the shared change; no
-project-by-project test matrix or formal sustained frame-rate benchmark was recorded.
-The user authorized committing and pushing this shared-library release on
-2026-10-29. See Git history for the release commit; deployment status is verified
-separately after pushing.
+The user authorized pushing Milestone 2 and subsequent floor-only defaults and A-button duplication to GitHub. The full root suite passed again before publication, including all 16 Scene Test tests and 31 shared regressions. The three Scene Test Chrome suites passed for lighting/navigation, objects/materials/scale/persistence and all eight A-duplicate types. Whitespace checks passed. No shared runtime was modified; shared consumer documentation and project-directory descriptions reflect Scene Test's expanded scope. Physical Quest validation limits remain as noted above. See Git history for the commit. Pages checks are skipped at the user's request.

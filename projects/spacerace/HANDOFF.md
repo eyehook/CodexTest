@@ -154,3 +154,7 @@ control models/renderers; Weather supplies reusable VR sliders and selectors/tab
 The complete root suite, 31 shared regressions, 50 Weather tests, seven Swarm tests,
 ten Cloud tests and browser checks for the three UI consumers passed during this
 work. Physical Quest retesting of the new UI remains outstanding.
+
+## Scene Test Milestone 2 release review — 2026-10-29
+
+Reviewed before the authorized Scene Test objects/materials/duplication release as required by repository guidance. Space Race runtime and shared runtime are unchanged. The complete root suite, including Space Race and 31 shared regressions, passed before publication. Existing physical-headset validation limits remain unchanged.

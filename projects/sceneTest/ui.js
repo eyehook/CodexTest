@@ -1,6 +1,11 @@
 import * as T from "three";
-import { NAMES, INTENSITY_MAX, TYPES } from "./model.js?v=shared-r180-1";
-import { makeHelper } from "./lights.js?v=shared-r180-1";
+import { NAMES, INTENSITY_MAX, TYPES } from "./model.js?v=m2-1";
+import { makeHelper } from "./lights.js?v=m2-1";
+import { OBJECT_TYPES, OBJECT_NAMES, setUniformScale } from "./model.js?v=m2-1";
+import { primitiveGeometry } from "./objects.js?v=m2-1";
+import { ChoiceBar } from "../../shared/ui/choice-bar.mjs";
+import { sliderValue } from "../../shared/ui/slider.mjs";
+import { ControlModel } from "../../shared/ui/controls.mjs";
 const W = 640,
   H = 1536,
   ROW = 54,
@@ -9,41 +14,82 @@ export class LaboratoryUI {
   constructor(app) {
     this.app = app;
     this.open = true;
+    this.tab = "lights";
+    this.controlKey = null;
     this.group = new T.Group();
     this.group.visible = app.renderer.xr.isPresenting;
     app.scene.add(this.group);
     this.panels = [];
     this.openMenu = null;
     this.prototypes = [];
-    ["Scene Settings", "Light Palette", "Selected Light"].forEach(
-      (title, i) => {
-        const canvas = document.createElement("canvas");
-        canvas.width = W;
-        canvas.height = H;
-        const texture = new T.CanvasTexture(canvas);
-        texture.colorSpace = T.SRGBColorSpace;
-        texture.minFilter = T.LinearFilter;
-        const mesh = new T.Mesh(
-          new T.PlaneGeometry(0.7, 1.68),
-          new T.MeshBasicMaterial({ map: texture, toneMapped: false }),
-        );
-        mesh.position.x = (i - 1) * 0.74;
-        mesh.userData.panel = i;
-        this.group.add(mesh);
-        this.panels.push({ title, canvas, texture, mesh, rows: [] });
-      },
-    );
-    TYPES.forEach((type, i) => {
-      const helper = makeHelper(type, true);
-      helper.position.set(0, 0.53 - i * 0.29, 0.08);
-      helper.rotation.y = -0.35;
-      helper.userData.prototype = type;
-      helper.userData.handle.userData.prototype = type;
-      this.group.add(helper);
-      this.prototypes.push(helper);
-      if (type === "spot") helper.userData.lines.scale.set(0.12, 0.12, 0.23);
-      if (type === "area") helper.userData.lines.scale.set(0.25, 0.18, 0.25);
+    ["Scene Settings", "Creation Palette", "Settings"].forEach((title, i) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const texture = new T.CanvasTexture(canvas);
+      texture.colorSpace = T.SRGBColorSpace;
+      texture.minFilter = T.LinearFilter;
+      const mesh = new T.Mesh(
+        new T.PlaneGeometry(0.7, 1.68),
+        new T.MeshBasicMaterial({ map: texture, toneMapped: false }),
+      );
+      mesh.position.x = (i - 1) * 0.74;
+      mesh.userData.panel = i;
+      this.group.add(mesh);
+      this.panels.push({ title, canvas, texture, mesh, rows: [] });
     });
+    this.allPrototypes = [];
+    for (const [kind, types] of [
+      ["light", TYPES],
+      ["object", OBJECT_TYPES],
+    ])
+      types.forEach((type, i) => {
+        const helper =
+          kind === "light"
+            ? makeHelper(type, true)
+            : new T.Mesh(
+                primitiveGeometry(type, true),
+                new T.MeshBasicMaterial({ color: 0xd9e8f1, toneMapped: false }),
+              );
+        if (kind === "object") {
+          helper.scale.setScalar(0.28);
+          helper.userData.handle = helper;
+          helper.rotation.x = 0.18;
+          if (type !== "sphere") {
+            const edges = new T.LineSegments(
+              new T.EdgesGeometry(helper.geometry, 30),
+              new T.LineBasicMaterial({ color: 0x547386, toneMapped: false }),
+            );
+            helper.add(edges);
+          }
+        }
+        const y =
+          0.84 - ((190 + i * 245 + (kind === "object" ? 80 : 100)) / H) * 1.68;
+        helper.position.set(0, y, 0.09);
+        helper.rotation.y = -0.35;
+        helper.userData.prototype = type;
+        helper.userData.prototypeKind = kind;
+        helper.userData.handle.userData.prototype = type;
+        helper.userData.handle.userData.prototypeKind = kind;
+        if (type === "spot") helper.userData.lines.scale.set(0.12, 0.12, 0.23);
+        if (type === "area") helper.userData.lines.scale.set(0.25, 0.18, 0.25);
+        this.group.add(helper);
+        this.allPrototypes.push(helper);
+      });
+    this.tabBar = new ChoiceBar({
+      options: [
+        { id: "lights", label: "Lights" },
+        { id: "objects", label: "Objects" },
+      ],
+      getValue: () => this.tab,
+      onSelect: (tab) => this.setTab(tab),
+      x: 18,
+      y: TOP,
+      width: W - 36,
+      height: 64,
+      font: "bold 26px sans-serif",
+    });
+    this.updatePrototypes();
     this.desktop = document.querySelector("#controls");
     this.performanceOutput = document.querySelector("#performance");
     this.refresh();
@@ -68,10 +114,43 @@ export class LaboratoryUI {
     this.group.visible = this.open && this.app.renderer.xr.isPresenting;
     if (this.open) this.place();
   }
+  updatePrototypes() {
+    this.prototypes = [];
+    for (const p of this.allPrototypes) {
+      p.visible =
+        p.userData.prototypeKind ===
+        (this.tab === "lights" ? "light" : "object");
+      if (p.visible) this.prototypes.push(p);
+    }
+  }
+  cancelUIDrags() {
+    for (const hand of this.app.input?.hands || []) hand.dragUI = null;
+  }
+  setTab(tab) {
+    if (this.tab === tab) return;
+    this.tab = tab;
+    this.openMenu = null;
+    this.cancelUIDrags();
+    this.updatePrototypes();
+    this.refresh();
+  }
+  selectionChanged(record) {
+    this.tab = record.kind === "light" ? "lights" : "objects";
+    this.updatePrototypes();
+    this.openMenu = null;
+    this.cancelUIDrags();
+    if (!this.open) {
+      this.open = true;
+      this.place();
+    }
+    this.group.visible = this.open && this.app.renderer.xr.isPresenting;
+    document.body.classList.remove("controls-hidden");
+    this.refresh();
+  }
   definitions() {
     const a = this.app,
       s = a.settings,
-      r = a.lights.records.get(a.interaction.selected),
+      r = a.entities.get(a.interaction.selected),
       d = r?.data;
     const change = () => a.applySettings();
     const slider = (
@@ -143,10 +222,10 @@ export class LaboratoryUI {
       { kind: "button", label: "Reset Scene", action: () => a.reset() },
     ];
     let selected = [
-      { kind: "label", label: "No light selected" },
-      { kind: "label", label: "Aim at a light and press trigger." },
+      { kind: "label", label: "Nothing selected" },
+      { kind: "label", label: "Aim at a light or object and trigger." },
     ];
-    if (d) {
+    if (d && r.kind === "light") {
       const update = () => a.lights.apply(r);
       selected = [
         { kind: "label", label: NAMES[d.type] },
@@ -197,21 +276,68 @@ export class LaboratoryUI {
         kind: "button",
         label: "Delete light",
         action: () => {
-          a.lights.remove(d.id);
-          a.cancelMissingGrabs();
+          a.deleteEntity(d.id);
         },
       });
     }
-    const palette = [
-      { kind: "label", label: "Grip a symbol to create a light." },
-      { kind: "label", label: "Trigger selects. Grip selects + moves." },
-      { kind: "label", label: "Grabbing a new light selects it." },
-      { kind: "label", label: "Helpers always remain visible." },
-    ];
+    if (d && r.kind === "object") {
+      const update = () => a.objects.apply(r);
+      selected = [
+        { kind: "label", label: OBJECT_NAMES[d.type] },
+        ...colors("Color", d.material, "color", update),
+        { kind: "swatch", label: "Live color", get: () => d.material.color },
+        slider("Metalness", d.material, "metalness", 0, 1, 0.01, update),
+        slider("Roughness", d.material, "roughness", 0, 1, 0.01, update),
+        {
+          kind: "slider",
+          label: "All",
+          min: 0.1,
+          max: 10,
+          step: 0.1,
+          get: () => d.allScale,
+          set: (v) => {
+            setUniformScale(d, v);
+            update();
+          },
+          force: true,
+        },
+        ...["X", "Y", "Z"].map((label, i) => ({
+          kind: "slider",
+          label,
+          min: 0.1,
+          max: 10,
+          step: 0.1,
+          get: () => d.scale[i],
+          set: (v) => {
+            d.scale[i] = v;
+            update();
+          },
+        })),
+        toggle("Cast shadows", d, "castShadow", update),
+        toggle("Receive shadows", d, "receiveShadow", update),
+        {
+          kind: "button",
+          label: "Delete object",
+          action: () => a.deleteEntity(d.id),
+        },
+      ];
+    }
+    this.panels[2].title = !r
+      ? "Settings"
+      : r.kind === "object"
+        ? "Object Settings"
+        : {
+            point: "Point Light Settings",
+            spot: "Spot Light Settings",
+            directional: "Directional Light Settings",
+            area: "Area Light Settings",
+          }[d.type];
+    const palette = [];
     return [scene, palette, selected];
   }
   refresh(rebuild = true) {
     const definitions = this.definitions();
+    this.bindControls(definitions);
     this.panels.forEach((p, i) => {
       p.rows = definitions[i];
       if (this.openMenu?.panel === i) {
@@ -234,6 +360,63 @@ export class LaboratoryUI {
       this.draw(p, i);
     });
     if (rebuild) this.renderDesktop();
+    else this.syncDesktop();
+  }
+  bindControls(definitions) {
+    const key = this.app.interaction.selected || "empty";
+    const numeric = [];
+    definitions.forEach((rows, panel) =>
+      rows.forEach((row) => {
+        if (row.kind === "slider" || row.kind === "toggle") {
+          row.id = `${panel}:${row.label}`;
+          numeric.push(row);
+        }
+      }),
+    );
+    if (this.controlKey !== key) {
+      this.controlModel?.dispose();
+      this.controlModel = new ControlModel(
+        numeric.map((r) => ({
+          id: r.id,
+          label: r.label,
+          kind: r.kind === "slider" ? "number" : "toggle",
+          get: r.get,
+          set: r.set,
+          min: r.min,
+          max: r.max,
+          step: r.step,
+          stepBase: 0,
+        })),
+      );
+      this.controlKey = key;
+    }
+    numeric.forEach((row) => {
+      const rawSet = row.set;
+      row.set = (value) => {
+        if (row.force) {
+          const def = this.controlModel.definition(row.id),
+            next = this.controlModel.normalize(def, value);
+          if (next !== undefined && next === row.get()) {
+            rawSet(next);
+            return;
+          }
+        }
+        this.controlModel.set(row.id, value);
+      };
+    });
+  }
+  syncDesktop() {
+    if (!this.desktopBindings) return;
+    for (const { row, input, output, swatch } of this.desktopBindings) {
+      if (input) {
+        if (input.type === "checkbox") input.checked = row.get();
+        else input.value = row.get();
+      }
+      if (output)
+        output.textContent =
+          row.step === 1 ? Math.round(row.get()) : Number(row.get()).toFixed(2);
+      if (swatch) swatch.style.background = `rgb(${row.get().join(",")})`;
+    }
   }
   draw(p, index) {
     const g = p.canvas.getContext("2d");
@@ -247,27 +430,31 @@ export class LaboratoryUI {
     g.fillText(p.title, 24, 51);
     g.font = "20px sans-serif";
     g.fillStyle = "#b3c6d0";
-    g.fillText("SCENE TEST / LIGHTING LAB", 24, 82);
+    g.fillText("SCENE TEST / SCENE LAB", 24, 82);
     if (index === 1) {
-      TYPES.forEach((type, i) => {
-        const y = TOP + i * 265;
+      this.tabBar.draw(g);
+      const types = this.tab === "lights" ? TYPES : OBJECT_TYPES;
+      const names = this.tab === "lights" ? NAMES : OBJECT_NAMES;
+      types.forEach((type, i) => {
+        const y = 190 + i * 245;
         g.fillStyle = "#213947";
-        g.fillRect(18, y, W - 36, 240);
+        g.fillRect(18, y, W - 36, 220);
         g.fillStyle = "#effaff";
         g.font = "bold 26px sans-serif";
-        g.fillText(NAMES[type], 24, y + 40);
+        g.fillText(names[type], 24, y + 40);
         g.font = "22px sans-serif";
         g.fillStyle = "#a9c4d3";
-        g.fillText("Grip the floating symbol", 24, y + 207);
+        g.fillText("Grip to create and select", 24, y + 194);
       });
       g.font = "22px sans-serif";
       g.fillStyle = "white";
       [
         "Right trigger: select / edit",
         "Either grip: create / move / rotate",
+        "A: hold to duplicate pointed item",
         "B: deselect    Y: panels",
         "Left stick: move   Right: turn",
-      ].forEach((t, i) => g.fillText(t, 24, TOP + 1090 + i * 48));
+      ].forEach((t, i) => g.fillText(t, 24, 1220 + i * 48));
     } else
       p.rows.forEach((r, i) => {
         const y = TOP + i * ROW;
@@ -341,9 +528,24 @@ export class LaboratoryUI {
   }
   hit(intersection) {
     const index = intersection.object.userData.panel;
-    if (index === undefined || index === 1) return null;
+    if (index === undefined) return null;
     const x = intersection.uv.x * W,
       y = (1 - intersection.uv.y) * H;
+    if (index === 1) {
+      const option = this.tabBar.optionAt(x, y);
+      return option
+        ? {
+            index,
+            row: -1,
+            control: {
+              kind: "button",
+              label: option.label,
+              action: () => this.setTab(option.id),
+            },
+            x,
+          }
+        : null;
+    }
     const row = Math.floor((y - TOP) / ROW);
     const control = this.panels[index].rows[row];
     return control ? { index, row, control, x } : null;
@@ -352,14 +554,7 @@ export class LaboratoryUI {
     if (!hit) return;
     const r = hit.control;
     if (r.kind === "slider") {
-      const f = T.MathUtils.clamp((hit.x - 28) / 580, 0, 1);
-      r.set(
-        T.MathUtils.clamp(
-          Math.round((r.min + f * (r.max - r.min)) / r.step) * r.step,
-          r.min,
-          r.max,
-        ),
-      );
+      r.set(sliderValue(r, hit.x, 28, 580));
     } else if (!continuous) {
       if (r.kind === "toggle") r.set(!r.get());
       if (r.kind === "button") r.action();
@@ -379,24 +574,46 @@ export class LaboratoryUI {
   }
   renderDesktop() {
     this.desktop.replaceChildren();
+    this.desktopBindings = [];
     this.panels.forEach((p, i) => {
       const section = document.createElement("section");
       const title = document.createElement("h2");
       title.textContent = p.title;
       section.append(title);
       if (i === 1) {
-        TYPES.forEach((type) => {
+        const tabs = document.createElement("div");
+        tabs.className = "tabs";
+        tabs.setAttribute("role", "tablist");
+        tabs.setAttribute("aria-label", "Creation tools");
+        for (const [tab, label] of [
+          ["lights", "Lights"],
+          ["objects", "Objects"],
+        ]) {
+          const button = document.createElement("button");
+          button.textContent = label;
+          button.setAttribute("role", "tab");
+          button.setAttribute("aria-selected", String(this.tab === tab));
+          button.onclick = () => this.setTab(tab);
+          tabs.append(button);
+        }
+        section.append(tabs);
+        const types = this.tab === "lights" ? TYPES : OBJECT_TYPES,
+          names = this.tab === "lights" ? NAMES : OBJECT_NAMES;
+        types.forEach((type) => {
           const b = document.createElement("button");
-          b.textContent = `+ ${NAMES[type]}`;
+          b.textContent = `+ ${names[type]}`;
           b.onclick = () => {
-            this.app.createDesktop(type);
+            this.app.createDesktop(
+              type,
+              this.tab === "lights" ? "light" : "object",
+            );
             this.refresh();
           };
           section.append(b);
         });
         const help = document.createElement("p");
         help.textContent =
-          "Click a helper to select. Drag it to move; Shift-drag rotates. WASD walks, arrow keys turn. Y toggles VR panels; B/Escape deselects.";
+          "Click a light or object to select. Drag to move; Shift-drag rotates. WASD walks, arrow keys turn. Y toggles VR panels; B/Escape deselects. VR A: hold to duplicate a pointed item.";
         section.append(help);
       } else
         p.rows.forEach((r) => {
@@ -420,15 +637,10 @@ export class LaboratoryUI {
                 r.step === 1 ? 0 : 2,
               );
               this.refresh(false);
-              this.desktop.querySelectorAll("[data-swatch]").forEach((el) => {
-                const rec = this.app.lights.records.get(
-                  this.app.interaction.selected,
-                );
-                if (rec)
-                  el.style.background = `rgb(${rec.data.color.join(",")})`;
-              });
+              this.syncDesktop();
             };
             label.append(output, input);
+            this.desktopBindings.push({ row: r, input, output });
           }
           if (r.kind === "toggle") {
             const input = document.createElement("input");
@@ -439,6 +651,7 @@ export class LaboratoryUI {
               this.refresh(false);
             };
             label.append(input);
+            this.desktopBindings.push({ row: r, input });
           }
           if (r.kind === "select") {
             const select = document.createElement("select");
@@ -475,6 +688,7 @@ export class LaboratoryUI {
             sw.dataset.swatch = "true";
             sw.style.cssText = `display:block;height:24px;background:rgb(${r.get().join(",")})`;
             label.append(sw);
+            this.desktopBindings.push({ row: r, swatch: sw });
           }
           section.append(label);
         });

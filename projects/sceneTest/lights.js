@@ -1,5 +1,5 @@
 import * as T from "three";
-import { lightDefaults } from "./model.js?v=shared-r180-1";
+import { lightDefaults } from "./model.js?v=m2-1";
 const direction = new T.Vector3(0, 0, -1),
   world = new T.Vector3(),
   q = new T.Quaternion();
@@ -79,7 +79,14 @@ export class LightManager {
               : new T.RectAreaLight();
     root.position.fromArray(data.position);
     root.quaternion.fromArray(data.rotation).normalize();
-    const record = { data, root, light, target: null, hovered: false };
+    const record = {
+      kind: "light",
+      data,
+      root,
+      light,
+      target: null,
+      hovered: false,
+    };
     root.userData.record = record;
     root.userData.handle.userData.record = record;
     // Targets are world-space siblings; local -Z is the emitting direction for every oriented type.

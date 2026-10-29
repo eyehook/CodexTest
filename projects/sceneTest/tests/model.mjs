@@ -30,7 +30,7 @@ test("four types use specified defaults and unique stable identities", () => {
     assert.equal(l.range, 0);
   });
 });
-test("grabbing selects immediately and enforces two-hand ownership", () => {
+test("existing grabs preserve or clear selection and new grabs select", () => {
   const state = new InteractionState();
   state.select("a");
   assert.equal(state.beginGrab("right", "a"), true);
@@ -38,6 +38,9 @@ test("grabbing selects immediately and enforces two-hand ownership", () => {
   assert.equal(state.beginGrab("left", "a"), false);
   state.endGrab("right");
   state.beginGrab("left", "b");
+  assert.equal(state.selected, null);
+  state.endGrab("left");
+  state.beginGrab("left", "b", true);
   assert.equal(state.selected, "b");
   state.select("a");
   state.remove("b");
@@ -57,7 +60,7 @@ test("save/load round-trips all light types, world transforms and scene settings
   lights[3].width = 4;
   saveScene(s, settings, lights);
   const restored = loadScene(s);
-  assert.deepEqual(restored, { version: 1, settings, lights });
+  assert.deepEqual(restored, { version: 2, settings, lights, objects: [] });
   assert.equal(restored.lights[1].shadows, true);
   assert.equal(restored.settings.shadows, false);
 });

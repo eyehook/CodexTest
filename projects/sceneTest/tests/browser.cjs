@@ -350,7 +350,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
       const released = r1.root.parent === a.scene;
       h.hit = { record: r2 };
       a.input.beginGrab(h);
-      const grabSelected = a.interaction.selected === r2.data.id;
+      const existingGrabCleared = a.interaction.selected === null;
       a.input.endGrab(h);
       a.ui.group.visible = true;
       a.ui.group.updateMatrixWorld(true);
@@ -447,7 +447,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
         selectedPreserved,
         moved,
         released,
-        grabSelected,
+        existingGrabCleared,
         created,
         live,
         singleOwner,

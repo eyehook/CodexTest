@@ -1,5 +1,5 @@
-import {XRFrameState} from '../../shared/xr/session.mjs?v=shared-xr-1';
-import {FrameRateCounter} from '../../shared/performance/frame-rate.mjs?v=shared-xr-1';
+import { XRFrameState } from "../../shared/xr/session.mjs?v=shared-xr-1";
+import { FrameRateCounter } from "../../shared/performance/frame-rate.mjs?v=shared-xr-1";
 import * as T from "three";
 import { RectAreaLightUniformsLib } from "../../shared/vendor/three-r180/addons/RectAreaLightUniformsLib.js";
 import { VRButton } from "../../shared/vendor/three-r180/addons/VRButton.js";
@@ -8,15 +8,17 @@ import {
   InteractionState,
   saveScene,
   loadScene,
-} from "./model.js?v=shared-r180-1";
-import { createEnvironment } from "./environment.js?v=shared-r180-1";
-import { LightManager } from "./lights.js?v=shared-r180-1";
-import { LaboratoryUI } from "./ui.js?v=shared-r180-1";
-import { Input } from "./input.js?v=shared-xr-1";
+} from "./model.js?v=m2-1";
+import { createEnvironment } from "./environment.js?v=m2-2";
+import { LightManager } from "./lights.js?v=m2-1";
+import { LaboratoryUI } from "./ui.js?v=m2-3";
+import { Input } from "./input.js?v=m2-3";
+import { ObjectManager } from "./objects.js?v=m2-1";
+import { SceneEntities } from "./entities.js?v=m2-3";
 class Laboratory {
   constructor() {
     this.settings = defaults();
-    this.message = "Ready · Grip a palette light to begin";
+    this.message = "Ready · Grip a palette light or object to begin";
     this.scene = new T.Scene();
     this.renderer = new T.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
@@ -51,11 +53,18 @@ class Laboratory {
     this.scene.add(this.ambient, this.hemisphere);
     this.interaction = new InteractionState();
     this.lights = new LightManager(this.scene, this.settings, this.interaction);
+    this.objects = new ObjectManager(
+      this.scene,
+      this.settings,
+      this.interaction,
+    );
+    this.entities = new SceneEntities(this.lights, this.objects);
     try {
       const saved = loadScene(localStorage);
       if (saved) {
         Object.assign(this.settings, saved.settings);
         saved.lights.forEach((d) => this.lights.create(d.type, d));
+        saved.objects.forEach((d) => this.objects.create(d.type, d));
         this.message = "Saved scene restored";
       }
     } catch (e) {
@@ -103,6 +112,7 @@ class Laboratory {
       snapshot: () => ({
         settings: structuredClone(this.settings),
         lights: this.lights.serialize(),
+        objects: this.objects.serialize(),
         selected: this.interaction.selected,
         stats: this.lastStats,
       }),
@@ -115,7 +125,9 @@ class Laboratory {
   updateViewerPose(frame) {
     this.xrFrame.update(
       this.renderer.xr.isPresenting ? this.renderer.xr.getSession() : null,
-      frame, this.renderer.xr.getReferenceSpace(), document.hidden,
+      frame,
+      this.renderer.xr.getReferenceSpace(),
+      document.hidden,
     );
     this.viewerPose = this.xrFrame.pose;
     if (this.viewerPose) {
@@ -152,6 +164,7 @@ class Laboratory {
     }[s.toneMapping];
     this.renderer.toneMappingExposure = s.exposure;
     for (const r of this.lights.records.values()) this.lights.apply(r);
+    for (const r of this.objects.records.values()) this.objects.apply(r);
   }
   notify(message) {
     this.message = message;
@@ -166,7 +179,12 @@ class Laboratory {
   }
   save() {
     try {
-      saveScene(localStorage, this.settings, this.lights.serialize());
+      saveScene(
+        localStorage,
+        this.settings,
+        this.lights.serialize(),
+        this.objects.serialize(),
+      );
       this.notify("Scene saved");
     } catch (e) {
       this.notify(`Save failed: ${e.message}`);
@@ -175,6 +193,7 @@ class Laboratory {
   reset() {
     this.input?.releaseAll();
     this.lights.clear();
+    this.objects.clear();
     this.interaction.clear();
     Object.assign(this.settings, defaults());
     this.applySettings();
@@ -184,15 +203,29 @@ class Laboratory {
   cancelMissingGrabs() {
     if (!this.input) return;
     for (const [hand, r] of this.input.grabs)
-      if (!this.lights.records.has(r.data.id)) this.input.grabs.delete(hand);
+      if (!this.entities.get(r.data.id)) {
+        this.input.grabs.delete(hand);
+        this.input.grabButtons.delete(hand);
+      }
     if (
       this.input.desktopDrag &&
-      !this.lights.records.has(this.input.desktopDrag.record.data.id)
+      !this.entities.get(this.input.desktopDrag.record.data.id)
     )
       this.input.desktopDrag = null;
   }
-  createDesktop(type) {
-    const r = this.lights.create(type),
+  select(id) {
+    this.interaction.select(id);
+    const record = this.entities.get(id);
+    if (record) this.ui?.selectionChanged(record);
+    else this.ui?.refresh();
+  }
+  deleteEntity(id) {
+    this.entities.remove(id);
+    this.cancelMissingGrabs();
+    this.ui.refresh();
+  }
+  createDesktop(type, kind = "light") {
+    const r = this.entities.create(kind, type),
       camera = this.viewCamera(),
       p = new T.Vector3(),
       f = new T.Vector3();
@@ -200,7 +233,8 @@ class Laboratory {
     camera.getWorldDirection(f);
     r.root.position.copy(p).addScaledVector(f, 1.5);
     r.root.lookAt(0, 0.5, -3);
-    this.notify("Light created · Click its helper to select");
+    this.select(r.data.id);
+    this.notify(kind === "light" ? "Light created" : "Object created");
     return r;
   }
   frame(time, frame) {
@@ -211,13 +245,18 @@ class Laboratory {
     this.updateViewerPose(frame);
     this.input.update(dt, frame);
     this.lights.update();
+    this.objects.update();
     if (this.placeOnFrame && this.viewerPose) {
       this.ui.place();
       this.placeOnFrame = false;
     }
     this.renderer.render(this.scene, this.camera);
-    if (!this.xrFrame.active || this.xrFrame.resumed || this.xrFrame.changed) this.fpsCounter.reset();
-    const fps = this.xrFrame.active && !this.xrFrame.resumed ? this.fpsCounter.sample(raw) : null;
+    if (!this.xrFrame.active || this.xrFrame.resumed || this.xrFrame.changed)
+      this.fpsCounter.reset();
+    const fps =
+      this.xrFrame.active && !this.xrFrame.resumed
+        ? this.fpsCounter.sample(raw)
+        : null;
     if (fps !== null) {
       const records = [...this.lights.records.values()];
       this.lastStats = {
