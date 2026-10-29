@@ -33,6 +33,8 @@ The root `index.html` is the project directory. Add future projects under `proje
 
 From the repository root, run `python3 -m http.server 8080` and open http://localhost:8080/. Chess, Forest and the included Racer build run without installing anything. To edit Racer, install the Vite development dependency and rebuild as described in its README. Forest desktop controls: WASD to walk, left/right arrows to turn, R to reset. Chess uses drag-and-drop; other projects document their own controls.
 
+For local Quest testing over USB, double-click [Start-VR.command](Start-VR.command) in this repository with an unlocked, USB-debugging-authorized headset connected. It uses Meta Quest Developer Hub's ADB and Python 3 to serve this checkout on port 8080 and forward that port to the headset. Open `http://localhost:8080/` in Meta Quest Browser. Keep the server window and USB connection active; rerun after reconnecting. The launcher serves its own directory, so keep it in the repository root. Local edits appear here immediately; publishing to GitHub Pages still requires a commit and push.
+
 ## GitHub Pages and Quest 3
 
 Pages is already configured for `main`, `/(root)`. Test locally and publish only when the user requests commit/push. The following describes the existing setup:

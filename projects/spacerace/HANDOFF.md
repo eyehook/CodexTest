@@ -127,3 +127,12 @@ project-by-project test matrix or formal sustained frame-rate benchmark was reco
 The user authorized committing and pushing this shared-library release on
 2026-10-29. See Git history for the release commit; deployment status is verified
 separately after pushing.
+
+## Local launcher release review — 2026-10-29
+
+Reviewed before the authorized launcher/documentation push. `Start-VR.command`
+now lives in the repository root and serves its containing directory. Root launch
+instructions are updated, and `.gitignore` excludes `*.blend1` backups. Space Race
+runtime and settings are unchanged. Launcher shell syntax, checkout path resolution,
+executable permission, ignore matching, documentation links and whitespace checks
+passed; no runtime suite was rerun for this launcher/documentation-only change.
