@@ -145,3 +145,12 @@ and uses native HTML controls; its obsolete Vite/lil-gui artifacts are removed.
 The full root suite, ten Cloud tests, seven Swarm tests and Swarm browser checks
 passed during this work. Swarm tests also passed after deleting its node_modules.
 No new Space Race headset benchmark is implied.
+
+## Shared UI release review — 2026-10-29
+
+Reviewed before the authorized shared UI push. Space Race runtime/settings and
+shared Three.js bytes are unchanged. Surface, Swarm and Weather now use common
+control models/renderers; Weather supplies reusable VR sliders and selectors/tabs.
+The complete root suite, 31 shared regressions, 50 Weather tests, seven Swarm tests,
+ten Cloud tests and browser checks for the three UI consumers passed during this
+work. Physical Quest retesting of the new UI remains outstanding.

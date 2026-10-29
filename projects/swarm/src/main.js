@@ -1,11 +1,12 @@
+import {createSwarmControls} from './controls.mjs?v=shared-ui-slider-1';
 import * as T from '../../../shared/vendor/three-r180/three.module.js';
 import {VRButton} from '../../../shared/vendor/three-r180/addons/VRButton.js';
 import {config} from './config.js';
 import {Wasp} from './Wasp.js';
 import {Swarm} from './Swarm.js';
 import {createScene} from './scene.js';
-import {createDesktopTuning} from './tuning.js?v=native-controls-1';
-import {VRPanel} from './VRPanel.js';
+import {createDesktopTuning} from './tuning.js?v=shared-ui-slider-1';
+import {VRPanel} from './VRPanel.js?v=shared-ui-slider-1';
 import {overviewDistance,fitDesktop} from './viewer.js';
 import {Locomotion} from './locomotion.js';
 const {scene,camera,renderer,rig}=createScene();
@@ -20,15 +21,12 @@ const leader=new T.Mesh(geometry,new T.MeshLambertMaterial({color:0xffffff}));le
 let swarm,bees;
 function resetSwarm(){if(bees){scene.remove(bees);bees.dispose();}swarm=new Swarm(config,wasp.position);bees=new T.InstancedMesh(geometry,material,config.beeCount);bees.instanceMatrix.setUsage(T.DynamicDrawUsage);bees.frustumCulled=false;scene.add(bees);}
 resetSwarm();const intro=document.querySelector('#intro');
-const tuning=createDesktopTuning(document.querySelector('#tuning'),config,key=>{
+const controls=createSwarmControls(config,key=>{
  if(key==='beeCount')resetSwarm();
- panel.draw();
 },()=>fitDesktop(camera,config.bounds));
+const tuning=createDesktopTuning(document.querySelector('#tuning'),config,null,null,controls);
 document.body.append(VRButton.createButton(renderer));
-const panel=new VRPanel(scene,rig,renderer,config,key=>{
- if(key==='beeCount')resetSwarm();
- tuning.sync();
-});
+const panel=new VRPanel(scene,rig,renderer,config,null,controls);
 const pose=new T.Vector3(),rotation=new T.Quaternion();
 const headRotation=new T.Quaternion(),headAngles=new T.Euler(0,0,0,'YXZ'),headPosition=new T.Vector3();
 const locomotion=new Locomotion(rig,config.locomotion);
@@ -62,6 +60,7 @@ renderer.setAnimationLoop((time,frame)=>{
   playerPosition.copy(viewer.transform.position).applyMatrix4(rig.matrixWorld);
   panel.follow(playerPosition,rig.quaternion);
  }else locomotion.reset();
+ panel.enabled=!!viewer&&!anchorPending;
  panel.update();
  const steps=Math.max(1,Math.ceil(dt/(1/90))),step=dt/steps;
  for(let i=0;i<steps;i++){wasp.update(step);swarm.update(step,wasp.position);}leader.position.copy(wasp.position);

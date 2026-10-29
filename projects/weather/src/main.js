@@ -1,3 +1,4 @@
+import {createWeatherControls} from './control-model.mjs?v=shared-ui-slider-1';
 import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import { WeatherModes } from './weather-modes.js?v=shared-r180-1';
 import { SettingsStore } from './settings.js?v=shared-r180-1';
@@ -5,7 +6,7 @@ import { weatherDefinitions } from './weather-catalog.js?v=shared-r180-1';
 import { FrameRateCounter } from './fps.js?v=shared-xr-1';
 import { Environment } from './environment.js?v=shared-r180-1';
 import { PlayerController } from './player.js?v=shared-r180-1';
-import { DesktopControls, VRControlPanel } from './controls.js?v=shared-r180-1';
+import { DesktopControls, VRControlPanel } from './controls.js?v=shared-ui-slider-1';
 export class WeatherSimulator {
   constructor() {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -40,11 +41,13 @@ export class WeatherSimulator {
     this.activeEffect.update(0, this.player.position);
     this.unsubscribeSaveStatus?.();
     this.desktop?.dispose();
-    this.desktop = new DesktopControls(document.querySelector('#parameters'), this.parameters);
-    if (this.panel) this.panel.setEffect(this.parameters, id);
+    const previousModel = this.uiModel; this.uiModel = createWeatherControls(this.parameters);
+    this.desktop = new DesktopControls(document.querySelector('#parameters'), this.parameters, this.uiModel);
+    if (this.panel) this.panel.setEffect(this.parameters, id, this.uiModel);
     else this.panel = new VRControlPanel(this.scene, this.player, this.parameters, {
-      modes: this.modes.definitions, mode: id, onSelect: next => this.selectEffect(next), onSave: () => this.saveSettings(),
+      model: this.uiModel, modes: this.modes.definitions, mode: id, onSelect: next => this.selectEffect(next), onSave: () => this.saveSettings(),
     });
+    previousModel?.dispose();
     this.unsubscribeSaveStatus = this.parameters.subscribe(() => this.renderSaveStatus());
     this.renderSaveStatus();
     this.modeSelect.value = id;
@@ -86,8 +89,8 @@ export class WeatherSimulator {
   }
   update(frame) {
     const rawDt = this.clock.getDelta(), dt = Math.min(rawDt, 0.05), session = this.renderer.xr.getSession();
-    if (document.hidden || (session && session.visibilityState !== 'visible')) { this.fpsCounter.reset(); this.panel.setFPS(null); return; }
-    const position = this.player.update(dt, frame); if (!position) { this.fpsCounter.reset(); this.panel.setFPS(null); return; }
+    if (document.hidden || (session && session.visibilityState !== 'visible')) { this.fpsCounter.reset(); this.panel.setFPS(null); this.panel.suspend(); return; }
+    const position = this.player.update(dt, frame); if (!position) { this.fpsCounter.reset(); this.panel.setFPS(null); this.panel.suspend(); return; }
     this.environment.update(position); this.activeEffect.update(dt, position); this.panel.update(session);
     this.renderer.render(this.scene, this.player.camera);
     const fps = this.fpsCounter.sample(rawDt);
@@ -98,7 +101,7 @@ export class WeatherSimulator {
   }
   dispose() {
     this.renderer.setAnimationLoop(null); window.removeEventListener('resize', this.resize);
-    this.unsubscribeSaveStatus?.(); this.desktop.dispose(); this.panel.dispose(); this.modes.dispose(); this.modeSelect.removeEventListener('change', this.onModeChange); this.saveButton.removeEventListener('click', this.onSaveSettings); this.environment.dispose(); this.player.dispose(); this.renderer.dispose(); this.renderer.domElement.remove();
+    this.unsubscribeSaveStatus?.(); this.desktop.dispose(); this.panel.dispose(); this.uiModel.dispose(); this.modes.dispose(); this.modeSelect.removeEventListener('change', this.onModeChange); this.saveButton.removeEventListener('click', this.onSaveSettings); this.environment.dispose(); this.player.dispose(); this.renderer.dispose(); this.renderer.domElement.remove();
   }
 }
 try { window.weatherSimulator = new WeatherSimulator(); } catch (error) { document.querySelector('#status').textContent = `Unable to start: ${error.message}`; console.error(error); }

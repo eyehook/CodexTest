@@ -52,7 +52,7 @@ GitHub documentation: [publishing source](https://docs.github.com/en/pages/getti
 
 ## Shared functionality
 
-Reusable locomotion, controller input, controller pointers and XR frame/session helpers live in `shared/xr/`; application FPS sampling lives in `shared/performance/`. See the [shared library guide](shared/README.md) for interfaces, usage and current project consumers. Third-party dependencies remain under `shared/vendor/`. Project-specific controls and validation belong in each project's handoff.
+Reusable locomotion, controller input, controller pointers and XR frame/session helpers live in `shared/xr/`; application FPS sampling lives in `shared/performance/`. Shared control models and native desktop/canvas VR renderers live in `shared/ui/`, currently used by Surface, Swarm and Weather. Desktop and VR use identical setting increments. See the [shared library guide](shared/README.md) for interfaces, usage and current project consumers. Third-party dependencies remain under `shared/vendor/`. Project-specific controls and validation belong in each project's handoff.
 
 ## Dependencies and editable sources
 

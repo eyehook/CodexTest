@@ -1,0 +1,19 @@
+.shared-controls { font-family: var(--controls-fontFamily, inherit); }
+.shared-controls .control { display: grid; grid-template-columns: minmax(0, 1fr) 78px; gap: 6px; margin: var(--controls-rowSpacing, 12px) 0; align-items: center; }
+.shared-controls .control label { grid-column: 1 / -1; font-size: var(--controls-labelFontSize, 13px); }
+.shared-controls .control input { box-sizing: border-box; width: 100%; min-width: 0; accent-color: var(--controls-accent, #ffb56a); }
+.shared-controls .control input[type=number] { appearance: textfield; }
+.shared-controls .control input[type=number]::-webkit-inner-spin-button,
+.shared-controls .control input[type=number]::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.shared-controls :disabled { opacity: .5; cursor: default; }
+.shared-controls :focus-visible { outline: 2px solid var(--controls-accent, #ffb56a); outline-offset: 3px; }
+.shared-controls details { margin-top: 14px; }
+.shared-controls summary { cursor: pointer; }
+.shared-controls output { color: var(--controls-accent, #ffb56a); }
+.shared-controls [hidden] { display: none !important; }
+
+.shared-controls .control > label { margin: 0; }
+.shared-controls .control-with-output > label { grid-column: 1; }
+.shared-controls .control-with-output > output { grid-column: 2; grid-row: 1; text-align: right; }
+.shared-controls .control-slider-only > input { grid-column: 1 / -1; }
+.shared-controls .control input[type=checkbox] { width: var(--controls-checkboxSize, auto); height: var(--controls-checkboxSize, auto); justify-self: start; grid-column: 1 / -1; }

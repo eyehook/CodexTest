@@ -4,7 +4,7 @@
 
 Current release includes snow and Rain Milestones 1–2, plus the refinements below. The user accepted the result and authorized pushing to GitHub on 2026-10-28. The earlier snow release was `f3aca5d`; consult Git history for this release's commit. GitHub Pages publishes `main` at `/projects/weather/`. Historical local-work notes below describe development stages and are superseded by this release status.
 
-Current behavior: registry-generated Snow/Rain selectors; rain in a 60 m diameter, 12 m high cylinder; snow in a 30 m diameter cylinder; fixed 50,000 particle capacity per mode; velocity-aligned rain; 300 pooled directional splash slots; 200 pooled 12-sided ripple slots with latter-half alpha fade. Ground-effect probabilities/toggles are in the Ground Effects section. Save settings persists all weather controls and the selected mode per browser/device/site; save confirmation resets per mode on startup and edits. Switching weather refills the existing pool around the current player without reallocating particle buffers. Enter VR sits at bottom center outside the desktop settings panel, and the VR control panel opens automatically on the first tracked frame of each session. Latest entry version is v14.
+Current behavior: registry-generated Snow/Rain selectors; rain in a 60 m diameter, 12 m high cylinder; snow in a 30 m diameter cylinder; fixed 50,000 particle capacity per mode; velocity-aligned rain; 300 pooled directional splash slots; 200 pooled 12-sided ripple slots with latter-half alpha fade. Ground-effect probabilities/toggles are in the Ground Effects section. Save settings persists all weather controls and the selected mode per browser/device/site; save confirmation resets per mode on startup and edits. Switching weather refills the existing pool around the current player without reallocating particle buffers. Enter VR sits at bottom center outside the desktop settings panel, and the VR control panel opens automatically on the first tracked frame of each session. The published pre-shared-UI entry version was v14; the local shared UI migration below uses `shared-ui-slider-1`.
 
 Release validation: all 48 focused Weather tests pass; syntax, module/document links and whitespace checks pass. Shared runtime/vendor files and root test tooling are unchanged, so this release uses the focused Weather suite per repository policy. Earlier desktop browser checks covered both weather modes, ground effects, fading shader compilation and save/reload restoration with no console warnings/errors. User reported “Looks good” before authorizing publication. This is user acceptance, not a formal sustained Quest 90/120 Hz benchmark; unmeasured performance/stereo/comfort caveats below remain applicable.
 
@@ -16,7 +16,8 @@ Release validation: all 48 focused Weather tests pass; syntax, module/document l
 - `src/parameters.js`: definitions, defaults, range/step clamping, formatting and subscription/unsubscription.
 - `src/effects.js`: lightweight WeatherEffect lifecycle and SnowEffect renderer. Future effects may use their own rendering and physics. RainEffect extends the same lifecycle with its own independent renderer and physics.
 - `src/simulation.js`: Three.js-independent typed-array snow state and reusable cylindrical SimulationVolume. No per-flake objects or interactions.
-- `src/controls.js`: definition-generated HTML sliders and a canvas-textured VR panel, with controller rays and trigger drag state. B/Y edge toggles are handled per input source. Panel opens 45° right, 1.2 m away, slightly below head height and facing the player; it remains fixed in world space until reopened.
+- `src/control-model.mjs`: binds WeatherParameters to one shared ControlModel for both views, preserving existing numeric/toggle storage and formatting.
+- `src/controls.js`: thin adapters to shared DesktopControls and VRSliderPanel; owns Weather titles, save/FPS status, effect rebinding and placement. Shared widgets handle controller rays, sliders, tabs, context selectors and source-mapped button edges. Panel opens 45° right, 1.2 m away, slightly below head height and facing the player; it remains fixed in world space until reopened.
 
 ## Snow behavior
 
@@ -207,3 +208,45 @@ project-by-project test matrix or formal sustained frame-rate benchmark was reco
 The user authorized committing and pushing this shared-library release on
 2026-10-29. See Git history for the release commit; deployment status is verified
 separately after pushing.
+
+## Shared UI slider extraction — 2026-10-29
+
+Weather now uses `shared/ui/desktop.mjs` and `shared/ui/vr-slider-panel.mjs` with one
+bound model per active effect. The slider panel extends the common VR panel's
+canvas/mesh/pointer/resource handling. `shared/ui/slider.mjs` extracts bounded
+pointer mapping; `shared/ui/choice-bar.mjs` extracts segmented context selectors
+and section tabs. Footer actions with getter status labels and formatted readouts
+are generic panel options. Native desktop controls use formatted slider outputs,
+checkboxes, heading groups and the original cyan palette/checkbox size.
+
+Effect registry, settings persistence, per-mode save state, parameter definitions,
+FPS sampling, simulation and world placement remain Weather-owned. The numeric
+step grid is identical on desktop and VR and preserves WeatherParameters' zero
+origin. Rebinding keeps the panel mesh, visibility, pose and FPS; held triggers
+cannot edit new rows after changing modes/tabs. Input suspension cancels drag
+ownership and absorbs held trigger/B/Y states when tracking resumes. Source order
+changes and controller loss do not transfer a drag to another control.
+
+Changed app/adapter/shared-module/style queries use `shared-ui-slider-1`; Surface
+and Swarm import versions are refreshed for the common renderer changes.
+The generic framework APIs are in the [shared library guide](../../shared/README.md).
+
+Validation: all 50 Weather tests and the full root suite (31 shared regressions)
+passed, plus seven Swarm and ten Cloud tests. Chrome exercised desktop controls,
+shared-model identity, save/reload restoration, numeric/toggle formatting, VR ray
+dragging/endpoints, tabs, mode switching, trigger edges, save action, retained world
+pose and suspend cancellation. Weather desktop/mobile screenshots were visually
+reviewed; Surface and Swarm browser regressions passed. No runtime/module errors
+were observed. Physical Quest testing of this migration remains required.
+Publication is covered by the release review below; Quest retesting remains outstanding.
+
+## Shared UI release review — 2026-10-29
+
+The user authorized committing and pushing the shared control model, native desktop
+renderer, VR button/slider renderers, segmented selectors/tabs, themes and Surface,
+Swarm and Weather migrations. Desktop/VR steps use the existing VR increments.
+The full root suite (31 shared regressions and 50 Weather tests), seven Swarm tests,
+ten Cloud tests and browser checks for all three migrated projects passed.
+Documentation/module links and whitespace checks passed. Physical Quest retesting
+of this shared UI remains outstanding. Source, tests and documentation are included
+together; see Git history for the release commit and check Pages status separately.

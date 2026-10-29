@@ -1,8 +1,9 @@
+import {createSurfaceControls} from './controls.mjs?v=shared-ui-slider-1';
 import {ButtonEdges} from '../../shared/xr/input.mjs?v=shared-xr-1';
 import {XRFrameState} from '../../shared/xr/session.mjs?v=shared-xr-1';
 import {DEFAULTS} from './settings.mjs?v=shared-r180-1';
-import {createDesktopTuning} from './tuning.js?v=shared-r180-1';
-import {VRPanel} from './VRPanel.js?v=shared-xr-1';
+import {createDesktopTuning} from './tuning.js?v=shared-ui-slider-1';
+import {VRPanel} from './VRPanel.js?v=shared-ui-slider-1';
 import {Locomotion} from '../../shared/xr/locomotion.mjs?v=shared-motion-1';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {createSurface, GRID_SIZE} from './simulation.mjs?v=shared-r180-1';
@@ -88,7 +89,8 @@ renderer.domElement.addEventListener('wheel', e => {
   distance = THREE.MathUtils.clamp(distance * Math.exp(e.deltaY * 0.001), GRID_SIZE * settings.spacing / 16, GRID_SIZE * settings.spacing * 2); desktopCamera();
 }, {passive: false});
 let syncDesktop = () => {};
-const vrPanel = new VRPanel(scene, rig, renderer, settings, changeSetting);
+const controls = createSurfaceControls(settings, changeSetting);
+const vrPanel = new VRPanel(scene, rig, renderer, settings, changeSetting, controls);
 function changeSetting(key) {
   if (key === 'pause') settings.paused = !settings.paused;
   if (key === 'reset' || key === 'defaults') {
@@ -98,9 +100,8 @@ function changeSetting(key) {
   if (!session && (key === 'spacing' || key === 'defaults')) {
     distance = GRID_SIZE * settings.spacing * 0.5; desktopCamera();
   }
-  syncDesktop(); vrPanel.draw();
 }
-syncDesktop = createDesktopTuning(settings, changeSetting);
+syncDesktop = createDesktopTuning(settings, changeSetting, controls);
 syncDesktop();
 const panelButtons = new ButtonEdges();
 const xrFrame = new XRFrameState();

@@ -19,3 +19,11 @@ Rain Ground Effects: master, splash and ripple toggles are enabled by default; s
 Ripple rings remain fully visible for their first 0.225 seconds, then smoothly alpha-fade over the latter half of their 0.45-second lifetime. Splashes and falling rain stay opaque.
 
 Use **Save settings** on desktop or the VR panel footer after adjusting controls. Saved settings stay in this browser on this device for this site address; localhost and GitHub Pages have separate storage. Later changes are not saved until you press the button again. Player position and particle animation state are not saved. A confirmation appears on success; unavailable browser storage is reported without interrupting the simulation.
+
+Desktop and VR controls now use the [shared UI library](../../shared/README.md#shared-ui-controls).
+Weather keeps its own parameter definitions, saved settings and panel placement;
+shared widgets provide sliders, checkboxes/toggles, VR mode selectors/section tabs,
+footer actions/status readouts and controller drag handling. Both interfaces use
+the same parameter steps. The VR panel retains its world-fixed position while
+switching pages or weather modes. Hold-to-drag gestures are cancelled on tracking
+loss and require a fresh press after context changes.
