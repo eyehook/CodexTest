@@ -94,3 +94,7 @@ Reviewed before the Weather project push as required by root guidance. Space Rac
 ## Weather rain release review — 2026-10-28
 
 Reviewed before the authorized Weather rain/ground-effects/settings push as required by root guidance. Space Race runtime, shared vendor files and root tooling are unchanged. This Weather-only runtime release uses its 48 focused passing tests; Space Race settings and prior validation limitations remain unchanged.
+
+## Scene Test release review — 2026-10-29
+
+Reviewed before the authorized Scene Test push as required by root guidance. Space Race runtime/settings and shared vendor files are unchanged. The complete root suite, including the twelve Space Race tests, passed for this release. Existing headset validation limitations remain unchanged.

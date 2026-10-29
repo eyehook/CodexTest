@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Scene Test · Lighting Laboratory</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #808080;
+        color: #e9f5ff;
+        overflow: hidden;
+      }
+      #viewport {
+        position: fixed;
+        inset: 0;
+      }
+      canvas {
+        display: block;
+        touch-action: none;
+      }
+      header {
+        position: fixed;
+        top: 18px;
+        left: 22px;
+        pointer-events: none;
+        text-shadow: 0 1px 5px #000;
+      }
+      header a,
+      header button {
+        pointer-events: auto;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 8px 0;
+      }
+      header p {
+        font-size: 13px;
+        margin: 6px 0;
+      }
+      a {
+        color: #a7eaff;
+      }
+      button,
+      select {
+        background: #243e4d;
+        border: 1px solid #52788e;
+        color: #e9f5ff;
+        border-radius: 6px;
+        padding: 8px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #37596a;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #75dfff;
+      }
+      #controls {
+        position: fixed;
+        right: 14px;
+        top: 14px;
+        bottom: 85px;
+        width: 320px;
+        overflow: auto;
+        background: #12232eec;
+        border: 1px solid #557487;
+        border-radius: 12px;
+        padding: 14px;
+      }
+      section {
+        padding-bottom: 20px;
+      }
+      h2 {
+        font-size: 18px;
+        color: #8ae1f6;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        margin: 12px 0;
+      }
+      label input[type="range"] {
+        width: 100%;
+        accent-color: #78d6f2;
+      }
+      label output {
+        float: right;
+        font-variant-numeric: tabular-nums;
+      }
+      label input[type="checkbox"],
+      label select {
+        float: right;
+      }
+      section > button {
+        display: block;
+        width: 100%;
+        margin: 8px 0;
+      }
+      section p {
+        font-size: 13px;
+        line-height: 1.6;
+        color: #b9cfda;
+      }
+      #performance {
+        display: block;
+        line-height: 1.6;
+        background: #14242ddb;
+        border-radius: 6px;
+        padding: 10px;
+        font: 12px monospace;
+      }
+      .controls-hidden #controls,
+      .immersive #controls,
+      .immersive header,
+      .immersive #performance {
+        display: none;
+      }
+      #status {
+        max-width: 420px;
+      }
+      @media (max-width: 700px) {
+        #controls {
+          top: 145px;
+          width: 270px;
+          bottom: 90px;
+        }
+        header p {
+          max-width: 300px;
+        }
+      }
+    </style>
+    <script type="importmap">
+      { "imports": { "three": "../forest/vendor/three.module.js" } }
+    </script>
+  </head>
+  <body>
+    <div id="viewport"></div>
+    <header>
+      <a href="../../">← Projects</a>
+      <h1>Scene Test</h1>
+      <p>Milestone 1 / Interactive Lighting Laboratory</p>
+      <p id="status">
+        Grip a palette light in VR, or add one using the desktop controls.
+      </p>
+      <button id="panel-toggle">Show / hide desktop controls</button>
+    </header>
+    <aside id="controls" aria-label="Lighting controls"></aside>
+    <output id="performance" aria-label="Performance"
+      >Starting renderer…</output
+    >
+    <script type="module" src="./app.js?v=8"></script>
+  </body>
+</html>

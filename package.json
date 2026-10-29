@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs && node tests/forest-haptics.mjs && node tests/fireflies.mjs && node tests/forest-flight.mjs && node --test tests/racer.mjs && node tests/surface.mjs && node tests/surface-locomotion.mjs && node tests/surface-tuning.mjs && node --test tests/terrain/*.mjs && node --test tests/fishing/*.mjs && node --test tests/chess/*.mjs && node --test tests/spacerace.mjs && node --test projects/weather/tests/*.mjs",
+    "test:sceneTest": "node --test projects/sceneTest/tests/*.mjs",
+    "test": "node tests/forest.mjs && node tests/forest-sky.mjs && node tests/trees.mjs && node tests/butterflies.mjs && node tests/forest-haptics.mjs && node tests/fireflies.mjs && node tests/forest-flight.mjs && node --test tests/racer.mjs && node tests/surface.mjs && node tests/surface-locomotion.mjs && node tests/surface-tuning.mjs && node --test tests/terrain/*.mjs && node --test tests/fishing/*.mjs && node --test tests/chess/*.mjs && node --test tests/spacerace.mjs && node --test projects/weather/tests/*.mjs && node --test projects/sceneTest/tests/*.mjs",
     "dev:racer": "vite --config projects/racer/vite.config.mjs",
     "build:racer": "vite build --config projects/racer/vite.config.mjs",
     "preview:racer": "vite preview --config projects/racer/vite.config.mjs",

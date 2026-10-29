@@ -10,6 +10,7 @@ Read this file, inspect `git status`, then read the target project's handoff and
 
 | Project | Start here | Source/build overview |
 | --- | --- | --- |
+| Scene Test | [Handoff](projects/sceneTest/HANDOFF.md) | Buildless `projects/sceneTest/`; interactive WebXR lighting lab |
 | Clouds | [Handoff](projects/clouds/HANDOFF.md) | Buildless `projects/clouds/`; per-eye depth-aware ray marching |
 | Weather / Snow and Rain | [Handoff](projects/weather/HANDOFF.md) | Buildless `projects/weather/`; shared Three.js vendor bundle |
 | Forest / Endless Grove | [Handoff](projects/forest/HANDOFF.md) | Buildless `projects/forest/`; shared Three.js vendor bundle |
