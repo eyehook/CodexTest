@@ -120,7 +120,7 @@ test('particle annulus samples uniform area between 10 and 200 feet',()=>{
 });
 
 test('ring wakes use continuous eight-segment geometry, linear alpha and shared recycling transforms',async()=>{
- const THREE=await import('../projects/forest/vendor/three.module.js');
+ const THREE=await import('../shared/vendor/three-r180/three.module.js');
  const {wakeLength,createRings}=await import('../projects/spacerace/rings.js');
  for(const feet of [0,100,200,300,440])close(wakeLength(feet*FT)/FT,feet*12/120);
  close(wakeLength(30,3,90),1);

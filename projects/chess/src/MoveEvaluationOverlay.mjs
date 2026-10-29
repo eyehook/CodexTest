@@ -1,4 +1,4 @@
-import * as THREE from "../../forest/vendor/three.module.js";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
 
 // Neutral is white; non-neutral tints start at visible pastel red/green.
 export function evaluationColor(delta) {

@@ -1,4 +1,4 @@
-import * as THREE from "../../forest/vendor/three.module.js";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
 export function playerEvaluation(score, color) {
   if (!score || !Number.isFinite(score.value)) return null;
   const value = score.value * (color === "w" ? 1 : -1);

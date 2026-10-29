@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from '../../forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import { FrameRateCounter } from '../src/fps.js';
 import { SnowEffect } from '../src/effects.js';
 import { WeatherParameters } from '../src/parameters.js';

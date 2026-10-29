@@ -1,4 +1,4 @@
-import { generateNoise } from './noise.js';
+import { generateNoise } from './noise.js?v=shared-r180-1';
 self.onmessage=({
   data:{
     size,octaves,id

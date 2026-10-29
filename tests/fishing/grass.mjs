@@ -4,7 +4,7 @@ import {defaults,terrainHeight} from '../../src/fishing/height.mjs';
 import {bands} from '../../src/fishing/bands.mjs';
 import {GrassPopulation,GRASS_RADIUS,PATCH_SIZE,GENERATION_BUDGET,PATCH_SLOTS,BLADES_PER_PATCH,STRIDE} from '../../src/fishing/grass/GrassPopulation.mjs';
 import {GrassSystem} from '../../src/fishing/grass/GrassSystem.js';
-import * as THREE from '../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 function settle(p,x,z){for(let i=0;i<1000;i++){p.update(x,z);assert.ok(p.generatedLastFrame<=GENERATION_BUDGET);if(!p.pending)return;}assert.fail('generation did not settle');}
 function settleSystem(s,x,z){for(let i=0;i<1000;i++){s.update(x,z,30,2,3);if(!s.population.pending)return;}assert.fail('generation did not settle');}
 function blades(p){const out=[];for(const c of p.patches)for(let i=0;i<c.count;i++){const d=c.data,j=i*STRIDE;out.push([c.cx*PATCH_SIZE+d[j],d[j+1],c.cz*PATCH_SIZE+d[j+2]]);}return out.sort((a,b)=>a[0]-b[0]||a[2]-b[2]);}

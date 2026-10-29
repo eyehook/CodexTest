@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as THREE from "../../projects/forest/vendor/three.module.js";
+import * as THREE from "../../shared/vendor/three-r180/three.module.js";
 import { OptionsMenu } from "../../projects/chess/src/OptionsMenu.mjs";
 import { Settings } from "../../projects/chess/src/Settings.mjs";
 class TestMenu extends OptionsMenu {

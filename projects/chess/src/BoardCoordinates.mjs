@@ -1,4 +1,4 @@
-import * as THREE from "../../forest/vendor/three.module.js";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
 const CELL = 0.06,
   SIZE = 0.53;
 export function coordinateLabels(color) {

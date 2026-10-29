@@ -1,6 +1,6 @@
-import * as THREE from '../../forest/vendor/three.module.js';
-import { vertex, fragment, cloudFragment, compositeFragment } from './shaders.js?v=2';
-import { cloudScales } from './parameters.js?v=2';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
+import { vertex, fragment, cloudFragment, compositeFragment } from './shaders.js?v=shared-r180-1';
+import { cloudScales } from './parameters.js?v=shared-r180-1';
 const liveUniforms=['density','threshold','termination','steps','mode'];
 export class VolumeRenderer {
   constructor(renderer,parameters){
@@ -25,7 +25,7 @@ export class VolumeRenderer {
     this.quad.frustumCulled=false;
     this.scene.add(this.quad);
     this.camera=new THREE.Camera();
-    this.worker=new Worker(new URL('./noise-worker.js',import.meta.url),{
+    this.worker=new Worker(new URL('./noise-worker.js?v=shared-r180-1',import.meta.url),{
       type:'module'
     });
     this.request=0;

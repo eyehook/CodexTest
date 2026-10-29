@@ -1,5 +1,5 @@
 import * as T from "three";
-import { lightDefaults } from "./model.js";
+import { lightDefaults } from "./model.js?v=shared-r180-1";
 const direction = new T.Vector3(0, 0, -1),
   world = new T.Vector3(),
   q = new T.Quaternion();

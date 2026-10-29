@@ -1,4 +1,4 @@
-import * as THREE from '../../forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 export class Environment {
   constructor(scene) {
     scene.background = new THREE.Color(0x85888c);

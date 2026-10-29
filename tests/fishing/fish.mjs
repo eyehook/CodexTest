@@ -4,7 +4,7 @@ import {LINE_SEGMENTS} from '../../src/fishing/rods/LinePhysics.mjs';
 import {FishEncounter,FISHING_RULES} from '../../src/fishing/rods/FishEncounter.mjs';
 import {FishingRod} from '../../src/fishing/rods/FishingRod.js';
 import {RodSystem} from '../../src/fishing/rods/RodSystem.js';
-import * as THREE from '../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 function tick(p,seconds,{rest=true,reel=false,length=5,fps=120}={}){const events=[];for(let i=0;i<Math.round(seconds*fps);i++){const e=p.update(1/fps,rest,reel,length);if(e)events.push(e);}return events;}
 function toBite(p,fps=120){const events=[];for(let i=0;i<fps*30&&p.phase!=='bite';i++){const e=p.update(1/fps,true,false,5);if(e)events.push(e);}assert.equal(p.phase,'bite');return events;}
 test('settled water wait, nibble counts and variable gaps obey configured ranges',()=>{

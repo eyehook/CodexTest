@@ -1,6 +1,6 @@
 # Terrain — Infinite landscape and deterministic trees
 
-A single GPU-displaced radial mesh represents a deterministic landscape, with a flat blue water surface forming lakes. Milestone 2 adds clustered, instanced triangle trees. No textures, shadows, wind, collisions, or postprocessing. Runtime dependencies are local, licensed Three.js r180 from `projects/forest/vendor/`; Vite is the only development dependency.
+A single GPU-displaced radial mesh represents a deterministic landscape, with a flat blue water surface forming lakes. Milestone 2 adds clustered, instanced triangle trees. No textures, shadows, wind, collisions, or postprocessing. Runtime dependencies are local, licensed Three.js r180 from `shared/vendor/three-r180/`; Vite is the only development dependency.
 
 ## Run and build
 

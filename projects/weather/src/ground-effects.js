@@ -1,4 +1,4 @@
-import * as THREE from '../../forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 // Independent fixed pools. No per-impact objects, per-frame geometry or animation allocations.
 export class ImpactPool {
   constructor(capacity, kind, random = Math.random) {

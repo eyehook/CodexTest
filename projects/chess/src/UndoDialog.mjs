@@ -1,5 +1,5 @@
-import * as THREE from "../../forest/vendor/three.module.js";
-import { OptionsMenu } from "./OptionsMenu.mjs?v=undo-1";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
+import { OptionsMenu } from "./OptionsMenu.mjs?v=shared-r180-1";
 
 export class UndoDialog extends OptionsMenu {
   constructor({ scene, world, input, game, label }) {

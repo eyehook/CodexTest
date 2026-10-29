@@ -18,7 +18,7 @@ The implementation was committed and pushed to `main` as `60fb73d` (`Add Space R
 - Local: serve the repository root with `python3 -m http.server 8080 --bind 127.0.0.1`, then open `http://localhost:8080/projects/spacerace/`.
 - The existing `Start-Quest-VR.command` launcher also serves this project through USB/ADB reverse forwarding. See the repository AGENTS.md.
 
-Buildless ES modules; no installation/build step. Reuse Three.js r180 from `../forest/vendor/`, retaining its MIT license. All imports/assets are local and relative for the Pages subpath. Increment entry/import query versions after runtime changes to avoid stale headset caches. This handoff was added with the subsequent ring-wake release. Future commits/pushes require user authorization.
+Buildless ES modules; no installation/build step. Reuse Three.js r180 from `../../shared/vendor/three-r180/`, retaining its MIT license. All imports/assets are local and relative for the Pages subpath. Increment entry/import query versions after runtime changes to avoid stale headset caches. This handoff was added with the subsequent ring-wake release. Future commits/pushes require user authorization.
 
 ## Current settings and controls
 
@@ -98,3 +98,9 @@ Reviewed before the authorized Weather rain/ground-effects/settings push as requ
 ## Scene Test release review — 2026-10-29
 
 Reviewed before the authorized Scene Test push as required by root guidance. Space Race runtime/settings and shared vendor files are unchanged. The complete root suite, including the twelve Space Race tests, passed for this release. Existing headset validation limitations remain unchanged.
+
+## Shared Three.js relocation — 2026-10-29
+
+Three.js r180 now lives at repository-level `shared/vendor/three-r180/`, with GLTFLoader, BufferGeometryUtils, VRButton and area-light modules in its `addons/` directory. Former Forest/Scene Test vendor directories are removed. Imports, tests, documentation and the knight exporter use the canonical shared paths. Core/license bytes are unchanged; addon code changes only adjust imports. Buildless entry/module queries use `shared-r180-1` to refresh cached module graphs. Racer, Terrain and Fishing static outputs were rebuilt from their updated sources; Swarm retains independent npm dependencies.
+
+Validation: the complete root suite, all ten Cloud tests, three Vite builds, Scene Test browser integration and browser startup of all ten affected projects under `/CodexTest/` passed. All 525 inspected local module references resolve. No new Quest hardware benchmark is implied. The user authorized committing and pushing this relocation. See Git history for the release commit; Pages checks were not requested.

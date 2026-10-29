@@ -1,9 +1,9 @@
-import { evaluationColor, squareEvaluations } from "./MoveEvaluationOverlay.mjs?v=eval-surface-1";
-import { BoardCoordinates } from "./BoardCoordinates.mjs";
-import { knightGeometry } from "./KnightGeometry.mjs?v=edited-knight-1";
-import * as THREE from "../../forest/vendor/three.module.js";
-import { mergeGeometries } from "../../forest/vendor/BufferGeometryUtils.js";
-import { Motion } from "./Motion.mjs";
+import { evaluationColor, squareEvaluations } from "./MoveEvaluationOverlay.mjs?v=shared-r180-1";
+import { BoardCoordinates } from "./BoardCoordinates.mjs?v=shared-r180-1";
+import { knightGeometry } from "./KnightGeometry.mjs?v=shared-r180-1";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
+import { mergeGeometries } from "../../../shared/vendor/three-r180/addons/BufferGeometryUtils.js";
+import { Motion } from "./Motion.mjs?v=shared-r180-1";
 export const CELL = 0.06;
 export function squarePosition(square) {
   if (!/^[a-h][1-8]$/.test(square)) throw new Error("Invalid square");

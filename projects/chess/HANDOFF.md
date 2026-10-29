@@ -67,3 +67,9 @@ Gaze follows actual piece centers; own moves take priority over player-held piec
 The system Git may fail on an unaccepted Xcode license; use an available working Git/runtime rather than changing system settings. Sandboxed Blender previously failed during graphics initialization. If it crashes again, the user prefers the exact command to run manually; verify actual export output before claiming success. Use the normal repository-root preview/Quest launcher; do not assume old temporary servers remain running.
 
 See [asset workflow](../../assets/chess/opponent/README.md) for export commands, [history](HISTORY.md) for detailed implementation/validation snapshots and [former root notes](ROOT_CONTEXT.md) for additional historical context. Keep this handoff focused on final behavior; consolidate updates rather than appending contradictory release status or test counts.
+
+## Shared Three.js relocation — 2026-10-29
+
+Three.js r180 now lives at repository-level `shared/vendor/three-r180/`, with GLTFLoader, BufferGeometryUtils, VRButton and area-light modules in its `addons/` directory. Former Forest/Scene Test vendor directories are removed. Imports, tests, documentation and the knight exporter use the canonical shared paths. Core/license bytes are unchanged; addon code changes only adjust imports. Buildless entry/module queries use `shared-r180-1` to refresh cached module graphs. Racer, Terrain and Fishing static outputs were rebuilt from their updated sources; Swarm retains independent npm dependencies.
+
+Validation: the complete root suite, all ten Cloud tests, three Vite builds, Scene Test browser integration and browser startup of all ten affected projects under `/CodexTest/` passed. All 525 inspected local module references resolve. No new Quest hardware benchmark is implied. The user authorized committing and pushing this relocation. See Git history for the release commit; Pages checks were not requested.

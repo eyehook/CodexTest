@@ -1,4 +1,4 @@
-import { SimulationVolume } from './simulation.js?v=13';
+import { SimulationVolume } from './simulation.js?v=shared-r180-1';
 // Segment-to-sphere test includes the whole streak, not just its leading point.
 export function intersectsHead(ax, ay, az, bx, by, bz, head, radius = 0.5) {
   const dx = bx - ax, dy = by - ay, dz = bz - az;

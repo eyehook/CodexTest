@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import * as THREE from '../projects/forest/vendor/three.module.js';
-import {GLTFLoader} from '../projects/forest/vendor/GLTFLoader.js';
+import * as THREE from '../shared/vendor/three-r180/three.module.js';
+import {GLTFLoader} from '../shared/vendor/three-r180/addons/GLTFLoader.js';
 import {createButterflies} from '../projects/forest/forest-butterflies.js';
 const bytes=await readFile(new URL('../projects/forest/butterflies/butterfly.glb',import.meta.url));
 const load=()=>new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');

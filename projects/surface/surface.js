@@ -1,9 +1,9 @@
-import {DEFAULTS} from './settings.mjs?v=defaults2';
-import {createDesktopTuning} from './tuning.js';
-import {VRPanel} from './VRPanel.js';
-import {Locomotion} from './locomotion.mjs?v=1';
-import * as THREE from '../forest/vendor/three.module.js';
-import {createSurface, GRID_SIZE} from './simulation.mjs?v=defaults2';
+import {DEFAULTS} from './settings.mjs?v=shared-r180-1';
+import {createDesktopTuning} from './tuning.js?v=shared-r180-1';
+import {VRPanel} from './VRPanel.js?v=shared-r180-1';
+import {Locomotion} from './locomotion.mjs?v=shared-r180-1';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {createSurface, GRID_SIZE} from './simulation.mjs?v=shared-r180-1';
 
 const panel = document.querySelector('#panel');
 const enter = document.querySelector('#enter');

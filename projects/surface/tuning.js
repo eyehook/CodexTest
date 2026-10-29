@@ -1,4 +1,4 @@
-import {CONTROLS, setSetting} from './settings.mjs';
+import {CONTROLS, setSetting} from './settings.mjs?v=shared-r180-1';
 
 export function createDesktopTuning(settings, onChange) {
   const container = document.querySelector('#controls');

@@ -1,4 +1,4 @@
-import * as THREE from '../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 // This changes the environment/cockpit anchors once at entry, never the headset camera.
 export function alignAnchors(cockpit,world,position,orientation,eyeHeight){
  const forward=new THREE.Vector3(0,0,-1).applyQuaternion(orientation);

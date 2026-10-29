@@ -1,8 +1,8 @@
-import { EyelidBlink } from "./EyelidBlink.mjs?v=eyelid-blink-1";
-import * as THREE from "../../forest/vendor/three.module.js";
-import { GLTFLoader } from "../../forest/vendor/GLTFLoader.js";
-import { OpponentAvatar } from "./OpponentAvatar.mjs";
-import { solveArm } from "./ArmIK.mjs";
+import { EyelidBlink } from "./EyelidBlink.mjs?v=shared-r180-1";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
+import { GLTFLoader } from "../../../shared/vendor/three-r180/addons/GLTFLoader.js";
+import { OpponentAvatar } from "./OpponentAvatar.mjs?v=shared-r180-1";
+import { solveArm } from "./ArmIK.mjs?v=shared-r180-1";
 export const OPPONENT_URL = new URL(
   "../assets/opponent/manlp.glb",
   import.meta.url,

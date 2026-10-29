@@ -1,4 +1,4 @@
-import { EngineController } from "./EngineController.mjs?v=two-ply-1";
+import { EngineController } from "./EngineController.mjs?v=shared-r180-1";
 export class CurrentEvaluation {
   constructor({ game, settings, getSharedScore = () => null, onChange = () => {}, createEngine = () => new EngineController() }) {
     Object.assign(this, { game, settings, getSharedScore, onChange, createEngine });

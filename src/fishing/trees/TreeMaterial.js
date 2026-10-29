@@ -1,4 +1,4 @@
-import * as THREE from '../../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 
 export function createTreeMaterial(){
  return new THREE.ShaderMaterial({

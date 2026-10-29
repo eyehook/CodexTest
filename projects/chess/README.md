@@ -122,7 +122,7 @@ Changes stay local until the user asks to commit/push. Publishing `main` updates
 
 Chess application code in this directory is licensed under **GPL-3.0-or-later**, see [LICENSE](LICENSE). Third-party components retain their licenses:
 
-- **Three.js r180**: existing local bundle at `../forest/vendor/three.module.js`, `three.core.js`, `BufferGeometryUtils.js`, MIT license at `../forest/vendor/LICENSE`. Unmodified reuse.
+- **Three.js r180**: existing local bundle at `../../shared/vendor/three-r180/three.module.js`, `three.core.js`, `BufferGeometryUtils.js`, MIT license at `../../shared/vendor/three-r180/LICENSE`. Unmodified reuse.
 - **chess.js 1.4.0**: local ESM distribution in `vendor/chess/chess.mjs`, BSD-2-Clause notice in `vendor/chess/LICENSE`. Source project: https://github.com/jhlywa/chess.js/tree/v1.4.0 . Npm package `chess.js@1.4.0`.
 - **Stockfish.js 17.1.0 Lite single-threaded**: unmodified `stockfish-17.1-lite-single-03e3232.js` and matching `.wasm`, GPLv3, `vendor/stockfish/Copying.txt` and `AUTHORS`. Npm package `stockfish@17.1.0`, upstream https://github.com/nmrugg/stockfish.js .
 

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from '../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {LINE_SEGMENTS} from '../../src/fishing/rods/LinePhysics.mjs';
 import {FishingRod,ROD_LENGTH,ROD_SEGMENTS,LINE_LENGTH,BOBBER_RADIUS,LEADER_LENGTH} from '../../src/fishing/rods/FishingRod.js';
 import {RodSystem} from '../../src/fishing/rods/RodSystem.js';

@@ -1,7 +1,7 @@
-import * as THREE from "../../forest/vendor/three.module.js";
-import { OpponentAvatar } from "./OpponentAvatar.mjs";
-import { solveArm } from "./ArmIK.mjs";
-import { OpponentFace } from "./OpponentFace.mjs?v=blink-1";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
+import { OpponentAvatar } from "./OpponentAvatar.mjs?v=shared-r180-1";
+import { solveArm } from "./ArmIK.mjs?v=shared-r180-1";
+import { OpponentFace } from "./OpponentFace.mjs?v=shared-r180-1";
 const up = new THREE.Vector3(0, 1, 0);
 export class ProceduralAvatar extends OpponentAvatar {
   constructor(parent) {

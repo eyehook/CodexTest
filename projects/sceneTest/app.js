@@ -1,16 +1,16 @@
 import * as T from "three";
-import { RectAreaLightUniformsLib } from "./vendor/RectAreaLightUniformsLib.js";
-import { VRButton } from "./vendor/VRButton.js";
+import { RectAreaLightUniformsLib } from "../../shared/vendor/three-r180/addons/RectAreaLightUniformsLib.js";
+import { VRButton } from "../../shared/vendor/three-r180/addons/VRButton.js";
 import {
   defaults,
   InteractionState,
   saveScene,
   loadScene,
-} from "./model.js?v=8";
-import { createEnvironment } from "./environment.js?v=5";
-import { LightManager } from "./lights.js";
-import { LaboratoryUI } from "./ui.js?v=8";
-import { Input } from "./input.js?v=8";
+} from "./model.js?v=shared-r180-1";
+import { createEnvironment } from "./environment.js?v=shared-r180-1";
+import { LightManager } from "./lights.js?v=shared-r180-1";
+import { LaboratoryUI } from "./ui.js?v=shared-r180-1";
+import { Input } from "./input.js?v=shared-r180-1";
 class Laboratory {
   constructor() {
     this.settings = defaults();

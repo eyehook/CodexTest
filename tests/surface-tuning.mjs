@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {DEFAULTS, CONTROLS, setSetting} from '../projects/surface/settings.mjs';
 import {createSurface, FIXED_STEP, GRID_SIZE} from '../projects/surface/simulation.mjs';
-import * as THREE from '../projects/forest/vendor/three.module.js';
+import * as THREE from '../shared/vendor/three-r180/three.module.js';
 import {VRPanel} from '../projects/surface/VRPanel.js';
 const settings = {...DEFAULTS, rainInterval: 0.5};
 const s = createSurface({settings, random: () => 0.5});

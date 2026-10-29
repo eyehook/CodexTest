@@ -1,6 +1,6 @@
 import { Chess } from "../vendor/chess/chess.mjs";
-import { EngineController } from "./EngineController.mjs?v=two-ply-1";
-import { moveEvaluationDelta, moveDeltaLabel, playerScoreRank } from "./Evaluation.mjs?v=neutral-zero-1";
+import { EngineController } from "./EngineController.mjs?v=shared-r180-1";
+import { moveEvaluationDelta, moveDeltaLabel, playerScoreRank } from "./Evaluation.mjs?v=shared-r180-1";
 export const moveToken = (move) => move.from + move.to + (move.promotion ?? "");
 
 // One independent analysis per player-turn position; pickup only selects cached hints.

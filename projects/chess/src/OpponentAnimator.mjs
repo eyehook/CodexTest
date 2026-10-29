@@ -1,6 +1,6 @@
-import * as THREE from "../../forest/vendor/three.module.js";
-import { Motion } from "./Motion.mjs";
-import { squarePosition } from "./ChessBoard.mjs";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
+import { Motion } from "./Motion.mjs?v=shared-r180-1";
+import { squarePosition } from "./ChessBoard.mjs?v=shared-r180-1";
 export class OpponentAnimator {
   constructor(board, avatar, { random = Math.random } = {}) {
     this.board = board;

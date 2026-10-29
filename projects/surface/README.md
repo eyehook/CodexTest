@@ -6,7 +6,7 @@ Every three seconds of active simulation, a random point anywhere on the entire 
 
 ## Preview
 
-Serve the repository root using the existing Quest launcher or `python3 -m http.server 8080 --bind 127.0.0.1`, then visit `/projects/surface/`. No install or build required. All Three.js modules load locally from the Forest vendor directory.
+Serve the repository root using the existing Quest launcher or `python3 -m http.server 8080 --bind 127.0.0.1`, then visit `/projects/surface/`. No install or build required. All Three.js modules load locally from `shared/vendor/three-r180/`.
 
 Desktop: drag to orbit, scroll to zoom, Reset to clear waves and restart the timer. Quest: Enter VR; left thumbstick walks in the direction you look at up to 1.5 m/s; right thumbstick turns smoothly at up to 60°/s around the tracked headset. Both sticks use a 15% deadzone. Movement stays horizontal at the resting water level, without collision or edge clamping. The initial viewpoint is 1.4 m from the center at the default cell size. Entering VR restarts the experiment. The initial surface is flat; the first drop occurs three seconds later. Simulation pauses while hidden or XR tracking is unavailable. HTTPS or localhost is required for VR.
 

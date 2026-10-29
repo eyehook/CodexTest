@@ -1,5 +1,5 @@
-import * as THREE from './vendor/three.module.js';
-import {SIZE,wrap} from './forest-world.mjs';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {SIZE,wrap} from './forest-world.mjs?v=shared-r180-1';
 
 export function createFireflies() {
  const group=new THREE.Group(),count=16*9;

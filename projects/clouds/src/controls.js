@@ -1,4 +1,4 @@
-import * as THREE from '../../forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 export class DesktopControls {
   constructor(container, parameters) {
     this.container = container; this.parameters = parameters; this.rows = new Map();

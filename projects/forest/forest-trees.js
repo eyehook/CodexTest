@@ -1,6 +1,6 @@
-import * as THREE from './vendor/three.module.js';
-import {GLTFLoader} from './vendor/GLTFLoader.js';
-import {SIZE} from './forest-world.mjs';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {GLTFLoader} from '../../shared/vendor/three-r180/addons/GLTFLoader.js';
+import {SIZE} from './forest-world.mjs?v=shared-r180-1';
 
 // Evaluate three original Blender rigs, then share their deformed geometry across
 // instanced copies. This preserves the authored wind without hundreds of rigs.

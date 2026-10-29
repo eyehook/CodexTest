@@ -1,4 +1,4 @@
-import * as THREE from "../../forest/vendor/three.module.js";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 export class TableHandle {
   constructor({ parent, settings, canGrab, onMove, onEnd }) {

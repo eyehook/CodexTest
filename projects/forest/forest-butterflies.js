@@ -1,6 +1,6 @@
-import * as THREE from './vendor/three.module.js';
-import {GLTFLoader} from './vendor/GLTFLoader.js';
-import {SIZE,wrap} from './forest-world.mjs';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {GLTFLoader} from '../../shared/vendor/three-r180/addons/GLTFLoader.js';
+import {SIZE,wrap} from './forest-world.mjs?v=shared-r180-1';
 
 export async function createButterflies(load=url=>new GLTFLoader().loadAsync(url)) {
  const gltf=await load('./butterflies/butterfly.glb');

@@ -78,7 +78,7 @@ test('anchor-relative GPU coordinates retain placement after rebasing at billion
 });
 
 test('instanced triangle batch uploads only on cell/config changes and preserves per-tree relative coordinates',async()=>{
- const THREE=await import('../../projects/forest/vendor/three.module.js');
+ const THREE=await import('../../shared/vendor/three-r180/three.module.js');
  const {TreeSystem}=await import('../../src/terrain/trees/TreeSystem.js');
  const scene=new THREE.Scene(),terrain={...defaults},settings={...config},system=new TreeSystem(scene,terrain,settings);
  system.update(-75,0,9.17,1,2);

@@ -1,4 +1,4 @@
-import * as THREE from '../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {CONFIG} from './config.mjs';
 import {segmentZ} from './simulation.mjs';
 export function createWorld(config=CONFIG){

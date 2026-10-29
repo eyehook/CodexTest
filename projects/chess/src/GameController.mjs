@@ -1,5 +1,5 @@
 import { Chess } from "../vendor/chess/chess.mjs";
-import { resolveSide } from "./Settings.mjs?v=ratings-2";
+import { resolveSide } from "./Settings.mjs?v=shared-r180-1";
 export class GameController {
   constructor({
     board,

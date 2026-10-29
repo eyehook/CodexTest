@@ -50,7 +50,7 @@ GitHub documentation: [publishing source](https://docs.github.com/en/pages/getti
 
 ## Dependencies and editable sources
 
-`projects/forest/vendor/` contains Three.js r180, GLTFLoader, BufferGeometryUtils, and their MIT license. Runtime models are in `projects/forest/trees/` and `projects/forest/butterflies/`. Editable butterfly Blender source and generation script are in `assets/forest/butterfly/`; Blender is only needed to edit/rebuild that model. Tree Blender sources were not present in the original Quest folder.
+`shared/vendor/three-r180/` contains the canonical Three.js r180 core and MIT license. Its `addons/` directory contains GLTFLoader, BufferGeometryUtils, VRButton, and area-light support. See [shared dependencies](shared/README.md) for layout and maintenance. Runtime models are in `projects/forest/trees/` and `projects/forest/butterflies/`. Editable butterfly Blender source and generation script are in `assets/forest/butterfly/`; Blender is only needed to edit/rebuild that model. Tree Blender sources were not present in the original Quest folder.
 
 Chess editable sources live in `assets/chess/`: the active opponent is `opponent/ManLP-articulated.blend` (see its [export workflow](assets/chess/opponent/README.md)); the edited knight has its own [source/exporter](assets/chess/knight/README.md). Exported runtime assets stay under `projects/chess/`. Preserve the active combined rig; early generation scripts do not recreate its later head/neck edits.
 

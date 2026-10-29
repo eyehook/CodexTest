@@ -1,4 +1,4 @@
-import * as THREE from '../../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 // A Sprite is a camera-facing quad. Rasterize once on first render, using the
 // browser's existing bold sans-serif font; there are no external font assets.
 export function createBiteTexture(canvas,text='FISH!',color='#ff2222'){

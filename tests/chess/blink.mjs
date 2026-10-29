@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as THREE from "../../projects/forest/vendor/three.module.js";
+import * as THREE from "../../shared/vendor/three-r180/three.module.js";
 import { OpponentFace } from "../../projects/chess/src/OpponentFace.mjs";
 import { ProceduralAvatar } from "../../projects/chess/src/ProceduralAvatar.mjs";
 test("head is a cube with eyes and mouth positioned on its front face", () => {

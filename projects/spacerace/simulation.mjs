@@ -1,4 +1,4 @@
-import {CONFIG} from './config.mjs';
+import {CONFIG} from './config.mjs?v=shared-r180-1';
 export function densityAt(speed, c = CONFIG) {
   const t = Math.max(0, Math.min(1, speed / c.maxSpeed));
   const curve = c.densityCurve;

@@ -1,4 +1,4 @@
-import * as THREE from '../../forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 const deadzone = value => Math.abs(value) < 0.15 ? 0 : (value - Math.sign(value) * 0.15) / 0.85;
 export class PlayerController {
   constructor(scene, renderer) {

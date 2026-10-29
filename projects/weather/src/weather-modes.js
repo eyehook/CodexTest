@@ -1,4 +1,4 @@
-import { WeatherParameters } from './parameters.js?v=5';
+import { WeatherParameters } from './parameters.js?v=shared-r180-1';
 // Register {id, label, create, particleLabel}; each effect supplies its own parameters/lifecycle.
 export class WeatherModes {
   constructor(scene, definitions, context = {}) {

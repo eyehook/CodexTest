@@ -1,7 +1,7 @@
 import {BiteLabel} from './BiteLabel.js';
 import {FishEncounter} from './FishEncounter.mjs';
 import {Fish} from './Fish.js';
-import * as THREE from '../../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import {LeaderPhysics,LEADER_LENGTH,HOOK_OFFSET_X,HOOK_OFFSET_Y} from './LeaderPhysics.mjs';
 export {LEADER_LENGTH} from './LeaderPhysics.mjs';
 import {LinePhysics,LINE_SEGMENTS,MIN_LINE_LENGTH,AUTO_REEL_LENGTH} from './LinePhysics.mjs';

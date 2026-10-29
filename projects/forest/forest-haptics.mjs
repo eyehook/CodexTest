@@ -1,4 +1,4 @@
-import {wrap} from './forest-world.mjs';
+import {wrap} from './forest-world.mjs?v=shared-r180-1';
 
 // Approximate contact volumes, independent of animated mesh deformation.
 // Test the nearest wrapped copy rather than all nine rendered tiles.

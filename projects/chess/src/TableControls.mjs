@@ -1,5 +1,5 @@
-import { EvaluationGauge } from "./EvaluationGauge.mjs?v=gauge-deadzone-1";
-import * as THREE from "../../forest/vendor/three.module.js";
+import { EvaluationGauge } from "./EvaluationGauge.mjs?v=shared-r180-1";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
 export function moveRows(history, limit = 8) {
   const rows = [];
   let fallback = 1;

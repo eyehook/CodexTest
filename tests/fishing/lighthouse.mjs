@@ -1,8 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {GLTFLoader} from '../../projects/forest/vendor/GLTFLoader.js';
-import {Box3,Vector3,Group,Object3D} from '../../projects/forest/vendor/three.module.js';
+import {GLTFLoader} from '../../shared/vendor/three-r180/addons/GLTFLoader.js';
+import {Box3,Vector3,Group,Object3D} from '../../shared/vendor/three-r180/three.module.js';
 import {defaults,terrainHeight} from '../../src/fishing/height.mjs';
 import {lighthouseSite} from '../../src/fishing/lighthouse-placement.mjs';
 test('lighthouse is deterministic, elevated, near spawn and real water',()=>{

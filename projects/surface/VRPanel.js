@@ -1,5 +1,5 @@
-import * as T from '../forest/vendor/three.module.js';
-import {CONTROLS} from './settings.mjs';
+import * as T from '../../shared/vendor/three-r180/three.module.js';
+import {CONTROLS} from './settings.mjs?v=shared-r180-1';
 
 // A single canvas texture and plane; redraw only when a value or hover changes.
 export class VRPanel {

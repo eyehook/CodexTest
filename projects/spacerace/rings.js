@@ -1,5 +1,5 @@
-import * as THREE from '../forest/vendor/three.module.js';
-import {RING_WAKE_SEGMENTS,RING_WAKE_FRAME_COUNT,RING_WAKE_REFERENCE_HZ,RING_WAKE_ENABLED} from './config.mjs?v=17';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {RING_WAKE_SEGMENTS,RING_WAKE_FRAME_COUNT,RING_WAKE_REFERENCE_HZ,RING_WAKE_ENABLED} from './config.mjs?v=shared-r180-1';
 
 export function wakeLength(speed,frames=RING_WAKE_FRAME_COUNT,hz=RING_WAKE_REFERENCE_HZ){
   return Math.max(0,speed)*frames/hz;

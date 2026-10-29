@@ -1,4 +1,4 @@
-import * as THREE from '../../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import {GrassPopulation,GRASS_RADIUS,PATCH_SIZE,PATCH_SLOTS,BLADES_PER_PATCH,STRIDE} from './GrassPopulation.mjs';
 export class GrassSystem {
  constructor(scene,terrain){

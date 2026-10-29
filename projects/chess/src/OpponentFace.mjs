@@ -1,5 +1,5 @@
-import * as THREE from "../../forest/vendor/three.module.js";
-import { expressionAmount } from "./Evaluation.mjs";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
+import { expressionAmount } from "./Evaluation.mjs?v=shared-r180-1";
 export class OpponentFace {
   constructor(head, { random = Math.random, frontZ = 0.09 } = {}) {
     this.random = random;

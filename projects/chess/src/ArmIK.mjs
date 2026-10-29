@@ -1,4 +1,4 @@
-import { Vector3 } from "../../forest/vendor/three.module.js";
+import { Vector3 } from "../../../shared/vendor/three-r180/three.module.js";
 // Analytic, geometry-independent two-bone solver. A fixed pole stabilizes elbow bend.
 export function solveArm(
   shoulder,

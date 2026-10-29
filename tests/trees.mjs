@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {GLTFLoader} from '../projects/forest/vendor/GLTFLoader.js';
+import {GLTFLoader} from '../shared/vendor/three-r180/addons/GLTFLoader.js';
 import {createAnimatedTrees} from '../projects/forest/forest-trees.js';
 import {generateForest} from '../projects/forest/forest-world.mjs';
 const trees=await createAnimatedTrees(generateForest(),async url=>{

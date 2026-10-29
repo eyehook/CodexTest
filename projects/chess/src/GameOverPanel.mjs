@@ -1,5 +1,5 @@
-import * as THREE from "../../forest/vendor/three.module.js";
-import { TableControls } from "./TableControls.mjs?v=game-over-1";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
+import { TableControls } from "./TableControls.mjs?v=shared-r180-1";
 export function gameOverResult(state) {
   if (state.phase !== "over") return null;
   return state.game.isCheckmate()

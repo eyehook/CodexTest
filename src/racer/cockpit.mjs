@@ -1,4 +1,4 @@
-import * as THREE from '../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 export function createCockpit(){
  const group=new THREE.Group();
  const red=new THREE.MeshLambertMaterial({color:0xc54438,flatShading:true});

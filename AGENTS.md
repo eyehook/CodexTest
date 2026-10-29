@@ -13,7 +13,7 @@ Read this file, inspect `git status`, then read the target project's handoff and
 | Scene Test | [Handoff](projects/sceneTest/HANDOFF.md) | Buildless `projects/sceneTest/`; interactive WebXR lighting lab |
 | Clouds | [Handoff](projects/clouds/HANDOFF.md) | Buildless `projects/clouds/`; per-eye depth-aware ray marching |
 | Weather / Snow and Rain | [Handoff](projects/weather/HANDOFF.md) | Buildless `projects/weather/`; shared Three.js vendor bundle |
-| Forest / Endless Grove | [Handoff](projects/forest/HANDOFF.md) | Buildless `projects/forest/`; shared Three.js vendor bundle |
+| Forest / Endless Grove | [Handoff](projects/forest/HANDOFF.md) | Buildless `projects/forest/`; uses shared Three.js |
 | Racer | [Handoff](projects/racer/HANDOFF.md) | `src/racer/`; Vite output in `projects/racer/` |
 | Swarm 3D | [Handoff](projects/swarm/HANDOFF.md) | Independent package in `projects/swarm/` |
 | Surface | [Handoff](projects/surface/HANDOFF.md) | Buildless `projects/surface/` |
@@ -32,6 +32,7 @@ Keep detailed behavior, architecture, controls, asset workflows and project vali
 - Implement locally, validate, let the user test on Quest, then commit/push when requested. A prior release authorization does not authorize later publication. Report whether work is local, committed or pushed.
 - Before committing, review the diff and preserve unrelated user work. Existing Chess `.blend1` and `.blend2.blend` backups are unrelated and must remain excluded unless the user specifically requests them.
 - Keep generated static outputs with their corresponding source for projects using a build, because Pages serves the repository root.
+- Shared Three.js r180 lives in `shared/vendor/three-r180/`, with supporting modules in `addons/`; keep core/addon versions and MIT notices together. Swarm retains its independent npm dependencies.
 - Bundle runtime assets locally and use relative URLs for the `/CodexTest/` prefix. Preserve `.nojekyll`, vendor licenses and project-specific notices.
 - New projects belong in `projects/<name>/` with an `index.html`, a root index card and a handoff linked above.
 
@@ -52,7 +53,7 @@ Original experiments in `/Users/mm/Documents/Codex/Quest` are backups; edit this
 
 ## Validation and performance
 
-Use root `package.json` as the authoritative script list. For changes isolated to one project, run that project's relevant tests and build checks, including before publishing; a push alone does not require the full repository suite. Run the complete root `npm test` / `pnpm test` suite when shared runtime code, dependencies, root test/build tooling, or changes spanning projects could affect multiple projects. Check affected consumers of shared code even when the file lives inside one project's directory (for example, Forest's shared vendor bundle). Documentation-only changes need link/content checks and `git diff --check`, not runtime tests. Always run `git diff --check` for edits. Swarm has its own package and tests; see its handoff.
+Use root `package.json` as the authoritative script list. For changes isolated to one project, run that project's relevant tests and build checks, including before publishing; a push alone does not require the full repository suite. Run the complete root `npm test` / `pnpm test` suite when shared runtime code, dependencies, root test/build tooling, or changes spanning projects could affect multiple projects. Check affected consumers of shared code even when the file lives inside one project's directory (for example, the shared Three.js vendor bundle). Documentation-only changes need link/content checks and `git diff --check`, not runtime tests. Always run `git diff --check` for edits. Swarm has its own package and tests; see its handoff.
 
 If Node/npm is absent from PATH in the desktop environment, locate the bundled runtime with the workspace dependency tool and use its Node executable to run the package scripts/tests. Do not hardcode an app cache path into repository scripts.
 
@@ -60,4 +61,4 @@ Automated and desktop checks do not establish headset appearance, stereo correct
 
 ## Future CI
 
-There is currently no repository CI workflow. If CI is introduced, use changed paths to select project tests/builds; documentation-only changes should run documentation checks. Shared runtime/dependency/tooling changes must run all affected projects (the full root suite when impacts are broad), including consumers of shared files hosted under a project directory. Swarm's independent tests/build must be included when its own or applicable shared inputs change. Keep this policy consistent with local validation; do not make every project-only push run the full suite.
+There is currently no repository CI workflow. If CI is introduced, use changed paths to select project tests/builds; documentation-only changes should run documentation checks. Shared runtime/dependency/tooling changes must run all affected projects (the full root suite when impacts are broad), including every shared-runtime consumer. Swarm's independent tests/build must be included when its own or applicable shared inputs change. Keep this policy consistent with local validation; do not make every project-only push run the full suite.

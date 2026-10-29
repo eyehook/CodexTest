@@ -1,4 +1,4 @@
-import * as THREE from './vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 
 // Full sunrise-to-sunrise period. Increase this after testing.
 export const DAY_NIGHT_SECONDS = 60;

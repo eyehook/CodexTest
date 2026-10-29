@@ -2,7 +2,7 @@
 
 Fishing starts as an independent copy of Terrain, preserving its current functionality. Fishing now includes rods, physics-based casting/retrieval, articulated leaders/hooks, and a first nibble/bite/catch loop. All application modules and tests are duplicated so the projects can diverge; Three.js remains the existing licensed vendor dependency. Flight physics are copied into `src/fishing/flight-physics.mjs`.
 
-A single GPU-displaced radial mesh represents a deterministic landscape, with a flat blue water surface forming lakes. Milestone 2 adds clustered, instanced triangle trees. No textures, shadows, wind, collisions, or postprocessing. Runtime dependencies are local, licensed Three.js r180 from `projects/forest/vendor/`; Vite is the only development dependency.
+A single GPU-displaced radial mesh represents a deterministic landscape, with a flat blue water surface forming lakes. Milestone 2 adds clustered, instanced triangle trees. No textures, shadows, wind, collisions, or postprocessing. Runtime dependencies are local, licensed Three.js r180 from `shared/vendor/three-r180/`; Vite is the only development dependency.
 
 ## Run and build
 

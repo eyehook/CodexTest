@@ -4,7 +4,7 @@ Read [repository guidance](../../AGENTS.md), then this document and the project 
 
 ## Terrain — Milestone 1
 
-Source in `src/terrain/`; read `projects/terrain/README.md`. Reuses Forest's bundled Three.js r180, with no additional runtime dependencies. Root scripts: `pnpm dev:terrain` (5174), `pnpm build:terrain`, `pnpm test:terrain`; root `test` includes Terrain. Vite config lives in `projects/terrain/`, outputs static `index.html` and `build/` there; preserve source and build together for Pages. Follow the repository’s local-test-then-publish workflow.
+Source in `src/terrain/`; read `projects/terrain/README.md`. Reuses the shared bundled Three.js r180, with no additional runtime dependencies. Root scripts: `pnpm dev:terrain` (5174), `pnpm build:terrain`, `pnpm test:terrain`; root `test` includes Terrain. Vite config lives in `projects/terrain/`, outputs static `index.html` and `build/` there; preserve source and build together for Pages. Follow the repository’s local-test-then-publish workflow.
 
 One indexed circular mesh, central fan, adaptive sector counts and exponential ring spacing. Static geometry, GPU gradient-noise displacement; CPU doubles split each octave into unsigned lattice and fractional coordinates, matching GLSL uint hashing. Ground height subtracts directly; near detail is full, distant octaves attenuate by vertex spacing. Four finite-difference height samples provide normals. Terrain frustum culling disabled. Left stick head-relative walking at 6 m/s; right stick smooth turning up to 60°/s around the tracked headset (15% horizontal deadzone), plus physical turning and room-scale ground following; desktop pointer lock/WASD. Camera is parented to a pivot-compensated yaw rig, reset on XR session boundaries. Terrain color uses absolute-height bands scaled by amplitude: sandy shore below 14%, three hill greens at 14/25/35%, cool white snow at 43%, bright white summits at 53%, each with a narrow 1.5% transition. `colorAmplitude` updates with terrain settings; stronger directional shading is retained. Debug controls explicitly apply topology changes. Startup/button GPU readback compares actual vertex heights against JS including ±1e9 m. Diagnostics update during XR in hidden DOM for remote inspection. Quest comfort, stereo/controller behavior and 72 FPS target still require physical testing. Never claim these from desktop checks.
 
@@ -26,3 +26,9 @@ Terrain travel-speed control: `updateTravelSpeed` in `player.mjs` reads xr-stand
 ## Maintaining this handoff
 
 Keep project behavior, architecture, commands, validation and pending work current here. Follow the shared local-test-then-publish workflow in root AGENTS.md and preserve unrelated work.
+
+## Shared Three.js relocation — 2026-10-29
+
+Three.js r180 now lives at repository-level `shared/vendor/three-r180/`, with GLTFLoader, BufferGeometryUtils, VRButton and area-light modules in its `addons/` directory. Former Forest/Scene Test vendor directories are removed. Imports, tests, documentation and the knight exporter use the canonical shared paths. Core/license bytes are unchanged; addon code changes only adjust imports. Buildless entry/module queries use `shared-r180-1` to refresh cached module graphs. Racer, Terrain and Fishing static outputs were rebuilt from their updated sources; Swarm retains independent npm dependencies.
+
+Validation: the complete root suite, all ten Cloud tests, three Vite builds, Scene Test browser integration and browser startup of all ten affected projects under `/CodexTest/` passed. All 525 inspected local module references resolve. No new Quest hardware benchmark is implied. The user authorized committing and pushing this relocation. See Git history for the release commit; Pages checks were not requested.

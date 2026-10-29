@@ -21,7 +21,7 @@ pnpm test:racer
 pnpm test
 ```
 
-`npm install`, `npm run dev:racer`, `npm run build:racer`, `npm run test:racer`, and `npm test` are equivalent if npm is your preferred package manager. The checked-in lockfile uses pnpm. The only npm development dependency is Vite; runtime Three.js r180 comes from the repository's existing licensed `projects/forest/vendor/` modules and is bundled by Vite. No runtime CDN requests are required.
+`npm install`, `npm run dev:racer`, `npm run build:racer`, `npm run test:racer`, and `npm test` are equivalent if npm is your preferred package manager. The checked-in lockfile uses pnpm. The only npm development dependency is Vite; runtime Three.js r180 comes from the repository's existing licensed `shared/vendor/three-r180/` modules and is bundled by Vite. No runtime CDN requests are required.
 
 `src/racer/` is editable source. `projects/racer/index.html` and `projects/racer/build/` are generated deployment files. Rebuild after source changes; do not edit generated files manually. The output directory is not emptied because it also contains this README, the milestone specification, and Vite config. `base: './'` in `vite.config.mjs` makes asset paths relative so the same build works at both local and GitHub Pages subpaths. See [Vite base documentation](https://vite.dev/config/shared-options.html#base).
 
@@ -124,4 +124,4 @@ Validation performed during implementation: dependency installation; production 
 - No formal GPU timing, refresh-rate measurement or long-running heap profile was performed.
 - The road is deliberately straight and flat. Steering has no collision or crash state. The simple fixed cockpit is original prototype geometry.
 - Generated output uses stable filenames; reload after rebuilding. If a deployed browser shows an old build, refresh or clear its cached page data.
-- Sources reuse the existing Forest vendor library, so preserve that directory/license or update the imports before reorganizing it.
+- Sources use `shared/vendor/three-r180/`; preserve its matching core/addons and MIT license when reorganizing dependencies.

@@ -237,7 +237,7 @@ test("tile colors grade signed deltas, preserve neutral white and saturate large
   assert.ok(a.g > b.g && a.b > b.b);
 });
 test("evaluation colors use existing tiles, keep pending tiles normal and survive hover on a Black board", async () => {
-  const THREE = await import("../../projects/forest/vendor/three.module.js");
+  const THREE = await import("../../shared/vendor/three-r180/three.module.js");
   const { MoveEvaluationOverlay } = await import("../../projects/chess/src/MoveEvaluationOverlay.mjs");
   const { ChessBoard } = await import("../../projects/chess/src/ChessBoard.mjs");
   const parent = new THREE.Group(); parent.position.set(0.2, -0.3, -0.8); parent.rotation.y = 0.7;
@@ -289,7 +289,7 @@ test("numeric color deltas respect either player and mate outcomes", async () =>
 });
 
 test("debug numbers lie on tile surfaces, use piece depth, rotate glyphs for Black and clear while pending", async () => {
-  const THREE = await import("../../projects/forest/vendor/three.module.js");
+  const THREE = await import("../../shared/vendor/three-r180/three.module.js");
   const { MoveEvaluationOverlay } = await import("../../projects/chess/src/MoveEvaluationOverlay.mjs");
   const { ChessBoard } = await import("../../projects/chess/src/ChessBoard.mjs");
   const board = new ChessBoard(new THREE.Group());
@@ -400,7 +400,7 @@ test("holding the hint highlights the strongest cached piece, clears on release/
   f.settings.evaluateMove = false; f.analysis.update(); assert.equal(hints.at(-1), null);
 });
 test("board hint overrides hover while held and restores normal/selected materials on release", async () => {
-  const THREE = await import("../../projects/forest/vendor/three.module.js");
+  const THREE = await import("../../shared/vendor/three-r180/three.module.js");
   const { ChessBoard } = await import("../../projects/chess/src/ChessBoard.mjs");
   const board = new ChessBoard(new THREE.Group()); const position = new Chess(); board.sync(position);
   const state = { game: position, selected: null, last: null };

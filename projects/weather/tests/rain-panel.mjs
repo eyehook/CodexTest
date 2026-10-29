@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from '../../forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import { VRControlPanel } from '../src/controls.js';
 import { WeatherModes } from '../src/weather-modes.js';
 import { weatherDefinitions } from '../src/weather-catalog.js';

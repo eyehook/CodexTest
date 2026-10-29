@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from '../../forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import { ImpactPool, GroundEffects } from '../src/ground-effects.js';
 import { RainSimulation } from '../src/rain-simulation.js';
 import { RainEffect, rainParameters } from '../src/rain-effect.js';

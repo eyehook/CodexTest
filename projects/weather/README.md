@@ -1,6 +1,6 @@
 # Weather Lab — Snow and Rain
 
-Buildless Three.js/WebXR experiment for Meta Quest 3. From the repository root, serve with `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/weather/`. Uses the existing local Three.js bundle and MIT license in `projects/forest/vendor/`. No downloads or build required.
+Buildless Three.js/WebXR experiment for Meta Quest 3. From the repository root, serve with `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/weather/`. Uses the existing local Three.js bundle and MIT license in `shared/vendor/three-r180/`. No downloads or build required.
 
 Desktop: WASD moves at 2 m/s; drag the scene to look; left/right arrows turn. Select Snow or Rain in the Weather mode menu. Quest: left stick moves relative to horizontal head direction; right stick turns at up to 90°/s; B or Y toggles the world-fixed panel. Point either controller and press trigger on a mode button, or hold trigger on a slider to drag. A 15% stick dead zone is rescaled smoothly.
 

@@ -1,4 +1,4 @@
-import * as THREE from "../../forest/vendor/three.module.js";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
 
 const smooth = (t) => t * t * (3 - 2 * t);
 export class EyelidBlink {

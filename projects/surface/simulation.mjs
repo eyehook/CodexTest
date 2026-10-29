@@ -1,4 +1,4 @@
-import {DEFAULTS} from './settings.mjs';
+import {DEFAULTS} from './settings.mjs?v=shared-r180-1';
 export const GRID_SIZE = 64;
 // Cell width / center-to-center spacing in meters. Change this to resize the grid.
 export const SPACING = DEFAULTS.spacing;

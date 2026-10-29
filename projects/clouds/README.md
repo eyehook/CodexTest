@@ -1,6 +1,6 @@
 # Clouds — Volumetric laboratory
 
-A standalone Three.js / WebXR cloud experiment for Quest 3. Serve the repository root and open `projects/clouds/`; no build/install step. Uses the existing local Three.js bundle and MIT license in `projects/forest/vendor/`.
+A standalone Three.js / WebXR cloud experiment for Quest 3. Serve the repository root and open `projects/clouds/`; no build/install step. Uses the existing local Three.js bundle and MIT license in `shared/vendor/three-r180/`.
 
 Desktop: WASD movement, drag look, arrow-key turning. Quest: left stick walks at 3 m/s, right stick turns at 90°/s; B/Y toggles the world-fixed control panel, trigger rays adjust controls. Cloud, Rendering, Diagnostics and Performance tabs expose live settings and application cadence. Noise octave/resolution changes regenerate deterministically in a worker. Foveation is enabled only when exposed by the active session.
 

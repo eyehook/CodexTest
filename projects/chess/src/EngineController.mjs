@@ -1,5 +1,5 @@
-import { effectiveElo } from "./Settings.mjs?v=ratings-2";
-import { parseEvaluation, parseMoveEvaluation, parseStaticEvaluation } from "./Evaluation.mjs?v=two-ply-1";
+import { effectiveElo } from "./Settings.mjs?v=shared-r180-1";
+import { parseEvaluation, parseMoveEvaluation, parseStaticEvaluation } from "./Evaluation.mjs?v=shared-r180-1";
 export const ENGINE_URL = new URL(
   "../vendor/stockfish/stockfish-17.1-lite-single-03e3232.js",
   import.meta.url,

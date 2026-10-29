@@ -2,7 +2,7 @@
 
 For continuing development, start with [HANDOFF.md](HANDOFF.md).
 
-A minimal straight-line speed experiment for desktop and Meta Quest 3. The world is black, with white particle quads and #112233 blue rings. No install or build is required. All runtime code is local, including the existing Three.js r180 bundle in `../forest/vendor/` (MIT; its LICENSE is retained).
+A minimal straight-line speed experiment for desktop and Meta Quest 3. The world is black, with white particle quads and #112233 blue rings. No install or build is required. All runtime code is local, including the existing Three.js r180 bundle in `../../shared/vendor/three-r180/` (MIT; its LICENSE is retained).
 
 ## Run locally
 

@@ -1,11 +1,11 @@
-import * as THREE from '../forest/vendor/three.module.js';
-import {CONFIG as c, FT} from './config.mjs?v=17';
-import {Simulation,densityAt,triggerInput} from './simulation.mjs?v=3';
-import {createRings} from './rings.js?v=7';
-import {createParticles} from './particles.js';
-import {FrameRate} from './frame-rate.mjs?v=1';
-import {RingAudio} from './ring-audio.mjs?v=2';
-import {requestFrameRate} from './xr-frame-rate.mjs?v=1';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {CONFIG as c, FT} from './config.mjs?v=shared-r180-1';
+import {Simulation,densityAt,triggerInput} from './simulation.mjs?v=shared-r180-1';
+import {createRings} from './rings.js?v=shared-r180-1';
+import {createParticles} from './particles.js?v=shared-r180-1';
+import {FrameRate} from './frame-rate.mjs?v=shared-r180-1';
+import {RingAudio} from './ring-audio.mjs?v=shared-r180-1';
+import {requestFrameRate} from './xr-frame-rate.mjs?v=shared-r180-1';
 const status=document.querySelector('#status'), button=document.querySelector('#vr');
 try { start(); } catch(error) { status.textContent='Could not start WebGL: '+error.message; console.error(error); }
 function start(){

@@ -1,6 +1,6 @@
 # Scene Test — Milestone 1
 
-Buildless Three.js r180 / WebXR lighting laboratory for Meta Quest 3. Entry: `projects/sceneTest/index.html`. Shares the existing `projects/forest/vendor/three.module.js` and core; matching MIT area-light addons and VRButton are bundled in `vendor/`. All runtime requests stay local.
+Buildless Three.js r180 / WebXR lighting laboratory for Meta Quest 3. Entry: `projects/sceneTest/index.html`. Shares the existing `shared/vendor/three-r180/three.module.js` and core; matching MIT area-light addons and VRButton live in `shared/vendor/three-r180/addons/`. All runtime requests stay local.
 
 ## Modules
 
@@ -60,3 +60,9 @@ Selection now changes immediately on a successful grab, including palette creati
 ## Release review — 2026-10-29
 
 The user tested the project, accepted the final behavior, and authorized committing/pushing Scene Test to GitHub. Final behavior includes the corrected headset-relative navigation, controller grip spheres, straight object/label rows, richer studio reflections, performance information inside Scene Settings, and immediate selection on grab. The complete root suite (including six Scene Test model tests) and Chrome WebGL integration checks passed for this release; whitespace checks passed. User acceptance is not a formal sustained frame-rate or stereo/comfort benchmark. No shared vendor runtime was changed. The unrelated Chess backups remain excluded. See Git history for the release commit and deployment status.
+
+## Shared Three.js relocation — 2026-10-29
+
+Three.js r180 now lives at repository-level `shared/vendor/three-r180/`, with GLTFLoader, BufferGeometryUtils, VRButton and area-light modules in its `addons/` directory. Former Forest/Scene Test vendor directories are removed. Imports, tests, documentation and the knight exporter use the canonical shared paths. Core/license bytes are unchanged; addon code changes only adjust imports. Buildless entry/module queries use `shared-r180-1` to refresh cached module graphs. Racer, Terrain and Fishing static outputs were rebuilt from their updated sources; Swarm retains independent npm dependencies.
+
+Validation: the complete root suite, all ten Cloud tests, three Vite builds, Scene Test browser integration and browser startup of all ten affected projects under `/CodexTest/` passed. All 525 inspected local module references resolve. No new Quest hardware benchmark is implied. The user authorized committing and pushing this relocation. See Git history for the release commit; Pages checks were not requested.

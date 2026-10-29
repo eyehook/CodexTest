@@ -1,6 +1,6 @@
-import * as THREE from '../../forest/vendor/three.module.js';
-import { SnowSimulation } from './simulation.js?v=13';
-import { snowParameters } from './parameters.js?v=5';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
+import { SnowSimulation } from './simulation.js?v=shared-r180-1';
+import { snowParameters } from './parameters.js?v=shared-r180-1';
 export class WeatherEffect {
   initialize(scene, parameters) { this.scene = scene; this.parameters = parameters; }
   activate() { if (this.object) this.object.visible = true; }

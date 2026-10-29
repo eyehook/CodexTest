@@ -12,7 +12,7 @@ Read [repository guidance](../../AGENTS.md), then this document and the project 
 - `forest-sky.js`: 60-second repeating day/night cycle with opposing sun/moon, sky, fog, and ambient lighting. Daylight drives the butterfly/firefly crossfade.
 - `forest-haptics.mjs`: approximate trunk cylinders and bush ellipsoids, using nearest wrapped positions. Sustained contact buzzing: bushes 0.10 intensity, trunks 0.16. Pulses last 120 ms, renewed every 80 ms. Cancels on exit, tracking loss, disconnection, or inactive session; unavailable/rejected haptics do not interrupt rendering.
 - `forest-flight.mjs`: A/X input and vertical thrust/gravity integration. Keep physical tracking separate from rig elevation.
-- `vendor/`: locally bundled Three.js r180, GLTFLoader, BufferGeometryUtils, and MIT license.
+- `shared/vendor/three-r180/`: repository-level Three.js r180 and MIT license; GLTFLoader and BufferGeometryUtils live in its `addons/` directory.
 - `trees/` and `butterflies/`: runtime GLBs. Editable butterfly Blender source/generator is in `assets/forest/butterfly/`. Original tree Blender source was not supplied.
 
 ## Controls and movement
@@ -34,3 +34,9 @@ Forest is buildless. Serve the repository root; open `/projects/forest/`. Live U
 ## Maintaining this handoff
 
 Keep project behavior, architecture, commands, validation and pending work current here. Follow the shared local-test-then-publish workflow in root AGENTS.md and preserve unrelated work.
+
+## Shared Three.js relocation — 2026-10-29
+
+Three.js r180 now lives at repository-level `shared/vendor/three-r180/`, with GLTFLoader, BufferGeometryUtils, VRButton and area-light modules in its `addons/` directory. Former Forest/Scene Test vendor directories are removed. Imports, tests, documentation and the knight exporter use the canonical shared paths. Core/license bytes are unchanged; addon code changes only adjust imports. Buildless entry/module queries use `shared-r180-1` to refresh cached module graphs. Racer, Terrain and Fishing static outputs were rebuilt from their updated sources; Swarm retains independent npm dependencies.
+
+Validation: the complete root suite, all ten Cloud tests, three Vite builds, Scene Test browser integration and browser startup of all ten affected projects under `/CodexTest/` passed. All 525 inspected local module references resolve. No new Quest hardware benchmark is implied. The user authorized committing and pushing this relocation. See Git history for the release commit; Pages checks were not requested.

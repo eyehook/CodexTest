@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as THREE from "../../projects/forest/vendor/three.module.js";
+import * as THREE from "../../shared/vendor/three-r180/three.module.js";
 import { ChessBoard } from "../../projects/chess/src/ChessBoard.mjs";
 import { coordinateLabels } from "../../projects/chess/src/BoardCoordinates.mjs";
 test("left ranks and bottom files match player-facing squares for either color", () => {

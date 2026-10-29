@@ -1,4 +1,4 @@
-import * as THREE from '../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {noiseGLSL,octaveData} from './height.mjs';
 import {bands} from './bands.mjs';
 export function makeMaterial(c){return new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,uniforms:{lattice:{value:new Uint32Array(16)},fraction:{value:Array.from({length:8},()=>new THREE.Vector2())},frequency:{value:Array(8).fill(0)},amplitude:{value:Array(8).fill(0)},seed:{value:c.seed},colorAmplitude:{value:c.amplitude},ground:{value:0},fogStart:{value:c.fogStart},fogEnd:{value:c.fogEnd},fogColor:{value:new THREE.Color(c.fogColor)}},vertexShader:`

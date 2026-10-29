@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import * as THREE from '../projects/forest/vendor/three.module.js';
+import * as THREE from '../shared/vendor/three-r180/three.module.js';
 import {createForestSky,skyState,DAY_NIGHT_SECONDS} from '../projects/forest/forest-sky.js';
 const scene=new THREE.Scene();scene.background=new THREE.Color();scene.fog=new THREE.Fog(0,10,26);
 const sky=createForestSky(scene),viewer=new THREE.Vector3(14,1.7,-12);

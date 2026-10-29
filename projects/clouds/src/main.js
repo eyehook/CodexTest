@@ -1,10 +1,10 @@
-import * as THREE from '../../forest/vendor/three.module.js';
-import { PlayerController } from './player.js';
-import { Environment } from './environment.js';
-import { FrameRateCounter } from './fps.js';
-import { Parameters, cloudScales } from './parameters.js?v=2';
-import { DesktopControls, VRControlPanel } from './controls.js';
-import { VolumeRenderer } from './volume-renderer.js?v=2';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
+import { PlayerController } from './player.js?v=shared-r180-1';
+import { Environment } from './environment.js?v=shared-r180-1';
+import { FrameRateCounter } from './fps.js?v=shared-r180-1';
+import { Parameters, cloudScales } from './parameters.js?v=shared-r180-1';
+import { DesktopControls, VRControlPanel } from './controls.js?v=shared-r180-1';
+import { VolumeRenderer } from './volume-renderer.js?v=shared-r180-1';
 class CloudLab {
   constructor(){
     this.renderer=new THREE.WebGLRenderer({

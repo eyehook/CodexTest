@@ -1,4 +1,4 @@
-import * as THREE from '../../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 // Simple low-poly catch, mouth at the attachment origin and tail below it.
 export class Fish extends THREE.Group {
  constructor(){

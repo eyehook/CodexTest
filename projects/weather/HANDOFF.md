@@ -179,3 +179,9 @@ User observed stale snow volume after moving in rain mode. Switching modes now p
 ### Panel open on VR entry — 2026-10-28
 
 Entering each XR session now requests the panel open automatically. Placement waits until the first visible frame with a valid tracked headset pose, then uses the usual 45° right / 1.2 m placement. B/Y and trigger states are seeded on that opening frame so buttons held during entry cannot immediately close or edit the panel. Manual closing stays closed for that session until B/Y reopens it; exiting/re-entering VR opens it again at the current location. Entry/controls cache version is v14.
+
+## Shared Three.js relocation — 2026-10-29
+
+Three.js r180 now lives at repository-level `shared/vendor/three-r180/`, with GLTFLoader, BufferGeometryUtils, VRButton and area-light modules in its `addons/` directory. Former Forest/Scene Test vendor directories are removed. Imports, tests, documentation and the knight exporter use the canonical shared paths. Core/license bytes are unchanged; addon code changes only adjust imports. Buildless entry/module queries use `shared-r180-1` to refresh cached module graphs. Racer, Terrain and Fishing static outputs were rebuilt from their updated sources; Swarm retains independent npm dependencies.
+
+Validation: the complete root suite, all ten Cloud tests, three Vite builds, Scene Test browser integration and browser startup of all ten affected projects under `/CodexTest/` passed. All 525 inspected local module references resolve. No new Quest hardware benchmark is implied. The user authorized committing and pushing this relocation. See Git history for the release commit; Pages checks were not requested.

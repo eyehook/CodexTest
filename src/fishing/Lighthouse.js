@@ -1,5 +1,5 @@
-import * as THREE from '../../projects/forest/vendor/three.module.js';
-import {GLTFLoader} from '../../projects/forest/vendor/GLTFLoader.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {GLTFLoader} from '../../shared/vendor/three-r180/addons/GLTFLoader.js';
 import {lighthouseSite} from './lighthouse-placement.mjs';
 
 // Resolve the authored contact point through the full exported node hierarchy.

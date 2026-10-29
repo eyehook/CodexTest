@@ -1,7 +1,7 @@
-import * as THREE from '../../forest/vendor/three.module.js';
-import { WeatherEffect } from './effects.js?v=13';
-import { RainSimulation } from './rain-simulation.js?v=13';
-import { GroundEffects } from './ground-effects.js?v=10';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
+import { WeatherEffect } from './effects.js?v=shared-r180-1';
+import { RainSimulation } from './rain-simulation.js?v=shared-r180-1';
+import { GroundEffects } from './ground-effects.js?v=shared-r180-1';
 export const rainParameters = [
   { id: 'count', label: 'Rain density', min: 0, max: 50000, step: 1, default: 2000, format: v => Math.round(v).toLocaleString('en-US') },
   { id: 'wind', label: 'Wind speed', min: -6, max: 6, step: 0.1, default: 0, format: v => `${v.toFixed(1)} m/s` },

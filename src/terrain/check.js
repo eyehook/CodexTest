@@ -1,4 +1,4 @@
-import * as THREE from '../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {terrainHeight,noiseGLSL} from './height.mjs';
 import {updateHeightUniforms,makeMaterial} from './material.js';
 // Exercise the actual vertex noise on the GPU, read back packed heights, compare with JS.

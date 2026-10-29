@@ -1,12 +1,12 @@
-import * as THREE from "../../forest/vendor/three.module.js";
-import { squareName } from "./ChessBoard.mjs";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
+import { squareName } from "./ChessBoard.mjs?v=shared-r180-1";
 import {
   HAND_RADIUS,
   inPieceVolume,
   nearestPiece,
   squareUnder,
   buttonDown,
-} from "./HandInteraction.mjs?v=air-grip-1";
+} from "./HandInteraction.mjs?v=shared-r180-1";
 export class InputController {
   constructor({
     renderer,

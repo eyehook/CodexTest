@@ -1,4 +1,4 @@
-import { CELL, squarePosition } from "./ChessBoard.mjs";
+import { CELL, squarePosition } from "./ChessBoard.mjs?v=shared-r180-1";
 export const HAND_RADIUS = 0.0254;
 export const COLUMN_HEIGHT = 0.1524;
 export function columnIntersects(center, square, radius = HAND_RADIUS) {

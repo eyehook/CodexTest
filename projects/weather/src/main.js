@@ -1,11 +1,11 @@
-import * as THREE from '../../forest/vendor/three.module.js';
-import { WeatherModes } from './weather-modes.js?v=13';
-import { SettingsStore } from './settings.js?v=11';
-import { weatherDefinitions } from './weather-catalog.js?v=13';
-import { FrameRateCounter } from './fps.js?v=3';
-import { Environment } from './environment.js';
-import { PlayerController } from './player.js?v=2';
-import { DesktopControls, VRControlPanel } from './controls.js?v=14';
+import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
+import { WeatherModes } from './weather-modes.js?v=shared-r180-1';
+import { SettingsStore } from './settings.js?v=shared-r180-1';
+import { weatherDefinitions } from './weather-catalog.js?v=shared-r180-1';
+import { FrameRateCounter } from './fps.js?v=shared-r180-1';
+import { Environment } from './environment.js?v=shared-r180-1';
+import { PlayerController } from './player.js?v=shared-r180-1';
+import { DesktopControls, VRControlPanel } from './controls.js?v=shared-r180-1';
 export class WeatherSimulator {
   constructor() {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });

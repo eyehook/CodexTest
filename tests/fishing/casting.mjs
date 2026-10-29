@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {LinePhysics,LINE_SEGMENTS,LINE_STEP} from '../../src/fishing/rods/LinePhysics.mjs';
 import {rodTrigger} from '../../src/fishing/rods/RodControls.mjs';
 import {RodSystem} from '../../src/fishing/rods/RodSystem.js';
-import * as THREE from '../../projects/forest/vendor/three.module.js';
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 const end=LINE_SEGMENTS*3;
 function cast(fps=120,surface=()=>0){
  const p=new LinePhysics(.8,{surface});p.reset(0,2,0);p.setTrigger(true);assert.equal(p.phase,'armed');

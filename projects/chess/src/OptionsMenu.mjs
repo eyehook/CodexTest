@@ -1,5 +1,5 @@
-import * as THREE from "../../forest/vendor/three.module.js";
-import { TableControls } from "./TableControls.mjs?v=move-display-1";
+import * as THREE from "../../../shared/vendor/three-r180/three.module.js";
+import { TableControls } from "./TableControls.mjs?v=shared-r180-1";
 
 // Add future option rows here; draft values are committed only on close.
 export const OPTION_ROWS = [

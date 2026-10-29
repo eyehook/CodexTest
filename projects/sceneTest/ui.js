@@ -1,6 +1,6 @@
 import * as T from "three";
-import { NAMES, INTENSITY_MAX, TYPES } from "./model.js";
-import { makeHelper } from "./lights.js";
+import { NAMES, INTENSITY_MAX, TYPES } from "./model.js?v=shared-r180-1";
+import { makeHelper } from "./lights.js?v=shared-r180-1";
 const W = 640,
   H = 1536,
   ROW = 54,
