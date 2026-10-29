@@ -1,11 +1,11 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {CONFIG as c, FT} from './config.mjs?v=shared-r180-1';
-import {Simulation,densityAt,triggerInput} from './simulation.mjs?v=shared-r180-1';
+import {Simulation,densityAt,triggerInput} from './simulation.mjs?v=shared-xr-1';
 import {createRings} from './rings.js?v=shared-r180-1';
 import {createParticles} from './particles.js?v=shared-r180-1';
-import {FrameRate} from './frame-rate.mjs?v=shared-r180-1';
+import {FrameRate} from '../../shared/performance/frame-rate.mjs?v=shared-xr-1';
 import {RingAudio} from './ring-audio.mjs?v=shared-r180-1';
-import {requestFrameRate} from './xr-frame-rate.mjs?v=shared-r180-1';
+import {requestFrameRate} from '../../shared/xr/frame-rate.mjs?v=shared-xr-1';
 const status=document.querySelector('#status'), button=document.querySelector('#vr');
 try { start(); } catch(error) { status.textContent='Could not start WebGL: '+error.message; console.error(error); }
 function start(){

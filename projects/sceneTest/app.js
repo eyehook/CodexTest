@@ -1,3 +1,5 @@
+import {XRFrameState} from '../../shared/xr/session.mjs?v=shared-xr-1';
+import {FrameRateCounter} from '../../shared/performance/frame-rate.mjs?v=shared-xr-1';
 import * as T from "three";
 import { RectAreaLightUniformsLib } from "../../shared/vendor/three-r180/addons/RectAreaLightUniformsLib.js";
 import { VRButton } from "../../shared/vendor/three-r180/addons/VRButton.js";
@@ -10,7 +12,7 @@ import {
 import { createEnvironment } from "./environment.js?v=shared-r180-1";
 import { LightManager } from "./lights.js?v=shared-r180-1";
 import { LaboratoryUI } from "./ui.js?v=shared-r180-1";
-import { Input } from "./input.js?v=shared-r180-1";
+import { Input } from "./input.js?v=shared-xr-1";
 class Laboratory {
   constructor() {
     this.settings = defaults();
@@ -40,6 +42,7 @@ class Laboratory {
     this.viewer = new T.PerspectiveCamera();
     this.rig.add(this.viewer);
     this.viewerPose = null;
+    this.xrFrame = new XRFrameState();
     this.scene.add(this.rig);
     RectAreaLightUniformsLib.init();
     this.environment = createEnvironment(this.scene, this.renderer);
@@ -92,8 +95,7 @@ class Laboratory {
     document.querySelector("#panel-toggle").onclick = () =>
       document.body.classList.toggle("controls-hidden");
     this.last = 0;
-    this.frames = 0;
-    this.elapsed = 0;
+    this.fpsCounter = new FrameRateCounter();
     this.lastStats = null;
     this.renderer.setAnimationLoop((time, frame) => this.frame(time, frame));
     // Read-only diagnostics for desktop/headset validation.
@@ -111,10 +113,11 @@ class Laboratory {
     return this.renderer.xr.isPresenting ? this.viewer : this.camera;
   }
   updateViewerPose(frame) {
-    this.viewerPose =
-      this.renderer.xr.isPresenting && frame
-        ? frame.getViewerPose(this.renderer.xr.getReferenceSpace())
-        : null;
+    this.xrFrame.update(
+      this.renderer.xr.isPresenting ? this.renderer.xr.getSession() : null,
+      frame, this.renderer.xr.getReferenceSpace(), document.hidden,
+    );
+    this.viewerPose = this.xrFrame.pose;
     if (this.viewerPose) {
       const { position, orientation } = this.viewerPose.transform;
       this.viewer.position.copy(position);
@@ -213,12 +216,12 @@ class Laboratory {
       this.placeOnFrame = false;
     }
     this.renderer.render(this.scene, this.camera);
-    this.frames++;
-    this.elapsed += raw;
-    if (this.elapsed >= 0.5) {
+    if (!this.xrFrame.active || this.xrFrame.resumed || this.xrFrame.changed) this.fpsCounter.reset();
+    const fps = this.xrFrame.active && !this.xrFrame.resumed ? this.fpsCounter.sample(raw) : null;
+    if (fps !== null) {
       const records = [...this.lights.records.values()];
       this.lastStats = {
-        fps: Math.round(this.frames / this.elapsed),
+        fps: Math.round(fps),
         lights: records.filter((r) => r.data.enabled).length,
         shadows: records.filter((r) => r.light.castShadow && r.data.enabled)
           .length,
@@ -226,8 +229,6 @@ class Laboratory {
         triangles: this.renderer.info.render.triangles,
       };
       this.ui.updatePerformance();
-      this.frames = 0;
-      this.elapsed = 0;
     }
   }
 }

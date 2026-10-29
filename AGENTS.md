@@ -24,6 +24,12 @@ Read this file, inspect `git status`, then read the target project's handoff and
 
 Keep detailed behavior, architecture, controls, asset workflows and project validation in each handoff and its linked documents. Update the relevant handoff as changes are made; review and update the Space Race handoff before every push, as explicitly requested by the user. Keep this root file limited to shared guidance and project routing.
 
+## Shared functionality
+
+Before implementing locomotion, controller input/pointers, XR frame/session handling or performance reporting, check [shared modules](shared/README.md) and reuse or extend the existing helpers. First-party modules live in `shared/xr/` and `shared/performance/`; third-party dependencies live in `shared/vendor/`. Keep module interfaces, usage rules and current consumers in that shared README; keep project-specific controls, tuning, interaction policies and validation in project handoffs. Update the consumer list and affected handoffs when migrating a project. Terrain and Fishing are separate branches of the same project; similarities between them alone are not a reason to extract shared code.
+
+Shared regression tests live in `tests/shared/` (`npm run test:shared`) and are included in the full root suite. For shared runtime edits, run that suite plus affected consumer checks, including Cloud tests when Clouds is affected. Documentation-only edits follow the link/content checks below.
+
 ## Repository and publishing
 
 - Checkout: `/Users/mm/Documents/GitHub/CodexTest`; public remote: https://github.com/eyehook/CodexTest.

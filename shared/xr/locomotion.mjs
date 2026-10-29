@@ -1,34 +1,29 @@
-import {Vector3} from '../../shared/vendor/three-r180/three.module.js';
+import {Vector3} from '../vendor/three-r180/three.module.js';
 
-export function deadzone(value, threshold) {
-  if (!Number.isFinite(value) || Math.abs(value) <= threshold) return 0;
-  return Math.sign(value) * Math.min(1, (Math.abs(value) - threshold) / (1 - threshold));
-}
+import {deadzone, readMovementAxes} from './input.mjs';
 
 export class Locomotion {
-  constructor(rig, settings = {moveSpeed: 1.5, turnSpeed: Math.PI / 3, deadzone: 0.15}) {
+  constructor(rig, settings = {}) {
     this.rig = rig;
-    this.settings = settings;
+    this.settings = {moveSpeed: 1.5, turnSpeed: Math.PI / 3, deadzone: 0.15, rescaleDeadzone: true, maxDelta: 0.05, ...settings};
+    this.axes = {x: 0, z: 0, turn: 0};
     this.forward = new Vector3();
     this.right = new Vector3();
     this.pivot = new Vector3();
     this.after = new Vector3();
   }
   update(dt, sources, viewer) {
-    if (!viewer || !Number.isFinite(dt) || dt <= 0) return;
-    dt = Math.min(dt, 0.05);
+    const axes = readMovementAxes(sources, this.axes);
+    this.move(dt, axes.x, axes.z, axes.turn, viewer);
+  }
+  // Viewer position/orientation must be local to the rig's reference space.
+  move(dt, x, z, turn, viewer, enabled = true) {
+    if (!enabled || !viewer || !Number.isFinite(dt) || dt <= 0) return;
     const c = this.settings;
-    let x = 0, z = 0, turn = 0;
-    for (const source of sources) {
-      const pad = source.gamepad;
-      if (!pad || pad.mapping !== 'xr-standard') continue;
-      if (source.handedness === 'left') {
-        x = deadzone(pad.axes[2], c.deadzone);
-        z = deadzone(pad.axes[3], c.deadzone);
-      } else if (source.handedness === 'right') {
-        turn = deadzone(pad.axes[2], c.deadzone);
-      }
-    }
+    dt = Math.min(dt, c.maxDelta);
+    x = deadzone(x, c.deadzone, c.rescaleDeadzone);
+    z = deadzone(z, c.deadzone, c.rescaleDeadzone);
+    turn = deadzone(turn, c.deadzone, c.rescaleDeadzone);
     this.rig.updateMatrixWorld(true);
     // Rotate the rig about the tracked headset, avoiding an orbit around the rig origin.
     this.pivot.copy(viewer.position).applyMatrix4(this.rig.matrixWorld);

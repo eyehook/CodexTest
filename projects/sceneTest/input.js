@@ -1,16 +1,19 @@
+import {ControllerPointer, createPointerLine} from '../../shared/xr/pointer.mjs?v=shared-xr-1';
+import {ButtonEdges} from '../../shared/xr/input.mjs?v=shared-xr-1';
 import * as T from "three";
+import {Locomotion} from "../../shared/xr/locomotion.mjs?v=shared-motion-1";
 const origin = new T.Vector3(),
-  direction = new T.Vector3(),
-  rotation = new T.Matrix4(),
-  head = new T.Vector3(),
-  forward = new T.Vector3(),
-  right = new T.Vector3(),
-  axis = new T.Vector3(0, 1, 0),
-  delta = new T.Vector3();
+  direction = new T.Vector3();
 export class Input {
   constructor(app) {
     this.app = app;
-    this.raycaster = new T.Raycaster();
+    this.locomotion = new Locomotion(app.rig, {
+      moveSpeed: 1.3, turnSpeed: 1.1, rescaleDeadzone: false,
+    });
+    this.navigationViewer = {position: null, orientation: null};
+    this.pointer = new ControllerPointer();
+    this.raycaster = this.pointer.raycaster;
+    this.buttonEdges = new ButtonEdges();
     this.hands = [];
     this.grabs = new Map();
     this.targets = [];
@@ -26,19 +29,7 @@ export class Input {
         new T.MeshBasicMaterial({ color: 0x59cfff, toneMapped: false }),
       );
       grip.add(gripMarker);
-      const ray = new T.Line(
-        new T.BufferGeometry().setFromPoints([
-          new T.Vector3(),
-          new T.Vector3(0, 0, -1),
-        ]),
-        new T.LineBasicMaterial({
-          color: 0xb5bfcc,
-          toneMapped: false,
-          depthTest: false,
-        }),
-      );
-      ray.scale.z = 6;
-      ray.renderOrder = 1000;
+      const ray = createPointerLine();
       controller.add(ray);
       controller.visible = grip.visible = false;
       const hand = {
@@ -48,7 +39,6 @@ export class Input {
         ray,
         source: null,
         trigger: false,
-        buttons: [],
         hit: null,
         dragUI: null,
       };
@@ -61,6 +51,7 @@ export class Input {
       });
       controller.addEventListener("disconnected", () => {
         this.endGrab(hand);
+        this.buttonEdges.reset(hand.source);
         hand.source = null;
         controller.visible = grip.visible = false;
         hand.trigger = false;
@@ -118,11 +109,7 @@ export class Input {
   aim(hand) {
     const a = this.app,
       c = hand.controller;
-    c.updateWorldMatrix(true, false);
-    origin.setFromMatrixPosition(c.matrixWorld);
-    rotation.extractRotation(c.matrixWorld);
-    direction.set(0, 0, -1).applyMatrix4(rotation).normalize();
-    this.raycaster.set(origin, direction);
+    this.pointer.setFromController(c);
     this.raycaster.far = 8;
     const targets = this.targets;
     targets.length = 0;
@@ -212,36 +199,25 @@ export class Input {
     this.app.interaction.endGrab(hand);
   }
   releaseAll() {
+    this.buttonEdges.reset();
     for (const hand of this.hands) {
       this.endGrab(hand);
       hand.trigger = false;
       hand.dragUI = null;
-      hand.buttons = [];
     }
     this.keys.clear();
     this.desktopDrag = null;
     this.app.interaction.endGrab("mouse");
   }
   update(dt, frame) {
-    const a = this.app,
-      session = a.renderer.xr.getSession();
-    const active =
-      !!frame && session?.visibilityState === "visible" && !!a.viewerPose;
+    const a = this.app;
+    const active = a.xrFrame.active && !!a.viewerPose;
     for (const r of a.lights.records.values()) r.hovered = false;
     if (a.renderer.xr.isPresenting) {
       for (const h of this.hands) {
         const source = h.source;
-        const tracked =
-          active &&
-          source &&
-          !!frame.getPose(
-            source.targetRaySpace,
-            a.renderer.xr.getReferenceSpace(),
-          );
-        const gripTracked =
-          tracked &&
-          source.gripSpace &&
-          !!frame.getPose(source.gripSpace, a.renderer.xr.getReferenceSpace());
+        const tracked = active && source && a.xrFrame.isTracked(source.targetRaySpace);
+        const gripTracked = tracked && a.xrFrame.isTracked(source.gripSpace);
         h.controller.visible = !!tracked;
         h.grip.visible = !!gripTracked;
         if (!tracked || !gripTracked) {
@@ -251,16 +227,14 @@ export class Input {
         }
         if (!tracked) continue;
         this.aim(h);
-        const buttons = source.gamepad?.buttons || [];
-        const secondary = !!buttons[5]?.pressed;
-        if (secondary && !h.buttons[5]) {
+        const secondary = this.buttonEdges.sample(source, 5);
+        if (secondary.pressed) {
           if (source.handedness === "right") {
             a.interaction.select(null);
             a.ui.refresh();
           }
           if (source.handedness === "left") a.ui.toggle();
         }
-        h.buttons[5] = secondary;
       }
       if (active) {
         const left = this.hands.find((h) => h.source?.handedness === "left"),
@@ -282,34 +256,12 @@ export class Input {
     }
   }
   move(x, z, turn, dt) {
-    const a = this.app,
-      dead = (v) => (Math.abs(v) > 0.15 ? v : 0);
-    x = dead(x);
-    z = dead(z);
-    turn = dead(turn);
-    const view = a.viewCamera();
-    view.getWorldPosition(head);
-    if (turn) {
-      const angle = -turn * 1.1 * dt;
-      delta
-        .copy(a.rig.position)
-        .sub(head)
-        .applyAxisAngle(axis, angle)
-        .add(head);
-      a.rig.position.x = delta.x;
-      a.rig.position.z = delta.z;
-      a.rig.rotation.y += angle;
-      a.rig.updateMatrixWorld(true);
-    }
-    view.getWorldDirection(forward);
-    forward.y = 0;
-    forward.normalize();
-    right.crossVectors(forward, axis).normalize();
-    const length = Math.max(1, Math.hypot(x, z));
-    a.rig.position
-      .addScaledVector(right, (x / length) * 1.3 * dt)
-      .addScaledVector(forward, (-z / length) * 1.3 * dt);
+    const view = this.app.viewCamera();
+    this.navigationViewer.position = view.position;
+    this.navigationViewer.orientation = view.quaternion;
+    this.locomotion.move(dt, x, z, turn, this.navigationViewer);
   }
+
   setupDesktop() {
     const a = this.app,
       canvas = a.renderer.domElement;

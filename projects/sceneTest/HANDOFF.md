@@ -66,3 +66,41 @@ The user tested the project, accepted the final behavior, and authorized committ
 Three.js r180 now lives at repository-level `shared/vendor/three-r180/`, with GLTFLoader, BufferGeometryUtils, VRButton and area-light modules in its `addons/` directory. Former Forest/Scene Test vendor directories are removed. Imports, tests, documentation and the knight exporter use the canonical shared paths. Core/license bytes are unchanged; addon code changes only adjust imports. Buildless entry/module queries use `shared-r180-1` to refresh cached module graphs. Racer, Terrain and Fishing static outputs were rebuilt from their updated sources; Swarm retains independent npm dependencies.
 
 Validation: the complete root suite, all ten Cloud tests, three Vite builds, Scene Test browser integration and browser startup of all ten affected projects under `/CodexTest/` passed. All 525 inspected local module references resolve. No new Quest hardware benchmark is implied. The user authorized committing and pushing this relocation. See Git history for the release commit; Pages checks were not requested.
+
+## Shared locomotion extraction — 2026-10-29
+
+Surface and Scene Test now import `shared/xr/locomotion.mjs`, with reusable
+axis/deadzone helpers in `shared/xr/input.mjs`. Surface's former local module is
+removed. Each project retains its movement/turn speeds and deadzone response:
+Surface rescales outside the deadzone; Scene Test preserves raw analog magnitude.
+Scene Test supplies its parented viewer camera's local pose and keeps desktop
+input and light interaction local. Frame deltas cap at 50 ms. Changed entry/module
+queries use `shared-motion-1` for cache refresh. Other projects are not migrated.
+
+Validation: all existing root-suite checks and all three new shared regression
+tests passed. Scene Test Chrome WebGL integration passed, including its navigation
+regressions. Subsequent Quest feedback is recorded in the shared XR helpers
+section below. Publication is covered by the shared XR helpers release review below.
+
+## Shared XR helpers — 2026-10-29
+
+Scene Test uses shared button edges for B/Y, controller pointer ray construction
+and visuals, XRFrameState for viewer/controller tracking, and FrameRateCounter
+for half-second FPS. Grabs, selection, sliders and panel placement stay local.
+FPS resets through hidden/untracked and session transitions.
+
+Interfaces and current consumers are documented in the
+[shared library guide](../../shared/README.md). Changed entry/import queries use `shared-xr-1`. Shared source
+and tests live under `shared/xr/`, `shared/performance/`, and `tests/shared/`.
+
+Validation: full root suite (including 12 shared regressions), all ten Cloud tests,
+and Scene Test Chrome WebGL integration passed. Chrome startup/module loading
+passed for Surface, Space Race, Weather and Clouds; live FPS reporting passed in
+the latter three.
+
+The user subsequently reported that Quest works correctly after these shared-helper
+changes on 2026-10-29. This is user headset feedback for the shared change; no
+project-by-project test matrix or formal sustained frame-rate benchmark was recorded.
+The user authorized committing and pushing this shared-library release on
+2026-10-29. See Git history for the release commit; deployment status is verified
+separately after pushing.

@@ -1,7 +1,7 @@
 import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import { PlayerController } from './player.js?v=shared-r180-1';
 import { Environment } from './environment.js?v=shared-r180-1';
-import { FrameRateCounter } from './fps.js?v=shared-r180-1';
+import { FrameRateCounter } from './fps.js?v=shared-xr-1';
 import { Parameters, cloudScales } from './parameters.js?v=shared-r180-1';
 import { DesktopControls, VRControlPanel } from './controls.js?v=shared-r180-1';
 import { VolumeRenderer } from './volume-renderer.js?v=shared-r180-1';

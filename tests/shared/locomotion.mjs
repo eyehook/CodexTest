@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {Group, Vector3, Quaternion} from '../../shared/vendor/three-r180/three.module.js';
+import {Locomotion} from '../../shared/xr/locomotion.mjs';
+import {deadzone, readMovementAxes} from '../../shared/xr/input.mjs';
+const viewer = {position: new Vector3(0.65, 1.7, -0.4), orientation: new Quaternion()};
+test('input filtering, both deadzone responses, and disconnected sources', () => {
+  assert.equal(deadzone(NaN, 0.15), 0);
+  assert.equal(deadzone(undefined, 0.15), 0);
+  assert.equal(deadzone(0.15, 0.15), 0);
+  assert.ok(Math.abs(deadzone(0.575, 0.15) - 0.5) < 1e-12);
+  assert.equal(deadzone(0.575, 0.15, false), 0.575);
+  const out = {x: 1, z: 1, turn: 1};
+  readMovementAxes([{handedness: 'left', gamepad: {mapping: '', axes: [0,0,1,1]}}], out);
+  assert.deepEqual(out, {x: 0, z: 0, turn: 0});
+  readMovementAxes([{handedness: 'right', gamepad: {mapping: 'xr-standard', axes: [0,0,-0.5,0]}}], out);
+  assert.equal(out.turn, -0.5);
+  readMovementAxes([], out);
+  assert.equal(out.turn, 0);
+});
+test('Scene Test settings preserve analog speed and pivot after accumulated yaw', () => {
+  const rig = new Group();
+  rig.position.set(4, 0, 8); rig.rotation.y = 0.7;
+  const motion = new Locomotion(rig, {moveSpeed: 1.3, turnSpeed: 1.1, rescaleDeadzone: false});
+  rig.updateMatrixWorld(true);
+  const start = viewer.position.clone().applyMatrix4(rig.matrixWorld);
+  for (let i=0; i<120; i++) motion.move(1/120, 0, 0, 1, viewer);
+  assert.ok(start.distanceTo(viewer.position.clone().applyMatrix4(rig.matrixWorld)) < 1e-9);
+  assert.ok(Math.abs(rig.rotation.y + 0.4) < 1e-9);
+  const before = rig.position.clone();
+  motion.move(0.05, 0.5, 0, 0, viewer);
+  assert.ok(Math.abs(before.distanceTo(rig.position) - 1.3 * 0.5 * 0.05) < 1e-9);
+});
+test('inactive, invalid and stalled frames cannot cause catch-up movement', () => {
+  const rig = new Group(), motion = new Locomotion(rig);
+  for (const dt of [NaN, Infinity, -1, 0]) motion.move(dt, 1, 1, 1, viewer);
+  motion.move(0.05, 1, 1, 1, viewer, false);
+  motion.move(0.05, 1, 1, 1, null);
+  assert.equal(rig.position.length(), 0);
+  motion.move(10, 1, 0, 0, viewer);
+  assert.ok(Math.abs(rig.position.length() - 0.075) < 1e-9);
+});

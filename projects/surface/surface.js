@@ -1,7 +1,9 @@
+import {ButtonEdges} from '../../shared/xr/input.mjs?v=shared-xr-1';
+import {XRFrameState} from '../../shared/xr/session.mjs?v=shared-xr-1';
 import {DEFAULTS} from './settings.mjs?v=shared-r180-1';
 import {createDesktopTuning} from './tuning.js?v=shared-r180-1';
-import {VRPanel} from './VRPanel.js?v=shared-r180-1';
-import {Locomotion} from './locomotion.mjs?v=shared-r180-1';
+import {VRPanel} from './VRPanel.js?v=shared-xr-1';
+import {Locomotion} from '../../shared/xr/locomotion.mjs?v=shared-motion-1';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {createSurface, GRID_SIZE} from './simulation.mjs?v=shared-r180-1';
 
@@ -100,16 +102,15 @@ function changeSetting(key) {
 }
 syncDesktop = createDesktopTuning(settings, changeSetting);
 syncDesktop();
-let previousButtons = new Set();
+const panelButtons = new ButtonEdges();
+const xrFrame = new XRFrameState();
 const panelPosition = new THREE.Vector3();
 function updateVRPanel(pose) {
-  const pressed = new Set(); let toggle = false;
+  let toggle = false;
+  panelButtons.retain(session.inputSources);
   for (const source of session.inputSources) {
-    if (source.gamepad?.mapping === 'xr-standard' && source.gamepad.buttons[4]?.pressed) {
-      pressed.add(source); if (!previousButtons.has(source)) toggle = true;
-    }
+    if (source.gamepad?.mapping === 'xr-standard' && panelButtons.sample(source, 4).pressed) toggle = true;
   }
-  previousButtons = pressed;
   if (toggle) vrPanel.toggle();
   rig.updateMatrixWorld(true);
   panelPosition.set(0, pose.transform.position.y, 0).applyMatrix4(rig.matrixWorld);
@@ -122,14 +123,14 @@ enter.addEventListener('click', async () => {
     session = await navigator.xr.requestSession('immersive-vr', {requiredFeatures: ['local-floor']});
     session.addEventListener('end', () => {
       session = null; lastTime = null; panel.hidden = false; enter.disabled = false;
-      vrPanel.mesh.visible = false; vrPanel.enabled = false; vrPanel.update(); previousButtons.clear();
+      vrPanel.mesh.visible = false; vrPanel.enabled = false; vrPanel.update(); panelButtons.reset();
       desktopCamera();
     });
     rig.position.set(0, 0, GRID_SIZE * settings.spacing * 14 / 64);
     camera.position.set(0, 0, 0); camera.quaternion.identity();
     await renderer.xr.setSession(session);
     simulation.reset(); lastTime = null; dragging = null; panel.hidden = true;
-    previousButtons.clear(); vrPanel.mesh.visible = true;
+    panelButtons.reset(); vrPanel.mesh.visible = true;
   } catch (error) {
     if (session) await session.end().catch(() => {});
     session = null; desktopCamera(); panel.hidden = false; enter.disabled = false;
@@ -145,14 +146,15 @@ enter.addEventListener('click', async () => {
 })();
 renderer.setAnimationLoop((time, frame) => {
   const dt = lastTime === null ? 0 : (time - lastTime) / 1000; lastTime = time;
-  const pose = session && frame ? frame.getViewerPose(renderer.xr.getReferenceSpace()) : null;
-  const active = !document.hidden && (!session || (session.visibilityState === 'visible' && pose));
+  xrFrame.update(session, frame, session ? renderer.xr.getReferenceSpace() : null, document.hidden);
+  const {pose, active} = xrFrame;
+  if (!active) lastTime = null;
   vrPanel.enabled = !!(active && session);
   if (active && session) {
     locomotion.update(dt, session.inputSources, pose.transform);
     updateVRPanel(pose);
   } else {
-    previousButtons.clear(); vrPanel.update();
+    panelButtons.reset(); vrPanel.update();
   }
   if (active) simulation.advance(dt);
   updateQuads();

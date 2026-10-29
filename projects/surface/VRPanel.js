@@ -1,3 +1,4 @@
+import {ControllerPointer, createPointerLine} from '../../shared/xr/pointer.mjs?v=shared-xr-1';
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {CONTROLS} from './settings.mjs?v=shared-r180-1';
 
@@ -13,11 +14,11 @@ export class VRPanel {
     this.ctx=this.canvas.getContext('2d');this.texture=new T.CanvasTexture(this.canvas);this.texture.colorSpace=T.SRGBColorSpace;
     this.mesh=new T.Mesh(new T.PlaneGeometry(1.45,1.8125),new T.MeshBasicMaterial({map:this.texture}));
     scene.add(this.mesh);this.mesh.visible=false;
-    this.ray=new T.Raycaster();this.rotation=new T.Matrix4();this.hover=-1;
+    this.pointer=new ControllerPointer();this.hover=-1;
     this.controllers=[];
     for(let i=0;i<2;i++) {
       const controller=renderer.xr.getController(i);rig.add(controller);
-      const line=new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(),new T.Vector3(0,0,-1)]),new T.LineBasicMaterial({color:0xffb56a}));
+      const line=createPointerLine({color:0xffb56a,length:4,depthTest:true,renderOrder:0});
       line.scale.z=4;line.visible=false;controller.add(line);controller.userData.line=line;
       controller.userData.connected=false;
       controller.addEventListener('connected',()=>controller.userData.connected=true);
@@ -47,10 +48,7 @@ export class VRPanel {
     else for(const controller of this.controllers)controller.userData.line.visible=false;
   }
   hit(controller) {
-    this.rotation.extractRotation(controller.matrixWorld);
-    this.ray.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-    this.ray.ray.direction.set(0,0,-1).applyMatrix4(this.rotation);
-    const hit=this.ray.intersectObject(this.mesh,false)[0];
+    const hit=this.pointer.cast(controller,this.mesh);
     if(!hit)return null;
     const x=hit.uv.x*1024,y=(1-hit.uv.y)*1280;
     const row=Math.floor((y-150)/70);

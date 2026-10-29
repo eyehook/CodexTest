@@ -104,3 +104,26 @@ Reviewed before the authorized Scene Test push as required by root guidance. Spa
 Three.js r180 now lives at repository-level `shared/vendor/three-r180/`, with GLTFLoader, BufferGeometryUtils, VRButton and area-light modules in its `addons/` directory. Former Forest/Scene Test vendor directories are removed. Imports, tests, documentation and the knight exporter use the canonical shared paths. Core/license bytes are unchanged; addon code changes only adjust imports. Buildless entry/module queries use `shared-r180-1` to refresh cached module graphs. Racer, Terrain and Fishing static outputs were rebuilt from their updated sources; Swarm retains independent npm dependencies.
 
 Validation: the complete root suite, all ten Cloud tests, three Vite builds, Scene Test browser integration and browser startup of all ten affected projects under `/CodexTest/` passed. All 525 inspected local module references resolve. No new Quest hardware benchmark is implied. The user authorized committing and pushing this relocation. See Git history for the release commit; Pages checks were not requested.
+
+## Shared XR helpers — 2026-10-29
+
+Space Race now uses shared FrameRate/refresh helpers and buttonValue trigger
+pressure. Local frame-rate.mjs and xr-frame-rate.mjs remain compatibility
+re-exports. Target rate remains 120 Hz, requested once after the first rendered
+tracked frame without awaiting it. Simulation, audio, HUD and lifecycle stay local.
+
+Interfaces and current consumers are documented in the
+[shared library guide](../../shared/README.md). Changed entry/import queries use `shared-xr-1`. Shared source
+and tests live under `shared/xr/`, `shared/performance/`, and `tests/shared/`.
+
+Validation: full root suite (including 12 shared regressions), all ten Cloud tests,
+and Scene Test Chrome WebGL integration passed. Chrome startup/module loading
+passed for Surface, Space Race, Weather and Clouds; live FPS reporting passed in
+the latter three.
+
+The user subsequently reported that Quest works correctly after these shared-helper
+changes on 2026-10-29. This is user headset feedback for the shared change; no
+project-by-project test matrix or formal sustained frame-rate benchmark was recorded.
+The user authorized committing and pushing this shared-library release on
+2026-10-29. See Git history for the release commit; deployment status is verified
+separately after pushing.

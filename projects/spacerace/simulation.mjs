@@ -1,3 +1,4 @@
+import {buttonValue} from '../../shared/xr/input.mjs?v=shared-xr-1';
 import {CONFIG} from './config.mjs?v=shared-r180-1';
 export function densityAt(speed, c = CONFIG) {
   const t = Math.max(0, Math.min(1, speed / c.maxSpeed));
@@ -12,8 +13,7 @@ export function triggerInput(sources) {
   let accelerate=0, decelerate=0;
   for (const source of sources) {
     if (source.gamepad?.mapping !== 'xr-standard') continue;
-    const button = source.gamepad.buttons[0];
-    const value = button ? Math.max(0, Math.min(1, button.value ?? Number(button.pressed))) : 0;
+    const value = buttonValue(source, 0);
     if (source.handedness === 'right') accelerate = Math.max(accelerate,value);
     if (source.handedness === 'left') decelerate = Math.max(decelerate,value);
   }

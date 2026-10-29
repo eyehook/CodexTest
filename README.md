@@ -48,15 +48,19 @@ HTTPS provides the secure context required for WebXR. All runtime modules and mo
 
 GitHub documentation: [publishing source](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site), [HTTPS](https://docs.github.com/en/pages/getting-started-with-github-pages/securing-your-github-pages-site-with-https).
 
+## Shared functionality
+
+Reusable locomotion, controller input, controller pointers and XR frame/session helpers live in `shared/xr/`; application FPS sampling lives in `shared/performance/`. See the [shared library guide](shared/README.md) for interfaces, usage and current project consumers. Third-party dependencies remain under `shared/vendor/`. Project-specific controls and validation belong in each project's handoff.
+
 ## Dependencies and editable sources
 
-`shared/vendor/three-r180/` contains the canonical Three.js r180 core and MIT license. Its `addons/` directory contains GLTFLoader, BufferGeometryUtils, VRButton, and area-light support. See [shared dependencies](shared/README.md) for layout and maintenance. Runtime models are in `projects/forest/trees/` and `projects/forest/butterflies/`. Editable butterfly Blender source and generation script are in `assets/forest/butterfly/`; Blender is only needed to edit/rebuild that model. Tree Blender sources were not present in the original Quest folder.
+`shared/vendor/three-r180/` contains the canonical Three.js r180 core and MIT license. Its `addons/` directory contains GLTFLoader, BufferGeometryUtils, VRButton, and area-light support. See [shared library guide](shared/README.md) for layout and maintenance. Runtime models are in `projects/forest/trees/` and `projects/forest/butterflies/`. Editable butterfly Blender source and generation script are in `assets/forest/butterfly/`; Blender is only needed to edit/rebuild that model. Tree Blender sources were not present in the original Quest folder.
 
 Chess editable sources live in `assets/chess/`: the active opponent is `opponent/ManLP-articulated.blend` (see its [export workflow](assets/chess/opponent/README.md)); the edited knight has its own [source/exporter](assets/chess/knight/README.md). Exported runtime assets stay under `projects/chess/`. Preserve the active combined rig; early generation scripts do not recreate its later head/neck edits.
 
 ## Validation
 
-Run `npm test` with Node.js for the root suite covering Forest, Racer, Surface, Terrain, Fishing and Chess. No external npm dependencies are required for these tests. Swarm has its own package and tests; see its README. Use project-specific scripts from `package.json` for focused checks and `git diff --check` before committing.
+Run `npm test` with Node.js for the root suite covering Forest, Racer, Surface, Terrain, Fishing, Chess, Space Race, Weather, Scene Test and shared modules. Run `npm run test:shared` for focused shared-module regressions; Cloud tests remain separate (`node --test projects/clouds/tests/*.mjs`). No external npm dependencies are required for these tests. Swarm has its own package and tests; see its README. Use project-specific scripts from `package.json` for focused checks and `git diff --check` before committing.
 
 For the current Chess handoff, see [HANDOFF.md](projects/chess/HANDOFF.md): 188 Chess tests and the full root suite passed on 2026-10-26. The user authorized the glasses/mustache, blinking, evaluation gauge, undo and modal release on that date; consult Git status/log for actual publication state. Automated checks do not establish headset appearance or performance.
 

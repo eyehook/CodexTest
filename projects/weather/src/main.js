@@ -2,7 +2,7 @@ import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import { WeatherModes } from './weather-modes.js?v=shared-r180-1';
 import { SettingsStore } from './settings.js?v=shared-r180-1';
 import { weatherDefinitions } from './weather-catalog.js?v=shared-r180-1';
-import { FrameRateCounter } from './fps.js?v=shared-r180-1';
+import { FrameRateCounter } from './fps.js?v=shared-xr-1';
 import { Environment } from './environment.js?v=shared-r180-1';
 import { PlayerController } from './player.js?v=shared-r180-1';
 import { DesktopControls, VRControlPanel } from './controls.js?v=shared-r180-1';

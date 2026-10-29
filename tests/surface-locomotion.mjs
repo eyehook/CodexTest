@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {Group, Vector3, Quaternion} from '../shared/vendor/three-r180/three.module.js';
-import {Locomotion} from '../projects/surface/locomotion.mjs';
+import {Locomotion} from '../shared/xr/locomotion.mjs';
 const source = (handedness, x, y = 0) => ({handedness, gamepad: {mapping: 'xr-standard', axes: [0, 0, x, y]}});
 const viewer = {position: new Vector3(2, 1.65, 3), orientation: new Quaternion()};
 function walk(hz, x = 0, y = -1) {
