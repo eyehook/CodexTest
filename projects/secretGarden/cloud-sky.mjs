@@ -1,6 +1,6 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 
-const WRAP=52;
+const CLOUD_SCALE=8;
 // A single faceted cloud geometry shared by five moving instances.
 function cloudGeometry() {
   const lobe=new THREE.IcosahedronGeometry(1,0),source=lobe.attributes.position;
@@ -18,7 +18,7 @@ function cloudGeometry() {
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));return geometry;
 }
 export class CloudSky {
-  constructor(scene) {
+  constructor(scene,{halfWidth=0,halfDepth=0,viewDistance=250,viewRadius=viewDistance*3}={}) {
     this.scene=scene;this.elapsed=0;this.dummy=new THREE.Object3D();
     this.clouds=[
       {x:-26,y:13,z:-12,speed:.28,scale:1.05,yaw:.15},
@@ -27,8 +27,19 @@ export class CloudSky {
       {x:13,y:14,z:16,speed:.25,scale:.95,yaw:-.15},
       {x:26,y:15,z:-16,speed:.3,scale:1.1,yaw:.4},
     ];
+    this.clouds.forEach(cloud=>{cloud.scale*=CLOUD_SCALE;cloud.x*=CLOUD_SCALE;cloud.y*=3;cloud.z*=2;});
+    const geometry=cloudGeometry();geometry.computeBoundingSphere();
+    const maximumScale=Math.max(...this.clouds.map(cloud=>cloud.scale));
+    this.cloudReach=(geometry.boundingSphere.radius+geometry.boundingSphere.center.length())*maximumScale;
+    // At either endpoint even the nearest cloud vertex is beyond a conservative full-frustum radius
+    // from every position in the garden, regardless of view direction.
+    this.visibilityRadius=viewRadius;
+    this.wrapDistance=viewRadius+Math.hypot(halfWidth,halfDepth)+this.cloudReach+5;
+    this.arcLift=Math.hypot(halfWidth,halfDepth)*.6;
+    this.arcBend=halfWidth;
+    this.arcRun=Math.max(halfWidth,halfDepth)*4+this.cloudReach*2;
     const material=new THREE.MeshBasicMaterial({color:0xffffff,vertexColors:true,toneMapped:false});
-    this.mesh=new THREE.InstancedMesh(cloudGeometry(),material,this.clouds.length);
+    this.mesh=new THREE.InstancedMesh(geometry,material,this.clouds.length);
     this.mesh.name='drifting-clouds';this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     // Decorative sky geometry is outside interaction targets and casts no shadows.
     this.mesh.castShadow=false;this.mesh.receiveShadow=false;scene.add(this.mesh);this.update(0);
@@ -37,8 +48,10 @@ export class CloudSky {
     if(!Number.isFinite(dt)||dt<0)return;
     this.elapsed+=dt;
     this.clouds.forEach((cloud,i)=>{
-      const x=((cloud.x+this.elapsed*cloud.speed+WRAP)%(WRAP*2))-WRAP;
-      this.dummy.position.set(x,cloud.y,cloud.z);this.dummy.rotation.set(0,cloud.yaw,0);this.dummy.scale.setScalar(cloud.scale);this.dummy.updateMatrix();this.mesh.setMatrixAt(i,this.dummy.matrix);
+      const wrap=this.wrapDistance;
+      const x=((cloud.x+this.elapsed*cloud.speed+wrap)%(wrap*2))-wrap;
+      const arc=Math.exp(-((x/this.arcRun)**2));
+      this.dummy.position.set(x,cloud.y+this.arcLift*arc,cloud.z+this.arcBend*arc);this.dummy.rotation.set(0,cloud.yaw,0);this.dummy.scale.setScalar(cloud.scale);this.dummy.updateMatrix();this.mesh.setMatrixAt(i,this.dummy.matrix);
     });
     this.mesh.instanceMatrix.needsUpdate=true;this.mesh.computeBoundingSphere();
   }

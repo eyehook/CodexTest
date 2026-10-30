@@ -1,5 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {CloudSky} from './cloud-sky.mjs?v=20';
+import {CloudSky} from './cloud-sky.mjs?v=32';
 export const HALF_WIDTH=4.572;
 export const HALF_DEPTH=6.858;
 export const WALL_HEIGHT=3.048;
@@ -10,7 +10,7 @@ export function constrainViewer(rig,viewerPosition) {
   rig.position.z+=THREE.MathUtils.clamp(p.z,-limitZ,limitZ)-p.z;
   rig.updateMatrixWorld(true);
 }
-export function createEnvironment(scene,renderer) {
+export function createEnvironment(scene,renderer,{viewDistance=250}={}) {
   scene.background=new THREE.Color('#788f9c');
   scene.add(new THREE.HemisphereLight(0xe7f1ff,0x665039,2.1));
   const sun=new THREE.DirectionalLight(0xffefcf,3.1); sun.position.set(-6,12,7); sun.castShadow=true;
@@ -30,7 +30,7 @@ export function createEnvironment(scene,renderer) {
   for(const [i,side] of sides.entries()) {
     const wall=new THREE.Mesh(wallGeometries[i%2],material);wall.rotation.y=side.angle;
     wall.position.set(Math.sin(side.angle)*(side.distance+.11),WALL_HEIGHT/2,Math.cos(side.angle)*(side.distance+.11));
-    wall.castShadow=true;wall.receiveShadow=true;wall.userData.surface='wall';scene.add(wall);walls.push(wall);
+    wall.castShadow=true;wall.receiveShadow=true;wall.userData.surface='wall';wall.userData.wallSurface={type:'wall',id:i,yaw:side.angle+Math.PI,halfLength:side.halfLength,adjacentHalfLength:i%2===0?HALF_DEPTH:HALF_WIDTH,height:WALL_HEIGHT,normal:new THREE.Vector3(-Math.sin(side.angle),0,-Math.cos(side.angle))};scene.add(wall);walls.push(wall);
   }
   // Running bond: alternate rows shift half a brick, clipped at wall ends.
   const columns=sides.map(side=>Math.ceil(side.halfLength*2/.9));
@@ -48,6 +48,6 @@ export function createEnvironment(scene,renderer) {
     blocks.setColorAt(n-1,new THREE.Color().setHSL(.15,.075,.43+((row*7+col*3)%5)*.025));
   }
   scene.add(blocks);
-  const clouds=new CloudSky(scene);
+  const clouds=new CloudSky(scene,{halfWidth:HALF_WIDTH,halfDepth:HALF_DEPTH,viewDistance});
   return {ground,walls,clouds,targets:[ground,...walls]};
 }

@@ -17,7 +17,7 @@ export class MatureBatches {
     mesh.name=`mature-${key}`;mesh.count=pool?.mesh.count??0;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(capacity*3),3).setUsage(THREE.DynamicDrawUsage);
-    mesh.castShadow=mesh.receiveShadow=true;
+    mesh.castShadow=mesh.receiveShadow=key!=='leaf4';
     if(pool) {
       mesh.instanceMatrix.array.set(pool.mesh.instanceMatrix.array);
       mesh.instanceColor.array.set(pool.mesh.instanceColor.array);

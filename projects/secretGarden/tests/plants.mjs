@@ -17,7 +17,7 @@ test('seed sweep is bounded, finite, connected and fully mature at ten seconds',
       if(part.kind==='stem'){part.end.forEach((v,i)=>assert.ok(Math.abs(mature[part.id].end[i]-v)<1e-10));}
     }
   }
-  assert.deepEqual([...forms].sort(),['bush','flower','tree']);
+  assert.deepEqual([...forms].sort(),['bush','flower','grass','tree']);
 });
 test('growth poses depend on age, not intermediate frame sequence',()=>{
   const p=generatePlant(88),expected=componentPose(p,4.125);
@@ -49,7 +49,7 @@ test('blooms vary in silhouette, depth, orientation and clustered arrangement',(
     else single++;
     for(const f of flowers){assert.ok(Math.abs(Math.hypot(...f.normal)-1)<1e-9);assert.ok(Math.abs(f.normal[1])<.99);if(f.normal[1]<0)nodding++;assert.equal(growthAmount(f,10),1);}
   }
-  assert.equal(forms.size,6);assert.ok(clustered>0&&single>0&&nodding>0);
+  assert.equal(forms.size,7);assert.ok(clustered>0&&single>0&&nodding>0);
 });
 
 test('trees retain a full branched crown without exhausting the component budget',()=>{
@@ -99,14 +99,16 @@ test('shrubs form low spreading crowns with predominantly horizontal limbs',()=>
       assert.ok(horizontal>s.end[1]-s.start[1]);
     }
   }
-  assert.ok(shrubs>150);
+  assert.ok(shrubs>100);
 });
 
-test('all four active tree families have bounded foliage and distinct crown proportions',()=>{
+test('all five active tree families have bounded foliage and distinct crown proportions',()=>{
   const forms=new Set();
   for(let seed=0;seed<1500;seed++){
     const p=generatePlant(seed);if(p.parameters.form!=='tree')continue;
     const form=p.parameters.treeForm;forms.add(form);
+    const trunk=p.parts.find(x=>x.kind==='stem'&&x.parent===null);
+    if(form==='pine'||form==='columnar')assert.equal(trunk.taper,0);else assert.ok(trunk.taper>0);
     const foliage=p.parts.filter(x=>x.kind==='foliage');
     assert.ok(p.parts.length<MAX_COMPONENTS);
     if(form==='open'){assert.equal(foliage.length,0);continue;}
@@ -114,15 +116,32 @@ test('all four active tree families have bounded foliage and distinct crown prop
     for(const f of foliage){
       assert.ok(f.scale.every(v=>Number.isFinite(v)&&v>0));
       assert.equal(growthAmount(f,0),0);assert.equal(growthAmount(f,10),1);
-      if(form==='columnar'){assert.ok(f.scale[1]>f.scale[0]*4);assert.ok(p.parameters.heightMultiplier>=1.5&&p.parameters.heightMultiplier<=2);}
+      if(form==='columnar')assert.ok(p.parameters.heightMultiplier>=1.5&&p.parameters.heightMultiplier<=2);
       if(form==='umbrella')assert.ok(f.scale[0]>f.scale[1]*3);
-      assert.equal(f.shape,form==='pine'?'pine':form==='columnar'?'spire':'crown');
+      assert.equal(f.shape,form==='pine'?'pine':'crown');
     }
     if(form==='pine'){
+      assert.equal(p.parts.filter(x=>x.kind==='stem').length,1);
       assert.ok(foliage.length>=5&&foliage.length<=7);
       assert.ok(foliage.at(-1).scale[0]<foliage[0].scale[0]);
       assert.ok(foliage.at(-1).attachment>foliage[0].attachment);
     }
   }
-  assert.deepEqual([...forms].sort(),['open','pine','rounded','umbrella']);
+  assert.deepEqual([...forms].sort(),['columnar','open','pine','rounded','umbrella']);
+});
+
+test('cypress starts with spherical foliage then stacks narrower taller ellipsoids',()=>{
+  let count=0;
+  for(let seed=0;seed<1000;seed++){
+    const p=generatePlant(seed);if(p.parameters.treeForm!=='columnar')continue;count++;
+    const tiers=p.parts.filter(x=>x.kind==='foliage');assert.ok(tiers.length>=5&&tiers.length<=7);
+    assert.equal(tiers[0].scale[0],tiers[0].scale[1]);assert.equal(tiers[0].scale[1],tiers[0].scale[2]);
+    assert.equal(p.parts.filter(x=>x.kind==='stem').length,1);
+    for(let i=1;i<tiers.length;i++){
+      assert.equal(tiers[i].shape,'crown');assert.ok(tiers[i].attachment>tiers[i-1].attachment);
+      assert.ok(tiers[i].scale[0]<tiers[i-1].scale[0]);assert.ok(tiers[i].scale[1]>tiers[i-1].scale[1]);
+      assert.ok(tiers[i].begin>tiers[i-1].begin);
+    }
+  }
+  assert.ok(count>40);
 });

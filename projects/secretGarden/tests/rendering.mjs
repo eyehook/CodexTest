@@ -53,7 +53,7 @@ test('rectangular garden has 30 by 45 foot interior and matching enclosing walls
 
 test('new foliage volumes grow, clone identically, and resolve ray hits to the plant',()=>{
   const scene=new THREE.Scene(),renderer=new PlantRenderer(scene),seen=new Set();
-  for(let seed=0;seen.size<3&&seed<500;seed++){
+  for(let seed=0;seen.size<4&&seed<500;seed++){
     const structure=generatePlant(seed),form=structure.parameters.treeForm;
     if(!form||form==='open'||seen.has(form))continue;seen.add(form);
     const first={structure,visual:renderer.create(structure,new THREE.Vector3(),101)};
@@ -61,6 +61,7 @@ test('new foliage volumes grow, clone identically, and resolve ray hits to the p
     renderer.update(first,0);
     renderer.update(first,10);renderer.update(clone,10);scene.updateMatrixWorld(true);
     const batch=first.visual.batches.find(b=>b.key==='crown'||b.key==='pine'||b.key==='spire');
+    if(form==='pine'||form==='columnar'){const trunk=first.visual.batches.find(b=>b.key==='stemPoint');assert.ok(trunk);assert.equal(trunk.mesh.geometry.parameters.radiusTop,0);}
     const other=clone.visual.batches.find(b=>b.key===batch.key);
     assert.deepEqual(batch.mesh.instanceMatrix.array,other.mesh.instanceMatrix.array);
     assert.deepEqual(batch.mesh.instanceColor.array,other.mesh.instanceColor.array);
@@ -70,5 +71,5 @@ test('new foliage volumes grow, clone identically, and resolve ray hits to the p
     const hit=ray.intersectObject(batch.mesh)[0];assert.ok(hit);assert.equal(hit.object.userData.plantId,101);
     renderer.remove(first.visual);renderer.remove(clone.visual);
   }
-  assert.equal(seen.size,3);renderer.dispose();
+  assert.equal(seen.size,4);renderer.dispose();
 });

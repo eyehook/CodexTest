@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Implemented for desktop and Meta Quest 3. The garden starts empty. No persistence, vines, grasses, wind, maintenance, collision between plants, or placement spacing is implemented. The user has tested on Quest and reports mature batching helped. A live USB-debugging capture was taken with 74–75 plants before batching; later changes have not received a complete headset acceptance pass. The user authorized committing and pushing this release on 2026-10-30.
+Implemented for desktop and Meta Quest 3. The garden starts empty. No persistence, wind, maintenance, collision between plants, or placement spacing is implemented. The user has tested on Quest and reports mature batching helped. A live USB-debugging capture was taken with 74–75 plants before batching; later changes have not received a complete headset acceptance pass. The user authorized committing and pushing this release on 2026-10-30.
 
 ## Preview and controls
 
@@ -185,3 +185,120 @@ Removed columnar/cypress from the active seeded tree family list. New generation
 User authorized push to GitHub after the cypress family was disabled. Release includes the full Secret Garden project, tests, project-directory card, root routing and shared-helper consumer documentation. Active tree families are rounded/open broadleaf, pine and umbrella. The final local entry query is version 23. Only project files and their directory/documentation entries are included; no shared runtime or dependency changes are part of this release. Final project/shared tests, module/documentation links, Chrome startup and whitespace checks are recorded with release execution. Prior user Quest feedback is preserved above; the newest visual/interaction changes are not claimed as a complete headset benchmark.
 
 Final release validation: all 24 Secret Garden and 31 shared-helper tests passed (55 total). Chrome startup/clone-indicator smoke checks, local module imports, documentation links and whitespace checks passed.
+
+
+## Wall-clinging ivy — 2026-10-30
+
+Interior wall faces now accept planting, producing seeded vines instead of ground plants. `vine-generator.mjs` uses the existing pure PRNG and stem/leaf/flower graph, emitting three meandering shoots, side branches, lobed ivy leaves and occasional small outward-facing blossoms. Ten-second timing, mature batching, exact picking, active-hand controls and one-second deletion apply to vines too.
+
+Vine generation depends on seed plus support-relative bounds. Shoots redirect downward/sideways at the top, upward at the floor and inward at wall ends. Thus identical seeds and bounds produce identical structures, while the same copied seed at a different height/wall extent can take a different path. Vines stay on the selected face rather than wrapping corners or spilling onto the ground. Wall top/edge faces are not planting targets. Inner masonry clearance prevents the geometry being hidden by the brickwork.
+
+PlantManager remembers copied surface type separately from seed. `canClone(surface)` decides whether to use that seed: copied vines clone only on walls; copied ground plants clone only on dirt. Incompatible targets use a fresh random seed without clearing the remembered copy. The clone icon temporarily disappears and returns when aiming at a compatible surface, including appropriate plant targets. B/Y explicitly clears both remembered seed and surface. Vine clones use 80–120% scale with inversely scaled local bounds, keeping their stems on the wall. Vine orientation follows the wall, rather than random world yaw; ground rotation/scale rules are unchanged.
+
+Target rings, clone icons and deletion fill now align with wall normals for wall planting/selection. Detached mature vine proxies preserve these support-relative poses and instance IDs.
+
+Validation: 29 project tests passed, including 500 vine seeds, complete timing and valid parent attachments, top/floor/end response, remembered clone state through incompatible planting in both directions, all four walls with scaled clones near top and bottom, mature ivy batching, picking and deletion. Chrome verified actual wall-click planting, hidden clone icon on dirt and restoration on wall, and error-free rendering of mature vines at different heights. The resulting ivy wall screenshot was reviewed. Physical Quest testing remains pending. Entry and changed runtime modules use query version 24. This work remains local and is not covered by the previous release's push authorization.
+
+
+## Ivy wrapping around corners — 2026-10-30
+
+Supersedes reflecting at wall ends: garden wall supports now include adjacent wall dimensions. Vines grow in an unfolded perimeter coordinate and fold onto the four inset interior faces. Crossing a corner splits the stem at the exact seam so no segment cuts diagonally through the garden. Leaves use the adjoining face orientation/offset and blossoms face outward from their current wall. Top/floor redirection stays unchanged. The single vine retains its original instance ID, copied seed, support root, growth timeline and mature-batch lifecycle across wall transitions.
+
+Clone scale is included in the perimeter dimensions, preserving physical support clearance. Identical seed/support geometry remains deterministic. Generic supports without perimeter metadata retain bounded-wall behavior; all four garden walls supply wrapping metadata. Existing rooted selection/deletion indicators stay at the vine's planting point.
+
+All 30 project tests passed, including 150 repeated corner seeds, left/right and opposite-wall traversal, exact attachment/maturity checks, no diagonal corner shortcuts, and scaled clones on all four walls. Chrome wall planting/mode-switch checks passed; a mature corner-spanning vine screenshot was visually reviewed with no page errors. Entry/environment/manager/vine imports advanced to 25. Quest retesting remains pending. Changes remain local and unpushed.
+
+
+## Incompatible planting clears clone — 2026-10-30
+
+A successful random planting on an incompatible surface now clears both the remembered seed and surface. Merely pointing at the other surface still preserves them, so aiming back restores clone eligibility until a random plant is actually placed. Compatible clone planting remains persistent. Clearing occurs after successful creation; rejected wall placements leave clone state intact. All 30 project tests and whitespace checks passed. Entry/manager query versions advanced to 26.
+
+
+## Vine flower clearance — 2026-10-30
+
+Vine flowers now develop on seeded 12–18 cm stalks projecting outward from their current wall face. Stalks extend before blossoms open, keeping the bloom ahead of the ivy foliage while preserving ten-second maturity, corner orientation, batching and selection. Clone scaling also scales the stalk naturally. Stalks are explicitly tagged so support-boundary tests distinguish intentional outward growth from wall-clinging stems. All 31 project tests passed, including outward direction, length, attachment and maturity checks. Entry/manager/vine query versions advanced to 27.
+
+
+## Shorter vine flower stalks — 2026-10-30
+
+Reduced outward flower stalk length to 6–9 cm (from 12–18 cm). Growth and face alignment are unchanged. Length/direction assertions updated; all 31 project tests passed. Entry/manager/vine query versions advanced to 28.
+
+
+## Rounded-tier cypress redesign — 2026-10-30
+
+Cypress/columnar trees are active again with a new silhouette: one tall trunk supporting five to seven overlapping rounded foliage tiers. The lowest tier is a sphere. Each successive tier is narrower horizontally and taller vertically, forming a rounded taper resembling the pine's stacked construction. Foliage now attaches directly along the trunk rather than to many short branches; the previous post-generation spire stretching is removed. Existing taller 1.5–2× seeded height variation remains. Cypress has no blossoms, and shares the existing faceted crown geometry and mature batches, adding no new foliage geometry type.
+
+All 32 project tests passed, including spherical base proportions, strictly decreasing widths/increasing vertical radii, ascending attachment/emergence times, all five family coverage and unchanged vine/batching/interaction regressions. Chrome rendered all five families without errors and the redesigned silhouette was visually reviewed. The sampled cypress used one trunk and five foliage volumes. Entry/generator/renderer/manager/vine helper imports advanced to 29. Quest appearance remains to be checked; changes are local and unpushed.
+
+
+## Pointed conifer trunks — 2026-10-30
+
+Pine and cypress primary trunks now specify zero tip radius and render with a shared five-sided cone segment, tapering continuously from the base to a point. Other stems keep their existing taper profiles. The pointed trunk geometry participates in mature batching and exact picking like other stems. All 32 project tests passed, including family-specific trunk metadata and actual zero-radius rendered geometry. Entry and affected module queries advanced to 30.
+
+
+## Remove hidden pine branches — 2026-10-30
+
+Pine branching depth is now zero. Its foliage tiers already attach directly to the primary trunk, so hidden lateral stems served no structural or animation purpose. Pines now contain only one tapered trunk plus five to seven foliage volumes. All 32 project tests passed, including the single-trunk assertion and existing growth/picking/batching coverage. Entry and affected imports advanced to 31.
+
+
+## Large arcing clouds — 2026-10-30
+
+Cloud instance dimensions are now eight times their original sizes. Their base heights are raised to 36–45 m so the larger volumes remain overhead rather than intersecting the garden; spacing is widened. A smooth gentle rise and lateral bend carries each cloud over the garden, centered on the garden footprint. Drift speeds remain slow and cloud geometry/instance count stays unchanged.
+
+The camera far range is now 250 m. At startup, cloud geometry bounds, maximum instance scale, actual garden half-width/depth and a conservative full-frustum visibility radius determine recycling distance. Both the outgoing and incoming cloud are fully beyond that radius for every garden position before wrapping. The bound includes the cloud's entire extent, rather than testing only its center. Arc span is calculated separately from recycling distance, so the gentle curve stays centered over the garden even with conservative distant recycling. Clouds remain one opaque unlit batch with no shadow-map invalidation.
+
+All 35 project tests passed, including eightfold scales, overhead curved motion, frame-rate-independent updates, large elapsed-time wrapping, and complete endpoint clearance from every corner for two different garden sizes. Chrome startup, drift/recycling and opaque rendering checks passed; the enlarged sky view was reviewed. Quest appearance remains pending. Entry/environment/cloud queries advanced to 32. Changes remain local and unpushed.
+
+
+## Grass patches — 2026-10-30
+
+Grass is now a fourth ground generation form, alongside flowers, bushes and trees. Each seed defines an irregular rounded footprint using low-amplitude three/five-lobed radial variation and mild axis stretch. 320–460 blades cover the footprint with a golden-angle distribution. Blade height falls smoothly from the center to 18% near the outline, with small per-blade variation; the outer region is consistently shorter. Patch radius, height, blade width, bend orientation and related green shades vary by seed.
+
+Grass emits root-attached leaf components in the shared structure graph, with one reusable curved low-poly blade geometry (`leaf4`). Blades emerge in overlapping stages and reach maturity within ten seconds. Entire patches are selectable, cloneable, scalable, removable and migrate into one shared mature grass batch. Wall compatibility rules apply exactly as for other ground plants. No wind or maintenance is simulated. The fourth random category changes seed-to-form mappings in this generator version.
+
+All 37 project tests passed. Grass checks cover deterministic output, irregular outline variation, center/edge height ratios, component bounds and timing, whole-patch raycasting, clone structure/scale, batching and deletion. Chrome rendered four mature seed variants without errors; their outline and height gradients were visually reviewed. Quest appearance/performance remains pending. Entry and affected module queries advanced to 33. Changes remain local and unpushed.
+
+
+## Grass targeting and shadow optimization — 2026-10-30
+
+`grass-picker.mjs` installs an analytic ray/ellipsoid test on each grass root group. Rays transform into a unit sphere, intersect once and return the world-space hit and patch instance ID. Returning false from the group's raycast suppresses recursive blade tests on both hits and misses. The ellipsoid follows the patch's seeded footprint, height during growth, world position, yaw and clone scale. Tiny/invisible shoots do not select until they have height; mature detached proxies retain their final matrices. This deliberately selects the approximate whole patch volume, including spaces between blades, rather than exact leaf triangles. Other plant targeting remains unchanged.
+
+Grass growing and mature meshes neither cast nor receive shadows. Mature `leaf4` pools preserve those flags. PlantManager separately tracks shadow-affecting revisions and growing plants; grass planting, growth, maturity or removal no longer invalidates the cached shadow map. Other plants retain their existing shadows. Grass remains normally lit by daylight, but no longer receives shadows from walls or other plants.
+
+All 39 project tests passed, including ellipsoid hits/misses and range filtering with blade raycasts set to throw, mature picking/deletion, shadow flags before/after batching and independent shadow invalidation. Chrome grass rendering smoke checks passed without page errors. Quest performance improvement has not been measured yet. Entry/manager/renderer/new picker/mature batch module queries advanced to 34. Changes remain local and unpushed.
+
+
+## Smaller grass selection volume — 2026-10-30
+
+Grass selection ellipsoid radii reduced to 80% on all three axes, retaining its center and growth/clone transforms. Visible grass geometry is unchanged. All 39 project tests passed. Entry/renderer/picker query versions advanced to 35.
+
+
+## Clone icon only on planting targets — 2026-10-30
+
+The clone icon now requires a compatible ground/wall planting marker. Selecting an existing plant hides it, since trigger planting does nothing on plants. Selection rings and remembered clone state remain unchanged. Entry query advanced to 36. JavaScript syntax and whitespace checks passed.
+
+
+## Hydrangea-style bloom volumes — 2026-10-30
+
+Added a seventh seeded bloom form, hydrangea: rounded heads assembled from twelve small faceted spheres around a central filler sphere. The entire head is a single shared geometry (260 triangles), instanced per flower and merged into mature `hydrangea` pools. No individual sphere scene objects or extra per-sphere draw calls are created. This volume form replaces petals/central pollen geometry for the selected seed and appears on flower plants or other flowering ground forms.
+
+Heads inherit the full seeded HSV color range, tilt, scale and parent growth timing, expanding into a sphere cluster as they mature. Existing single/multiple-bloom arrangements still apply. Seeded structure and instance colors remain identical for clones; placement rotation and clone scale remain independent. Other petal flower forms remain available.
+
+All 40 project tests passed, including seven-form coverage, ten-second growth, hydrangea geometry bounds, clone matrices/colors, exact volume picking, mature batching and deletion. Chrome rendered four color/structure variants without page errors and the resulting screenshot was visually reviewed. Entry and affected generator/renderer/manager/vine imports advanced to 37. Quest appearance/performance remains pending. Changes remain local and unpushed.
+
+
+## Single-sphere hydrangea heads — 2026-10-30
+
+Replaced each hydrangea head’s cluster of small spheres with one larger faceted sphere, preserving its overall head size, bloom anchor, color and growth. Shared head geometry is now 80 triangles instead of 260. Multiple-head plant arrangements remain possible; each head itself is one sphere. All 40 project tests passed with the new geometry budget. Entry/renderer query versions advanced to 38.
+
+
+## Sphere blooms on vines — 2026-10-30
+
+Flowering vine seeds now select one of four bloom styles: daisy, buttercup, lily or the shared hydrangea single sphere. A vine keeps one style throughout its flowers. Spheres use the same seeded HSV palette, outward-facing 6–9 cm stalks, growth timing, mature batching and selection as other vine blooms. All 41 project tests passed, including sampled vine sphere/petal coverage and stalk/maturity checks. Entry/manager/vine queries advanced to 39.
+
+
+## Release review — vine and ground-cover update, 2026-10-30
+
+User approved the current appearance and authorized pushing this update. Release includes corner-wrapping wall vines, surface-aware cloning with incompatible planting clearing the copy, short outward flower stalks, rounded-tier cypress and tapered conifer trunks, branch-free pines, larger arcing clouds, grass patches with analytic ellipsoid targeting and no shadows, planting-only clone icons, and single-sphere hydrangea blooms on ground plants and flowering vines. Final entry query is 39.
+
+All 41 project tests passed. Local module imports, project whitespace and final Chrome wall-planting/clone-indicator checks passed. Changes are confined to Secret Garden; shared runtime/dependencies are unchanged. Prior user feedback and test limits remain in the feature records above. No new comprehensive Quest benchmark is claimed. As requested, do not check GitHub Pages deployment after this push.
