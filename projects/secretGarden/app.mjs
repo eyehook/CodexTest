@@ -5,7 +5,7 @@ import {ButtonEdges} from '../../shared/xr/input.mjs';
 import {ControllerPointer,createPointerLine} from '../../shared/xr/pointer.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=32';
-import {PlantRenderer} from './renderer.mjs?v=38';
+import {PlantRenderer} from './renderer.mjs?v=40';
 import {DeleteHold} from './delete-hold.mjs?v=13';
 import {ActiveController} from './controller-actions.mjs?v=19';
 import {PlantManager} from './manager.mjs?v=39';

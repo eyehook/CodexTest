@@ -302,3 +302,25 @@ Flowering vine seeds now select one of four bloom styles: daisy, buttercup, lily
 User approved the current appearance and authorized pushing this update. Release includes corner-wrapping wall vines, surface-aware cloning with incompatible planting clearing the copy, short outward flower stalks, rounded-tier cypress and tapered conifer trunks, branch-free pines, larger arcing clouds, grass patches with analytic ellipsoid targeting and no shadows, planting-only clone icons, and single-sphere hydrangea blooms on ground plants and flowering vines. Final entry query is 39.
 
 All 41 project tests passed. Local module imports, project whitespace and final Chrome wall-planting/clone-indicator checks passed. Changes are confined to Secret Garden; shared runtime/dependencies are unchanged. Prior user feedback and test limits remain in the feature records above. No new comprehensive Quest benchmark is claimed. As requested, do not check GitHub Pages deployment after this push.
+
+
+## Targeting hierarchy optimization — 2026-10-30
+
+Non-grass plants now install `plant-picker.mjs`. A per-plant local box rejects complete misses during growth. At maturity, a static hierarchy of per-component geometry bounds is built once, then cached alongside the detached picking group. Rays visit only intersected nodes/components, and original Three.js triangle tests run through a reusable probe mesh for those candidates. Returned hits retain the source plant ID, component instance index, world point and distance. This preserves exact geometry selection, gaps, overlap ordering and near/far clipping rather than making foliage gaps solid.
+
+Grass's existing 80% ellipsoid remains unchanged. Growing plants use their original exact mesh tests only after whole-plant bounds pass. No shadows, rendering resolution, foveation or visual geometry settings were changed. Hierarchies are static after maturity; new/deleted plants keep independent lifecycles and the existing mature render pools.
+
+All 43 project tests passed. New coverage compares nearest IDs/distances against original targeting for 250 rays across mixed, overlapping plants and a corner-wrapping vine, checks near/far ranges, and proves misses/grown hierarchy hits skip whole instanced-mesh traversal. Chrome wall planting and clone-mode target feedback checks passed without page errors.
+
+A local Node comparison with 100 mature plants and 600 identical rays measured median 157.45 ms before and 50.06 ms after (3.15× faster), with the same 560 hit rays. This is a Mac CPU microbenchmark, not a Quest frame-rate result. Building final growth, render batches and hierarchies for all 100 plants at once took 49.2 ms in that artificial setup; normal planting staggers maturity. Quest capture with the new version remains pending. Entry/renderer/new picker queries advanced to 40. Changes are local and unpushed.
+
+
+## Targeting release and profiling hooks — 2026-10-30
+
+The user reports simplified targeting is working well and authorized updating the handoff and pushing this change. The release contains `plant-picker.mjs`, renderer integration, exact-hit equivalence tests and entry query version 40. Grass's reduced ellipsoid targeting is unchanged. All 43 project tests passed again before release; module paths and whitespace checks passed. Prior Chrome wall-planting/clone-indicator smoke checks passed. No shared runtime/dependency changes are included.
+
+No permanent profiling HUD, checkbox, recording loop or timing instrumentation has been added. `window.secretGarden` exposes references to existing runtime objects for inspection. `batchMature:false` is an optional constructor comparison setting; normal batching stays enabled. The targeting helper's `enabled` field supports comparison tests; acceleration stays enabled normally. These hooks do not start background profiling. Temporary CPU wrappers and sampling are stopped/restored after each external capture; profiler scripts and reports remain outside the repository.
+
+Native Quest GPU profiling was successfully tested over ADB using `ovrgpuprofiler --realtime`, without detailed driver mode or browser restart. In a pre-targeting-optimization capture with 93 plants, GPU utilization averaged 61.9% and reported fragment/vertex shading shares averaged 90.7%/9.3%; the app was near its 90 Hz target. CPU rendering submission averaged 0.74 ms/frame and instanced plant raycasts 1.12 ms/frame. Native counters cover headset-wide GPU activity, and no exact per-app GPU milliseconds were measured. This does not constitute a new benchmark of the targeting optimization; the user's positive feedback is separate from the earlier trace.
+
+As requested, do not check GitHub Pages deployment after pushing.

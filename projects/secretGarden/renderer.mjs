@@ -1,4 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {installPlantPicker} from './plant-picker.mjs?v=40';
 import {installGrassPicker} from './grass-picker.mjs?v=35';
 import {MatureBatches} from './mature-batches.mjs?v=34';
 import {componentPose,BLOOM_FORMS} from './generator.mjs?v=37';
@@ -85,7 +86,8 @@ export class PlantRenderer {
       });group.add(mesh);batches.push({key,mesh,entries});
     }
     const picker=structure.parameters.form==='grass'?installGrassPicker(group,structure):null;
-    this.scene.add(group);return {group,batches,picker};
+    const targeting=picker?null:installPlantPicker(group,batches);
+    this.scene.add(group);return {group,batches,picker,targeting};
   }
   update(instance,age) {
     const poses=componentPose(instance.structure,age),d=this.dummy;
@@ -131,8 +133,9 @@ export class PlantRenderer {
         d.updateMatrix();mesh.setMatrixAt(i,d.matrix);
       });mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();
     }
+    instance.visual.targeting?.refresh();
   }
-  mature(instance) {if(this.batchMature)this.matureBatches.add(instance.visual);}
+  mature(instance) {instance.visual.targeting?.freeze();if(this.batchMature)this.matureBatches.add(instance.visual);}
   flush() {this.matureBatches.flush();}
   remove(visual) {
     if(visual.removed)return;
