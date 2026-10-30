@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="A procedural planting sandbox for desktop and Meta Quest 3.">
+<title>The Secret Garden</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#bacdc3;color:#edf2df;font:14px system-ui,sans-serif}canvas{display:block}header{position:absolute;top:25px;left:28px;pointer-events:none;text-shadow:0 2px 10px #243b31}header a{pointer-events:auto;color:inherit;font-size:11px;letter-spacing:.12em;text-decoration:none}h1{font-family:Georgia,serif;font-weight:400;font-size:clamp(27px,4vw,42px);margin:12px 0 6px}header p{margin:0;opacity:.8}aside{position:absolute;bottom:25px;left:28px;background:#20342ce8;border:1px solid #aabc9350;border-radius:12px;padding:16px 20px;max-width:calc(100vw - 56px)}#stats{opacity:.65;font-size:12px;margin-left:0}.help{font-size:12px;line-height:1.9;color:#c6d3c2;margin-top:8px}button{font:inherit;cursor:pointer;border:1px solid #b8c69e;border-radius:6px;background:#e0e9c9;color:#26382c;padding:9px 14px}#actions{margin-top:10px;display:flex;gap:8px}#status{font-size:12px;max-width:360px;color:#ffe0a1;margin-top:8px}.xr header,.xr aside{display:none}#VRButton{font-family:system-ui!important} @media(max-width:600px){header{left:18px;top:18px}aside{left:18px;bottom:18px;max-width:calc(100vw - 36px)}.help{max-width:270px}}
+</style>
+<script type="importmap">{"imports":{"three":"../../shared/vendor/three-r180/three.module.js"}}</script>
+</head>
+<body>
+<header><a href="../../">CODEXTEST / EXPERIMENTS</a><h1>The Secret Garden</h1><p>Every seed, a small discovery.</p></header>
+<aside><span id="stats">Empty garden</span><div class="help">Active trigger / click or Space to plant<br>VR: A/X copies seed · hold B/Y 1s to delete<br>B/Y also returns to random mode<br>Grip toggles pointer · trigger activates/transfers without planting<br>Desktop: B copies/reset · X deletes<br>WASD to walk · ← → to turn · drag to look<br>Quest: left stick moves · right stick turns</div><div id="status" role="status"></div></aside>
+<script type="module" src="./app.mjs?v=23"></script>
+</body></html>

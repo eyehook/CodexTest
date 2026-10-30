@@ -1,0 +1,107 @@
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
+import {Locomotion} from '../../shared/xr/locomotion.mjs';
+import {ButtonEdges} from '../../shared/xr/input.mjs';
+import {ControllerPointer,createPointerLine} from '../../shared/xr/pointer.mjs';
+import {XRFrameState} from '../../shared/xr/session.mjs';
+import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=22';
+import {PlantRenderer} from './renderer.mjs?v=23';
+import {DeleteHold} from './delete-hold.mjs?v=13';
+import {ActiveController} from './controller-actions.mjs?v=19';
+import {PlantManager} from './manager.mjs?v=23';
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.025,35);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const rig=new THREE.Group();scene.add(rig);rig.add(camera);rig.position.z=2.1;camera.position.set(0,1.6,0);camera.rotation.x=-.22;
+const environment=createEnvironment(scene,renderer),plants=new PlantManager(new PlantRenderer(scene));
+const navigation=new Locomotion(rig,{moveSpeed:1,turnSpeed:Math.PI/4}),edges=new ButtonEdges(),frameState=new XRFrameState();
+const pointer=new ControllerPointer({far:25}),desktopRay=new THREE.Raycaster(),mouse=new THREE.Vector2(0,0),keys=new Set();
+const controllers=[0,1].map(i=>{const c=renderer.xr.getController(i);rig.add(c);const line=createPointerLine({color:0xd5e9ac,length:8});c.add(line);c.addEventListener('connected',e=>{c.userData.source=e.data;c.userData.fresh=true;});c.addEventListener('disconnected',()=>{edges.reset(c.userData.source);delete c.userData.source;});return {controller:c,line};});
+const marker=new THREE.Mesh(new THREE.RingGeometry(.055,.073,24),new THREE.MeshBasicMaterial({color:0xe0edb9,side:THREE.DoubleSide,depthTest:false}));marker.rotation.x=-Math.PI/2;marker.renderOrder=5;marker.visible=false;scene.add(marker);
+const selection=new THREE.Mesh(new THREE.RingGeometry(.13,.15,32),new THREE.MeshBasicMaterial({color:0xffe3a3,side:THREE.DoubleSide,depthTest:false}));selection.rotation.x=-Math.PI/2;selection.renderOrder=5;selection.visible=false;scene.add(selection);
+const deleteFill=new THREE.Mesh(new THREE.CircleGeometry(.13,64,0,-Math.PI*2),new THREE.MeshBasicMaterial({color:0xe43838,side:THREE.DoubleSide,depthTest:false}));deleteFill.rotation.x=-Math.PI/2;deleteFill.renderOrder=6;deleteFill.visible=false;scene.add(deleteFill);
+// Two overlapping rectangle outlines, shared by ground and plant targets.
+const cloneVertices=[];
+for(const [x,y] of [[-.008,.008],[.008,-.008]]) {
+  const corners=[[x-.021,y-.016,0],[x+.021,y-.016,0],[x+.021,y+.016,0],[x-.021,y+.016,0]];
+  for(let i=0;i<4;i++)cloneVertices.push(...corners[i],...corners[(i+1)%4]);
+}
+const cloneIcon=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(cloneVertices,3)),new THREE.LineBasicMaterial({color:0xe0edb9,depthTest:false,toneMapped:false}));
+cloneIcon.name='clone-target-icon';cloneIcon.rotation.x=-Math.PI/2;cloneIcon.renderOrder=7;cloneIcon.visible=false;scene.add(cloneIcon);
+let now=0,last=0,target=null,hudText='',shadowRevision=-1,drag=null,dragged=false;
+const activeController=new ActiveController(),deleteHold=new DeleteHold();
+const status=document.querySelector('#status');
+function resolve(hit){if(!hit)return null;return {point:hit.point,kind:hit.object.userData.plantId?'plant':hit.object.userData.surface,id:hit.object.userData.plantId};}
+function targetFrom(ray){return resolve(ray.intersectObjects([...environment.targets,...plants.targets],true)[0]);}
+function perform(action,hit){
+  if(action==='plant'&&hit?.kind==='ground'&&Math.abs(hit.point.x)<=HALF_WIDTH&&Math.abs(hit.point.z)<=HALF_DEPTH)plants.plant(hit.point,now);
+  if(action==='copy')plants.copy(hit?.kind==='plant'?hit.id:null);
+  if(action==='delete'&&hit?.kind==='plant')plants.remove(hit.id);
+}
+function showTarget(hit){
+  marker.visible=hit?.kind==='ground';selection.visible=hit?.kind==='plant';
+  if(marker.visible){marker.position.copy(hit.point);marker.position.y=.009;}
+  if(selection.visible){const p=plants.instances.get(hit.id);if(p){selection.position.copy(p.position);selection.position.y=.012;}else selection.visible=false;}
+  cloneIcon.visible=plants.clonedSeed!==null&&(marker.visible||selection.visible);
+  if(cloneIcon.visible){const circle=selection.visible?selection:marker;cloneIcon.position.copy(circle.position);cloneIcon.position.y+=.003;cloneIcon.scale.setScalar(selection.visible ? .13/.055 : 1);}
+}
+function updateHUD(){
+  const text=`${plants.instances.size} plants · ${plants.growing.size} growing`;
+  if(text!==hudText){hudText=text;document.querySelector('#stats').textContent=text;}
+}
+renderer.domElement.addEventListener('pointermove',e=>{mouse.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>2)dragged=true;rig.rotation.y-=dx*.004;camera.rotation.x=THREE.MathUtils.clamp(camera.rotation.x-dy*.003,-1.3,.9);drag={x:e.clientX,y:e.clientY};}});
+renderer.domElement.addEventListener('pointerdown',e=>{if(e.button!==0)return;drag={x:e.clientX,y:e.clientY};dragged=false;renderer.domElement.setPointerCapture(e.pointerId);});
+renderer.domElement.addEventListener('pointerup',e=>{if(drag&&!dragged&&!renderer.xr.isPresenting){mouse.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);scene.updateMatrixWorld(true);desktopRay.setFromCamera(mouse,camera);perform('plant',targetFrom(desktopRay));}drag=null;});
+renderer.domElement.addEventListener('pointercancel',()=>{drag=null;});
+window.addEventListener('keydown',e=>{if(e.target.closest('button'))return;keys.add(e.code);if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();if(!e.repeat&&!renderer.xr.isPresenting){if(e.code==='KeyB')perform('copy',target);if(e.code==='KeyX')perform('delete',target);if(e.code==='Space'){e.preventDefault();perform('plant',target);};}});
+window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=null;});
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+renderer.xr.addEventListener('sessionstart',()=>{document.body.classList.add('xr');edges.reset();activeController.hand='right';activeController.enabled=true;deleteHold.cancel();keys.clear();marker.visible=selection.visible=cloneIcon.visible=false;});
+renderer.xr.addEventListener('sessionend',()=>{document.body.classList.remove('xr');edges.reset();deleteHold.cancel();deleteFill.visible=false;camera.position.set(0,1.6,0);camera.rotation.set(-.22,0,0);for(const c of controllers)c.line.visible=false;});
+try{document.body.append(VRButton.createButton(renderer));}catch(error){status.textContent=`VR unavailable: ${error.message}`;}
+renderer.setAnimationLoop((time,frame)=>{
+  const dt=last?Math.min((time-last)/1000,.05):0;last=time;now=time/1000;
+  const session=renderer.xr.getSession(),state=frameState.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden);
+  if(!state.active){deleteHold.cancel();deleteFill.visible=false;for(const c of controllers)c.line.visible=false;marker.visible=selection.visible=cloneIcon.visible=false;return;}
+  if(session){
+    const viewer=state.pose.transform;navigation.update(dt,session.inputSources,viewer);constrainViewer(rig,viewer.position);
+  }else{
+    navigation.move(dt,Number(keys.has('KeyD'))-Number(keys.has('KeyA')),Number(keys.has('KeyS'))-Number(keys.has('KeyW')),Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),{position:camera.position,orientation:camera.quaternion});constrainViewer(rig,camera.position);
+  }
+  environment.clouds.update(dt);
+  renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=plants.growing.size>0||shadowRevision!==plants.revision;shadowRevision=plants.revision;plants.update(now);scene.updateMatrixWorld(true);target=null;
+  if(session){
+    edges.retain(session.inputSources);
+    if(state.resumed)deleteHold.cancel();
+    const inputs=[];
+    for(const {controller:c,line} of controllers) {
+      line.visible=false;
+      const source=c.userData.source;
+      const hand=source?.handedness;
+      const tracked=(hand==='left'||hand==='right')&&source?.gamepad?.mapping==='xr-standard'&&state.isTracked(source.targetRaySpace);
+      if(!tracked){if(source)edges.reset(source);c.userData.fresh=true;continue;}
+      const seed=state.resumed||c.userData.fresh;c.userData.fresh=false;
+      const second=edges.sample(source,5,seed);
+      inputs.push({hand,controller:c,line,trigger:edges.sample(source,0,seed).pressed,grip:edges.sample(source,1,seed).pressed,
+        first:edges.sample(source,4,seed).pressed,second:second.pressed,deleteDown:second.down});
+    }
+    // Transfer takes priority for the whole frame and consumes the switching press.
+    const actions=activeController.update(inputs);
+    const active=activeController.enabled?inputs.find(input=>input.hand===activeController.hand):null;
+    if(active) {
+      const {controller:c,line}=active;
+      line.visible=true;
+      target=resolve(pointer.cast(c,[...environment.targets,...plants.targets],true));
+      line.scale.z=target?c.getWorldPosition(new THREE.Vector3()).distanceTo(target.point):8;
+      line.material.color.set(target?.kind==='plant'?0xffdfa1:0xd5e9ac);
+      for(const action of actions){if(action==='delete')plants.copy(null);else perform(action,target);}
+    }
+    const removed=deleteHold.update({pressed:actions.includes('delete'),down:active?.deleteDown??false,
+      id:target?.kind==='plant'?target.id:null,hand:activeController.hand},now);
+    if(removed!==null){plants.remove(removed);target=null;}
+    deleteFill.visible=deleteHold.progress>0&&target?.kind==='plant';
+    if(deleteFill.visible){deleteFill.position.copy(plants.instances.get(target.id).position);deleteFill.position.y=.014;deleteFill.geometry.setDrawRange(0,Math.floor(deleteHold.progress*64)*3);}
+  }else{deleteHold.cancel();deleteFill.visible=false;for(const c of controllers)c.line.visible=false;scene.updateMatrixWorld(true);desktopRay.setFromCamera(mouse,camera);target=targetFrom(desktopRay);}
+  showTarget(target);updateHUD();renderer.render(scene,camera);
+});
+// Read-only diagnostic access for local acceptance checks.
+window.secretGarden={scene,renderer,camera,rig,plants,environment};

@@ -62,10 +62,10 @@ Three.js or browser globals and can be tested directly in Node.
 
 | Module | Interface | Current consumers |
 | --- | --- | --- |
-| `xr/locomotion.mjs` | `Locomotion` | Surface, Scene Test |
-| `xr/input.mjs` | `buttonValue(source, index = 0)`; `ButtonEdges` | Surface and Scene Test edges; Space Race trigger pressure; Surface locomotion axes |
-| `xr/pointer.mjs` | `createPointerLine(options)`; `ControllerPointer` | Surface and Scene Test; Swarm and Weather through shared VR UI |
-| `xr/session.mjs` | `XRFrameState` | Surface and Scene Test |
+| `xr/locomotion.mjs` | `Locomotion` | Surface, Scene Test, Secret Garden |
+| `xr/input.mjs` | `buttonValue(source, index = 0)`; `ButtonEdges` | Surface, Scene Test and Secret Garden edges; Space Race trigger pressure; Surface locomotion axes |
+| `xr/pointer.mjs` | `createPointerLine(options)`; `ControllerPointer` | Surface, Scene Test and Secret Garden; Swarm and Weather through shared VR UI |
+| `xr/session.mjs` | `XRFrameState` | Surface, Scene Test and Secret Garden |
 | `performance/frame-rate.mjs` | `FrameRateCounter` (also exported as `FrameRate`) | Scene Test, Space Race, Weather, Clouds |
 | `xr/frame-rate.mjs` | `requestFrameRate(session, target)` | Space Race |
 
@@ -341,3 +341,5 @@ ten Cloud tests and browser checks for all three migrated projects passed.
 Documentation/module links and whitespace checks passed. Physical Quest retesting
 of this shared UI remains outstanding. Source, tests and documentation are included
 together; see Git history for the release commit and check Pages status separately.
+
+Secret Garden also reuses locomotion, per-source button edges, controller pointers and tracked session frames. Its active-hand trigger/grip and A/B/X/Y policies, boundary clamp and clone target icon are documented in its [handoff](../projects/secretGarden/HANDOFF.md).

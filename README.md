@@ -6,6 +6,8 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
+- [Secret Garden](projects/secretGarden/): procedural flower, bush and tree sandbox with ten-second growth, seed cloning and removal; [controls and validation](projects/secretGarden/HANDOFF.md).
+
 - [Scene Test](projects/sceneTest/): interactive Quest 3 objects, materials and lighting laboratory; [controls, architecture and validation](projects/sceneTest/HANDOFF.md).
 
 - [Clouds](projects/clouds/): volumetric ray-marching laboratory for desktop and Quest; [setup and limitations](projects/clouds/README.md), [agent handoff](projects/clouds/HANDOFF.md).

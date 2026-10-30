@@ -10,6 +10,7 @@ Read this file, inspect `git status`, then read the target project's handoff and
 
 | Project | Start here | Source/build overview |
 | --- | --- | --- |
+| Secret Garden | [Handoff](projects/secretGarden/HANDOFF.md) | Buildless `projects/secretGarden/`; deterministic procedural plants and animated growth |
 | Scene Test | [Handoff](projects/sceneTest/HANDOFF.md) | Buildless `projects/sceneTest/`; interactive WebXR objects, materials and lighting lab |
 | Clouds | [Handoff](projects/clouds/HANDOFF.md) | Buildless `projects/clouds/`; per-eye depth-aware ray marching |
 | Weather / Snow and Rain | [Handoff](projects/weather/HANDOFF.md) | Buildless `projects/weather/`; shared Three.js vendor bundle |
