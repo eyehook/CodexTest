@@ -343,3 +343,7 @@ of this shared UI remains outstanding. Source, tests and documentation are inclu
 together; see Git history for the release commit and check Pages status separately.
 
 Secret Garden also reuses locomotion, per-source button edges, controller pointers and tracked session frames. Its active-hand trigger/grip and A/B/X/Y policies, boundary clamp and clone target icon are documented in its [handoff](../projects/secretGarden/HANDOFF.md).
+
+### World-space checkbox
+
+`ui/checkbox.mjs` exports `VRCheckbox(model, id, {width, height, theme})` for an existing `ControlModel` toggle. Add `.mesh` to your scene and ray targets; route the host’s click/trigger to `.activate({source})` and hover changes to `.setHover(boolean)`. Model refreshes redraw the texture; `.dispose()` releases the subscription and GPU resources. Hidden or disabled controls reject activation. It creates no controller listeners or raycasts. Current consumer: Secret Garden’s room settings panel (Shadows). Desktop control panels already render model toggles as native HTML checkboxes.

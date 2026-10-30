@@ -13,3 +13,9 @@ Point at dirt for ground plants or an interior wall face for ivy (some seeds flo
 Desktop: click or Space plants, B copies/resets, X deletes, WASD walks, arrows turn, drag looks.
 
 See [HANDOFF.md](HANDOFF.md) for architecture, validation, performance bounds and pending Quest checks. Run `node --test projects/secretGarden/tests/*.mjs` from the repository root.
+
+The opening centered on the wall behind the starting player leads to a 6 foot hallway with an automatic door at its midpoint (3 feet), followed by a 12 × 12 foot room with a ceiling. Approach from either side to open it; move away to close it. The room and recess are non-plantable and kept clear of ivy for a future settings panel.
+
+The room’s wall opposite the doorway has a Garden Settings panel. Aim and pull the active trigger (desktop: click) on the Shadows checkbox to globally toggle shadows. Shadows default on; reenabling refreshes the cached map. The shared `VRCheckbox` uses the existing control model and the project’s single pointer; no extra raycasts or controller listeners.
+
+Reset Garden on the room panel clears all plants and returns planting to random mode, keeping your position and Shadows setting.

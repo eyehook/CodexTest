@@ -34,6 +34,24 @@ export function generateVine(seed,bounds) {
     }
     return result.sort((a,b)=>a-b);
   }
+  function obstacles(a,b){
+    const result=[];
+    for(const rect of bounds.exclusions??[]){
+      const first=wrapping?Math.floor((Math.min(a,b)-rect.maxX)/perimeter):-1;
+      const last=wrapping?Math.ceil((Math.max(a,b)-rect.minX)/perimeter):1;
+      for(let cycle=wrapping?first:0;cycle<=(wrapping?last:0);cycle++)result.push({...rect,minX:rect.minX+(wrapping?cycle*perimeter:0),maxX:rect.maxX+(wrapping?cycle*perimeter:0)});
+    }
+    return result;
+  }
+  function crosses(a,b,rect){
+    let entry=0,exit=1;
+    for(const [axis,min,max] of [[0,rect.minX,rect.maxX],[1,rect.minY,rect.maxY]]){
+      const delta=b[axis]-a[axis];
+      if(Math.abs(delta)<1e-10){if(a[axis]<min||a[axis]>max)return false;}
+      else {let near=(min-a[axis])/delta,far=(max-a[axis])/delta;if(near>far)[near,far]=[far,near];entry=Math.max(entry,near);exit=Math.min(exit,far);if(entry>exit)return false;}
+    }
+    return true;
+  }
   function shoot(start,parent,steps,heading,begin,duration,branching) {
     let position=start,previous=parent;
     for(let i=0;i<steps;i++) {
@@ -45,6 +63,12 @@ export function generateVine(seed,bounds) {
       if(position[1]+dy<bounds.minY){dy=Math.abs(dy)+.04;dx*=.7;}
       if(!wrapping&&position[0]+dx>bounds.maxX)dx=-Math.abs(dx);
       if(!wrapping&&position[0]+dx<bounds.minX)dx=Math.abs(dx);
+      for(const rect of obstacles(position[0],position[0]+dx)){
+        if(!crosses(position,[position[0]+dx,position[1]+dy],rect))continue;
+        if(position[0]>rect.minX&&position[0]<rect.maxX&&position[1]>rect.minY&&position[1]<rect.maxY)return;
+        if(position[0]<=rect.minX||position[0]>=rect.maxX){dx=0;dy=Math.abs(dy)+.06;}
+        else {dy=position[1]>=rect.maxY?Math.abs(dy)+.04:-Math.abs(dy)-.04;}
+      }
       heading=Math.atan2(dx,dy);
       const end=[wrapping?position[0]+dx:Math.max(bounds.minX,Math.min(bounds.maxX,position[0]+dx)),Math.max(bounds.minY,Math.min(bounds.maxY,position[1]+dy)),0];
       const breaks=cuts(position[0],end[0]),segments=[];

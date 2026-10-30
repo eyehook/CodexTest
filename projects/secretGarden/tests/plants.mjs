@@ -117,7 +117,7 @@ test('all five active tree families have bounded foliage and distinct crown prop
       assert.ok(f.scale.every(v=>Number.isFinite(v)&&v>0));
       assert.equal(growthAmount(f,0),0);assert.equal(growthAmount(f,10),1);
       if(form==='columnar')assert.ok(p.parameters.heightMultiplier>=1.5&&p.parameters.heightMultiplier<=2);
-      if(form==='umbrella')assert.ok(f.scale[0]>f.scale[1]*3);
+      if(form==='umbrella'){assert.equal(p.parameters.heightMultiplier,1.25);assert.ok(f.scale[0]>f.scale[1]*1.8);assert.ok(f.scale[1]>=f.scale[2]*.5&&f.scale[1]<=f.scale[2]*.65);}
       assert.equal(f.shape,form==='pine'?'pine':'crown');
     }
     if(form==='pine'){

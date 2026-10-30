@@ -1,8 +1,8 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {installPlantPicker} from './plant-picker.mjs?v=40';
 import {installGrassPicker} from './grass-picker.mjs?v=35';
-import {MatureBatches} from './mature-batches.mjs?v=34';
-import {componentPose,BLOOM_FORMS} from './generator.mjs?v=37';
+import {MatureBatches} from './mature-batches.mjs?v=48';
+import {componentPose,BLOOM_FORMS} from './generator.mjs?v=51';
 const up=new THREE.Vector3(0,1,0);
 function leafGeometry(shape) {
   const widths=[.48,.8,.24],w=widths[shape];
@@ -72,7 +72,7 @@ export class PlantRenderer {
     const batches=[];
     for(const [key,entries] of buckets) {
       const mesh=new THREE.InstancedMesh(this.geometries[key],this.material,entries.length);mesh.userData.plantId=id;
-      mesh.castShadow=mesh.receiveShadow=structure.parameters.form!=='grass';mesh.frustumCulled=true;
+      mesh.castShadow=!['grass','vine'].includes(structure.parameters.form);mesh.receiveShadow=structure.parameters.form!=='grass';mesh.frustumCulled=true;
       entries.forEach(({part:p},i)=>{const color=new THREE.Color();
         if(key.startsWith('stem'))color.set(structure.parameters.form==='tree'?0x6e5940:0x507044);
         else if(key==='center')color.set(p.shape===0?0x79512d:0xe6ba55);
@@ -137,11 +137,11 @@ export class PlantRenderer {
   }
   mature(instance) {instance.visual.targeting?.freeze();if(this.batchMature)this.matureBatches.add(instance.visual);}
   flush() {this.matureBatches.flush();}
-  remove(visual) {
+  remove(visual,{flush=true}={}) {
     if(visual.removed)return;
     if(visual.matureSlots)this.matureBatches.remove(visual);
     else {this.scene.remove(visual.group);for(const {mesh} of visual.batches)mesh.dispose();}
-    visual.removed=true;this.flush();
+    visual.removed=true;if(flush)this.flush();
   }
   dispose() {this.matureBatches.dispose();for(const g of Object.values(this.geometries))g.dispose();this.material.dispose();}
 }

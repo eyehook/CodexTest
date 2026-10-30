@@ -40,11 +40,11 @@ test('rectangular garden has 30 by 45 foot interior and matching enclosing walls
   walls.forEach((wall,i)=>{
     const halfLength=i%2===0?HALF_WIDTH:HALF_DEPTH;
     const distance=i%2===0?HALF_DEPTH:HALF_WIDTH;
-    assert.equal(wall.geometry.parameters.width,halfLength*2+.3);
+    if(i===0)assert.ok(wall.geometry.boundingBox);else assert.equal(wall.geometry.parameters.width,halfLength*2+.3);
     assert.ok(Math.abs(Math.hypot(wall.position.x,wall.position.z)-(distance+.11))<1e-8);
-    assert.equal(wall.geometry.parameters.height,3.048);
+    if(i!==0)assert.equal(wall.geometry.parameters.height,3.048);
   });
-  for(const x of [-20,20])for(const z of [-20,20]){
+  for(const x of [-HALF_WIDTH-1,HALF_WIDTH+1])for(const z of [-HALF_DEPTH-1,HALF_DEPTH+1]){
     const rig=new THREE.Group();rig.position.set(x,0,z);constrainViewer(rig,new THREE.Vector3());
     assert.ok(Math.abs(Math.abs(rig.position.x)-(HALF_WIDTH-.18))<1e-8);
     assert.ok(Math.abs(Math.abs(rig.position.z)-(HALF_DEPTH-.18))<1e-8);

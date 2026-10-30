@@ -1,5 +1,7 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 
+const poolKey=(key,cast,receive)=>cast===(key!=='leaf4')&&receive===(key!=='leaf4')?key:`${key}:cast-${Number(cast)}-receive-${Number(receive)}`;
+
 // Dense shared instance pools. Slot handles follow swaps so deletion never
 // rebuilds the garden or changes any other plant's placement or color.
 export class MatureBatches {
@@ -8,22 +10,23 @@ export class MatureBatches {
     this.pools=new Map();this.dirty=new Set();
     this.local=new THREE.Matrix4();this.world=new THREE.Matrix4();this.color=new THREE.Color();
   }
-  reserve(key,needed) {
-    let pool=this.pools.get(key);
+  reserve(key,needed,castShadow=key!=='leaf4',receiveShadow=key!=='leaf4') {
+    const poolId=poolKey(key,castShadow,receiveShadow);
+    let pool=this.pools.get(poolId);
     if(pool&&pool.capacity>=needed)return pool;
     let capacity=pool?.capacity??64;
     while(capacity<needed)capacity*=2;
     const mesh=new THREE.InstancedMesh(this.geometries[key],this.material,capacity);
-    mesh.name=`mature-${key}`;mesh.count=pool?.mesh.count??0;
+    mesh.name=`mature-${poolId}`;mesh.count=pool?.mesh.count??0;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(capacity*3),3).setUsage(THREE.DynamicDrawUsage);
-    mesh.castShadow=mesh.receiveShadow=key!=='leaf4';
+    mesh.castShadow=castShadow;mesh.receiveShadow=receiveShadow;
     if(pool) {
       mesh.instanceMatrix.array.set(pool.mesh.instanceMatrix.array);
       mesh.instanceColor.array.set(pool.mesh.instanceColor.array);
       this.scene.remove(pool.mesh);pool.mesh.dispose();pool.mesh=mesh;pool.capacity=capacity;
     } else {
-      pool={key,mesh,capacity,slots:[]};this.pools.set(key,pool);
+      pool={key,id:poolId,mesh,capacity,slots:[]};this.pools.set(poolId,pool);
     }
     this.scene.add(mesh);this.dirty.add(pool);return pool;
   }
@@ -32,7 +35,8 @@ export class MatureBatches {
     visual.group.updateWorldMatrix(true,true);
     visual.matureSlots=[];
     for(const {key,mesh:source} of visual.batches) {
-      const pool=this.reserve(key,(this.pools.get(key)?.mesh.count??0)+source.count);
+      const poolId=poolKey(key,source.castShadow,source.receiveShadow);
+      const pool=this.reserve(key,(this.pools.get(poolId)?.mesh.count??0)+source.count,source.castShadow,source.receiveShadow);
       for(let i=0;i<source.count;i++) {
         const index=pool.mesh.count++;
         source.getMatrixAt(i,this.local);
@@ -59,7 +63,7 @@ export class MatureBatches {
       }
       mesh.count--;pool.slots.pop();this.dirty.add(pool);
       if(mesh.count===0) {
-        this.scene.remove(mesh);mesh.dispose();this.pools.delete(pool.key);this.dirty.delete(pool);
+        this.scene.remove(mesh);mesh.dispose();this.pools.delete(pool.id);this.dirty.delete(pool);
       }
     }
     visual.matureSlots=null;

@@ -39,20 +39,20 @@ test('incompatible planting clears copied seeds while merely aiming at another s
   const r={create:()=>({}),update:()=>{},remove:()=>{}};
   const m=new PlantManager(r,()=>seed++,()=>.3,()=>1);
   const wall={type:'wall',yaw:Math.PI,halfLength:4.572,height:3.048,normal:new THREE.Vector3(0,0,-1)};
-  const vine=m.plant(new THREE.Vector3(0,1,6.858),0,wall);m.copy(vine.id);
+  const vine=m.plant(new THREE.Vector3(1.4,1,6.858),0,wall);m.copy(vine.id);
   assert.equal(m.canClone('wall'),true);assert.equal(m.canClone('ground'),false);
   const ground=m.plant(new THREE.Vector3(),1);assert.notEqual(ground.seed,vine.seed);assert.equal(m.clonedSeed,null);assert.equal(m.clonedSurface,null);
   m.copy(vine.id);
-  const clone=m.plant(new THREE.Vector3(0,1,6.858),2,wall);assert.deepEqual(clone.structure,vine.structure);assert.equal(clone.rotationY,Math.PI);assert.equal(clone.scale,1);
+  const clone=m.plant(new THREE.Vector3(1.4,1,6.858),2,wall);assert.deepEqual(clone.structure,vine.structure);assert.equal(clone.rotationY,Math.PI);assert.equal(clone.scale,1);
   m.copy(ground.id);assert.equal(m.canClone('ground'),true);assert.equal(m.canClone('wall'),false);
-  const randomVine=m.plant(new THREE.Vector3(0,1,6.858),3,wall);assert.notEqual(randomVine.seed,ground.seed);assert.equal(m.clonedSeed,null);assert.equal(m.clonedSurface,null);
+  const randomVine=m.plant(new THREE.Vector3(1.4,1,6.858),3,wall);assert.notEqual(randomVine.seed,ground.seed);assert.equal(m.clonedSeed,null);assert.equal(m.clonedSurface,null);
   assert.notEqual(m.plant(new THREE.Vector3(),4).seed,ground.seed);
 });
 test('wall vines migrate into mature batches and remain selectable and deletable',()=>{
   const scene=new THREE.Scene(),r=new PlantRenderer(scene),m=new PlantManager(r,()=>8);
   const wall={type:'wall',yaw:Math.PI,halfLength:4.572,height:3.048,normal:new THREE.Vector3(0,0,-1)};
-  const vine=m.plant(new THREE.Vector3(0,1,6.858),0,wall);m.update(10);
-  assert.ok(vine.visual.matureSlots.length);assert.ok(r.matureBatches.pools.has('leaf3'));
+  const vine=m.plant(new THREE.Vector3(1.4,1,6.858),0,wall);m.update(10);
+  assert.ok(vine.visual.matureSlots.length);assert.ok([...r.matureBatches.pools.values()].some(pool=>pool.key==='leaf3'&&!pool.mesh.castShadow&&pool.mesh.receiveShadow));
   const mesh=vine.visual.batches.find(x=>x.key==='leaf3').mesh,matrix=new THREE.Matrix4();mesh.getMatrixAt(0,matrix);
   const center=new THREE.Vector3(0,.45,0).applyMatrix4(matrix).applyMatrix4(mesh.matrixWorld);
   const ray=new THREE.Raycaster(center.clone().add(new THREE.Vector3(0,0,-2)),new THREE.Vector3(0,0,1));
@@ -66,7 +66,7 @@ test('scaled vine clones stay on all four support walls at low and high planting
     const a=side*Math.PI/2,halfLength=side%2?6.858:4.572;
     const normal=new THREE.Vector3(-Math.sin(a),0,-Math.cos(a));
     const wall={type:'wall',yaw:a+Math.PI,halfLength,adjacentHalfLength:side%2?4.572:6.858,height:3.048,normal};
-    const position=new THREE.Vector3(Math.sin(a)*4.572,y,Math.cos(a)*6.858);
+    const position=new THREE.Vector3(Math.sin(a)*4.572+(side===0?1.4:0),y,Math.cos(a)*6.858);
     const original=m.plant(position,0,wall);m.copy(original.id);const clone=m.plant(position,1,wall);
     assert.equal(clone.scale,1.2);
     const transform=new THREE.Matrix4().compose(clone.position,new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),clone.rotationY),new THREE.Vector3(1.2,1.2,1.2));

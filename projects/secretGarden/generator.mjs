@@ -50,7 +50,7 @@ export function generatePlant(seed) {
   parameters.clusterCount=rng()<.32?integer(4,8):1;
   if(form==='tree') {
     parameters.treeForm=TREE_FORMS[integer(0,TREE_FORMS.length-1)];
-    if(parameters.treeForm==='umbrella'){parameters.depth=2;parameters.width=range(1,1.3);}
+    if(parameters.treeForm==='umbrella'){parameters.heightMultiplier=1.25;parameters.height*=parameters.heightMultiplier;parameters.depth=2;parameters.width=range(1,1.3)/parameters.heightMultiplier;}
     if(parameters.treeForm==='columnar'){parameters.heightMultiplier=range(1.5,2);parameters.height*=parameters.heightMultiplier;parameters.depth=0;parameters.flowers=false;}
     if(parameters.treeForm==='pine'){parameters.depth=0;parameters.flowers=false;parameters.leafHue=range(.28,.4);}
   }
@@ -96,8 +96,8 @@ export function generatePlant(seed) {
             light:parameters.leafLight+range(-.06,.04),begin:begin+duration*t+.04,duration:.2});
         }
       } else if(treeForm!=='pine'&&level===parameters.depth) {
-        const radius=parameters.height*(treeForm==='umbrella'?range(.18,.25):range(.1,.16));
-        const scale=treeForm==='umbrella'?[radius*1.25,radius*.34,radius]:[radius*range(.9,1.4),radius*range(.8,1.2),radius];
+        const radius=parameters.height*(treeForm==='umbrella'?range(.18,.25)/parameters.heightMultiplier:range(.1,.16));
+        const scale=treeForm==='umbrella'?[radius*1.25,radius*range(.5,.65),radius]:[radius*range(.9,1.4),radius*range(.8,1.2),radius];
         add({kind:'foliage',shape:'crown',parent:node.id,attachment:1,scale,
           yaw:range(0,Math.PI*2),tilt:range(-.15,.15),hue:parameters.leafHue,
           light:parameters.leafLight+range(-.06,.06),begin:begin+duration+.025,duration:.16});
@@ -111,10 +111,10 @@ export function generatePlant(seed) {
       for(let i=0;i<count;i++) if(form==='tree'||rng()<parameters.branchProbability) {
         branched=true;
         const tree=form==='tree';
-        const t=tree?(treeForm==='umbrella'&&level===0?.78+i/(count-1)*.18:level===0?.42+i/(count-1)*.5+range(-.025,.025):i===count-1?1:range(.48,.9)):range(.3,.95);
+        const t=tree?(treeForm==='umbrella'&&level===0?.66+i/(count-1)*.3:level===0?.42+i/(count-1)*.5+range(-.025,.025):i===count-1?1:range(.48,.9)):range(.3,.95);
         const lengthRatio=tree?(treeForm==='pine'?range(.08,.13)*(1-t*.85):level===0?range(.4,.6):range(.52,.73)):range(.36,.63);
         // An upright continuation fills the crown; other children spread outward.
-        const childAngle=tree?(treeForm==='umbrella'?range(1.15,1.5):treeForm==='pine'?range(1.3,1.55):i===count-1?range(.12,.4):range(.65,1.25)):form==='bush'?range(1.1,1.5):parameters.branchAngle+range(-.15,.22);
+        const childAngle=tree?(treeForm==='umbrella'?(i===count-1?range(.65,.9):range(.95,1.35)):treeForm==='pine'?range(1.3,1.55):i===count-1?range(.12,.4):range(.65,1.25)):form==='bush'?range(1.1,1.5):parameters.branchAngle+range(-.15,.22);
         stem(point(start,end,t),length*lengthRatio*parameters.width,childAngle,
           azimuth+i*2.399+range(-.6,.6),thickness*parameters.taper,level+1,node,t);
       }

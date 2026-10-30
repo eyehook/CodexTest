@@ -324,3 +324,75 @@ No permanent profiling HUD, checkbox, recording loop or timing instrumentation h
 Native Quest GPU profiling was successfully tested over ADB using `ovrgpuprofiler --realtime`, without detailed driver mode or browser restart. In a pre-targeting-optimization capture with 93 plants, GPU utilization averaged 61.9% and reported fragment/vertex shading shares averaged 90.7%/9.3%; the app was near its 90 Hz target. CPU rendering submission averaged 0.74 ms/frame and instanced plant raycasts 1.12 ms/frame. Native counters cover headset-wide GPU activity, and no exact per-app GPU milliseconds were measured. This does not constitute a new benchmark of the targeting optimization; the user's positive feedback is separate from the earlier trace.
 
 As requested, do not check GitHub Pages deployment after pushing.
+
+
+## Recessed automatic door and settings room — 2026-10-30
+
+Added a doorway centered on the far (-Z, wall ID 2) garden wall, a 0.44 m recessed passage and a room beyond it with exactly 6 × 6 ft (1.8288 × 1.8288 m) interior floor dimensions. Room ceiling height is 2.6 m. The doorway is 1.15 m wide and 2.25 m tall; its wooden door sits 0.32 m behind the garden wall face and swings inward. An inset stone surround and warm, non-shadow-casting light make the space readable. No control panel is implemented; that remains a future milestone.
+
+`garden-layout.mjs` holds shared dimensions, doorway planting exclusions and collision rectangles. `garden-room.mjs` constructs the room, recess, hinged leaf/handle and proximity state. Door opening begins within 1.35 m of the door from either side; closing begins beyond 1.75 m, preventing threshold chatter. Opening/closing takes about 0.65 seconds. Moving door frames invalidate the cached shadow map; a stationary door does not. Static room/recess/frame geometry is merged into two material batches, with frozen CPU boxes retained for environmental ray hits.
+
+Viewer containment projects tracked head position into the connected garden/passage/room footprint, including physical head offsets and rig yaw. Closed doors block passage until the leaf is sufficiently open. Garden walls and room side/back walls remain impassable. Ground planting is explicitly restricted to the garden footprint. All room/recess floors, walls, ceiling, frame and door report environment-only surfaces, never planting surfaces.
+
+Vine supports carry a deterministic expanded doorway exclusion rectangle in unfolded perimeter coordinates. Shoots that would cross it redirect upward along its sides or away above it; this also applies to vines arriving from adjacent walls or on scaled clones. Clearance includes room for leaves and flowers, keeping the doorway free of foliage. Direct vine planting in the exclusion area is rejected, with no clone-state loss; compatible target markers are hidden there.
+
+All 47 project tests passed: room interior dimensions and ceiling, closed/open doorway ray hits, opening from both sides and closing away, movement into/out of the room and around solid walls, room planting rejection, doorway seed rejection and 160 near-door/adjacent-wall vine cases. Existing fixtures were moved to valid garden positions to match the strengthened planting checks. Chrome keyboard walkthrough verified automatic opening, entering the room, back-wall containment, closing inside, no planting on room surfaces and exiting again. Door/recess, room and doorway-clear vine screenshots were reviewed without page errors. Final merged-room walkthrough passed. Physical Quest collision/door comfort and performance still need user testing. Entry and affected modules advanced to query version 41. Changes remain local, uncommitted and unpushed.
+
+
+## Six-foot hallway and larger control room — 2026-10-30
+
+Hallway length is now exactly 6 ft (1.8288 m) from the garden opening to the room. The door is centered at 3 ft (0.9144 m) along it. Control-room interior floor dimensions are now 12 × 12 ft (3.6576 × 3.6576 m); ceiling remains 2.6 m high. Existing automatic opening/closing, non-plantable interior surfaces, doorway vine exclusions and batched static geometry remain.
+
+Hallway clear width is 1.09 m versus the garden opening's 1.15 m, with a 2.22 m ceiling versus the opening's 2.25 m height. Side/ceiling faces are inset by 3 cm and their front ends set 1.5 cm behind the facade. Garden trim sits fully in front of the facade, and room-entry reveals are offset from hallway faces. These changes remove coplanar joins responsible for z-fighting rather than relying on render-order tricks. Viewer constraints and door leaf dimensions follow the narrower hallway. The hinge opens to 90° with a small side clearance so the leaf rests along the hall rather than swinging through its side wall.
+
+All 48 project tests passed, including exact hallway/door/room dimensions, inset geometry, automatic operation, room planting rejection and movement bounds. A prior garden-only boundary test fixture was moved near the garden corners so it does not intentionally teleport closer to the enlarged room. Chrome walkthrough verified walking to the room's far end, closing the door when away, reopening from inside, returning to the garden and no room planting. Hallway and larger-room screenshots were visually reviewed with no page errors. Final hinge adjustment also passed the room tests. Physical Quest flicker/comfort retesting remains pending. Entry and affected modules advanced to 42. Changes are local, uncommitted and unpushed.
+
+
+## Larger, shallower door surround — 2026-10-30
+
+Garden doorway trim widened from 12 to 14 cm, with legs extended 12 cm below floor level and a low sill covering the floor join. Its depth and outward position were both halved: the front now protrudes 6.25 cm instead of 12.5 cm, retaining a small noncoplanar clearance from the garden wall. Header and posts meet without overlapping front faces; the sill has a small vertical/depth offset to avoid floor z-fighting. Door/hallway clear dimensions are unchanged. All 48 project tests passed. Entry/environment/room queries advanced to 43.
+
+
+## Threshold floor-gap coverage — 2026-10-30
+
+Doubled threshold depth from 6 to 12 cm along the hallway direction, keeping its center so its back now extends into the hall and overlaps the floor join. The raised top remains noncoplanar with the floor. Room tests and whitespace checks passed. Entry/environment/room queries advanced to 44.
+
+
+## Double-action door and two-sided handles — 2026-10-30
+
+Door swing direction is selected from the approaching side when closed: garden approach opens toward the room, room approach opens toward the garden. Direction stays latched while the user crosses an open door. An opposite-side approach while it is closing first finishes closing, then opens away, avoiding a sudden direction flip. Both faces now have small cube handles sharing geometry/material. Existing proximity thresholds and collision gating remain. Entry/environment/room queries advanced to 45.
+
+All 49 project tests passed, including swing direction, crossing stability, smooth reversal after partial closing and two-sided cube handle geometry. Chrome verified opening away from both approaches and closing between them without page errors. Physical Quest testing remains pending; changes are local and unpushed.
+
+
+## Door complex moved behind the player — 2026-10-30
+
+Moved the garden opening to wall ID 0 (+Z), behind the initial camera's -Z view. The initial player pose is unchanged. The previous -Z opening is filled by the original solid wall/brick pattern. Hallway, midpoint double-action door, handles, trim, threshold, ceilinged 12 × 12 ft room and its light now extend outward from the rear wall.
+
+Layout coordinates, collision rectangle ordering, environmental target geometry, doorway planting blocks and unfolded vine exclusions are updated for the rear side. Door direction still follows the approaching side. Six-foot hallway, three-foot door midpoint, frame depth, threshold coverage, anti-flicker offsets and non-plantable room rules remain unchanged.
+
+All 50 project tests passed, including an explicit forward-solid-wall/rear-door test, navigation, auto-door operation and rear/adjacent-wall vine exclusion checks. Vine fixtures were moved off the relocated doorway to remain valid planting tests. Chrome verified walking through the rear doorway and back with no page errors. Physical Quest retesting remains pending. Entry and changed imports advanced to 46. Changes are local and unpushed.
+
+The room’s wall opposite the doorway has a Garden Settings panel. Aim and pull the active trigger (desktop: click) on the Shadows checkbox to globally toggle shadows. Shadows default on; reenabling refreshes the cached map. The shared `VRCheckbox` uses the existing control model and the project’s single pointer; no extra raycasts or controller listeners.
+
+Settings panel validation: Secret Garden 52/52 tests; full root suite passed (including 32 shared tests); browser ray/click toggles global shadows off/on with no planting or page errors, panel screenshot inspected; `git diff --check` passed. Quest appearance/controller validation remains pending. Entry module cache version 47. Changes remain local.
+
+Vines no longer cast shadows, but still receive them. Growing meshes and mature pools preserve this policy; vine pools are separated from casting ground plants that share stem/flower geometry. Vine planting, growth and deletion no longer invalidate the cached shadow map. Grass retains its existing no-cast/no-receive policy. Entry/renderer/manager/batch cache queries advanced to 48.
+
+Vine shadow validation: all 53 Secret Garden tests passed, including growing/mature shadow flags, mixed vine/ground pools, pool expansion/deletion, and shadow-cache invalidation. `git diff --check` passed. No new headset performance measurement; changes remain local and unpushed.
+
+Door hinge fit correction: removed the 3 cm hinge inset and undersized leaf (which left a hinge-side and top/bottom gap). The pivot now sits exactly on the hallway jamb, and the leaf fills the clear width/height when closed. A fixed round hinge stile covers the pivot seam during either swing. Only rotation changes during animation; pivot and stile remain stationary. Cache queries advanced to 49.
+
+Door fit validation: all 54 garden tests passed, including stationary hinge/stile checks throughout both swings and closed-opening edge coverage. Chrome confirmed opening away from either side and closing between approaches without page errors; whitespace check passed. Physical Quest appearance remains to be checked. Local changes only.
+
+Reset Garden action added below Shadows on the room panel. Active trigger / desktop click empties growing and mature plants (including vines/grass), releases pooled instance buffers, clears clone/delete/selection state, resets plant IDs and invalidates the cached shadow map. Removal flushes once for the entire garden. Player location, door and shadow preference are preserved. The action uses the existing ControlModel and single active ray. Entry/settings/manager/renderer cache queries advanced to 50.
+
+Reset validation: 55/55 garden tests passed; Chrome real click cleared mature and growing ground plants/vines, emptying pools and clone state while preserving Shadows. Fresh planting starts at ID 1. No page errors, panel screenshot inspected, `git diff --check` passed. Quest interaction remains to be checked. Local, unpushed changes.
+
+Umbrella trees (broad ellipsoid crowns) now have 25% taller trunks, vertically fuller ellipsoids (vertical radius 50–65% of depth rather than 34%), staggered branch origins and more upward-growing limbs, including a raised continuation. Crown radius and branch width compensate for the height multiplier to retain their broad canopy footprint. Other tree families are unchanged. Cache queries advanced to 51.
+
+Umbrella adjustment validation: all 55 garden tests passed, including deterministic generation, crown proportions, growth, cloning, batching and targeting. `git diff --check` passed. Visual review on Quest remains pending; changes are local and unpushed.
+
+## Release — 2026-10-30
+
+User authorized publishing the accumulated rear doorway/hallway/12-foot control room, fixed double-action hinge and two-sided handles, vine doorway exclusion, Shadows checkbox and reusable shared VRCheckbox, Reset Garden, non-shadow-casting vines and taller/full umbrella crowns. Final entry query is 51. Validation: 55 garden tests passed; full root suite passed after adding the shared checkbox (32 shared tests); later changes are project-only and passed the garden suite. Chrome checked room traversal, both door approaches, settings and populated-garden reset; screenshot reviews and whitespace checks passed. Quest appearance/performance limits remain recorded above. Publish this release to main; do not check GitHub Pages, per user request. Earlier local/unpushed notes are historical.
