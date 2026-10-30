@@ -161,7 +161,7 @@ native dropdown binding remains project-owned.
 | `ui/desktop.css` | Native layout, focus/disabled styling and numeric interaction styling | Surface, Swarm, Weather |
 | `ui/vr-panel.mjs` | `VRControlPanel` | Surface, Swarm |
 | `ui/vr-slider-panel.mjs` | `VRSliderPanel` | Weather |
-| `ui/slider.mjs` | `sliderValue` pointer mapping | Shared VR slider panel, Scene Test |
+| `ui/slider.mjs` | `sliderValue` pointer mapping | Shared VR slider panel, Scene Test, Secret Garden |
 | `ui/choice-bar.mjs` | `ChoiceBar` segmented selectors/tabs | Shared VR slider panel, Scene Test |
 | `ui/theme.mjs` | `DEFAULT_THEME`, `createTheme(overrides)` | Shared VR panel; optional project palettes |
 
@@ -347,3 +347,5 @@ Secret Garden also reuses locomotion, per-source button edges, controller pointe
 ### World-space checkbox
 
 `ui/checkbox.mjs` exports `VRCheckbox(model, id, {width, height, theme})` for an existing `ControlModel` toggle. Add `.mesh` to your scene and ray targets; route the host’s click/trigger to `.activate({source})` and hover changes to `.setHover(boolean)`. Model refreshes redraw the texture; `.dispose()` releases the subscription and GPU resources. Hidden or disabled controls reject activation. It creates no controller listeners or raycasts. Current consumer: Secret Garden’s room settings panel (Shadows). Desktop control panels already render model toggles as native HTML checkboxes.
+
+Secret Garden’s project-owned `bee-slider.mjs` also uses `sliderValue` for its four-position Bees density control. Its existing single pointer provides hit UVs; desktop/active-hand drag ownership remains in `projects/secretGarden/app.mjs`. No shared panel/controller listeners are added.

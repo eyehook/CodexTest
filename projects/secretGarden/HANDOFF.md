@@ -396,3 +396,43 @@ Umbrella adjustment validation: all 55 garden tests passed, including determinis
 ## Release — 2026-10-30
 
 User authorized publishing the accumulated rear doorway/hallway/12-foot control room, fixed double-action hinge and two-sided handles, vine doorway exclusion, Shadows checkbox and reusable shared VRCheckbox, Reset Garden, non-shadow-casting vines and taller/full umbrella crowns. Final entry query is 51. Validation: 55 garden tests passed; full root suite passed after adding the shared checkbox (32 shared tests); later changes are project-only and passed the garden suite. Chrome checked room traversal, both door approaches, settings and populated-garden reset; screenshot reviews and whitespace checks passed. Quest appearance/performance limits remain recorded above. Publish this release to main; do not check GitHub Pages, per user request. Earlier local/unpushed notes are historical.
+
+
+## Bees on mature flowers — 2026-10-30
+
+Added `bees.mjs`, integrated after plant growth updates in `app.mjs`; entry cache version 52. `flowerLandings` creates points only for mature plants, using completed component anchors plus bloom surface depth, world yaw/scale/translation and transformed surface normals. Each individual bloom counts once, including hydrangea volumes and blooms on shrubs/trees/ivy. Growing plants create no landing records. A cached registry rebuilds only on plant revision or growth-set size changes; no per-frame plant/flower scans or collision/raycast work are added.
+
+Population follows the Bees slider: Off (zero), Low (floor(mature blooms / 150)), Medium (floor(mature blooms / 100), default), High (floor(mature blooms / 50)). Bees start on random blooms, rest 2–5 seconds and choose another bloom. Flight uses distance-based durations, cubic curves and endpoint-tapered sideways/vertical oscillations. Bodies face along flights and align their up axis with flower normals at rest. Cuboid yellow/dark bodies and two diamond wings share two dynamic instanced meshes (two draw calls total, 16 triangles per bee), with geometric capacity growth. Both batches disable shadow casting/receiving and remain outside interaction targets; animated bees do not invalidate the cached shadow map. Objects may be intersected. Deletion drops invalid cached points and retargets affected survivors; reset clears the registry/counts on the next animation update, including when IDs are reused. Empty buffers are retained for reuse until disposal. No population cap is imposed; update/upload cost scales with bees, and stored landing data scales with mature blooms.
+
+Validation: all 58 garden tests pass, including three new bee tests covering maturity exclusion, transformed petal/volume landing points, population thresholds, deletion/reset/ID reuse, finite curved paths, exact arrivals, random-rest bounds and shadow flags. Chrome WebGL check: 35 generated plants / 392 mature blooms / 15 bees, zero landing points before maturity, exactly two additional draw calls, reset to zero bees/points and no page errors. Garden and close-up bee screenshots inspected. `git diff --check` passed. These are desktop correctness/rendering checks, not a Quest timing benchmark; headset appearance, flight feel and sustained performance still need user testing. Changes are local and uncommitted.
+
+
+## Bees settings checkbox — 2026-10-30
+
+Added a default-on Bees checkbox between Shadows and Reset Garden using the shared VRCheckbox and existing single-pointer activation path. Enlarged the board and spaced the controls vertically. `Bees.setEnabled` immediately hides/shows both batches; disabled updates return before registry scans, animation and instance uploads. Reenabling forces a registry refresh to account for plants matured/deleted/reset while disabled. Reset Garden preserves the checkbox preference. Cached data remains dormant while off and is reconciled on reenable. Entry/settings/bee module cache queries advanced to 53.
+
+Validation: 59/59 garden tests pass, including toggle visibility, skipped updates and reenable synchronization; actual Chrome clicks toggled populated bee batches off/on with no page errors. Panel screenshot inspected; `git diff --check` passed. Quest interaction remains unverified. Local and uncommitted.
+
+
+## Bee density — 2026-10-30
+
+Reduced density to one bee per 50 fully grown blooms (floor division); growing plants still provide no landing points. Updated population fixtures and checked boundaries at 49/50/99/100 blooms. Entry/bee cache queries advanced to 54. All 60 garden tests and `git diff --check` pass. Earlier 392-bloom/15-bee browser capture describes the former 1:25 ratio. Changes remain local, uncommitted and unpushed.
+
+
+## Bee density reduced again — 2026-10-30
+
+Current density is one bee per 100 fully grown blooms (floor division), superseding the earlier 1:50 setting. Growing plants still provide no landing points. Updated population fixtures and boundary coverage at 99/100/199/200 blooms. Entry/bee cache queries advanced to 55. All 60 garden tests and `git diff --check` pass. Changes remain local, uncommitted and unpushed.
+
+
+## Four-position bee density slider — 2026-10-30
+
+Replaced the Bees checkbox with a snapping Off / Low / Medium / High slider. Ratios are zero / 1:150 / 1:100 / 1:50 fully grown blooms, rounded down, with Medium as the startup default. `Bees.setDensity` invalidates the population cache on density changes; Off immediately hides both batches and clears bee/count data while skipping subsequent updates. Reenabling rebuilds the current mature registry; Reset Garden preserves density. Earlier checkbox and fixed-density records are historical.
+
+Project-owned `bee-slider.mjs` draws the single canvas widget and reuses shared `sliderValue` mapping and `ControlModel` integer quantization (0–3, step 1, base 0). Hit UVs flow through the existing control-target resolver. Desktop pointer capture routes slider gestures independently of look dragging; active-hand trigger dragging uses the same existing ray and locks to that slider/hand until release, target loss, tracking loss, handoff or suspension. The widget adds no controller listeners or raycasts. The room panel layout accommodates the slider labels. Entry/settings/bees/slider cache version 56.
+
+Validation: all 61 garden tests pass, including every density’s population on unchanged plants, Off/resume, slider endpoints and intermediate snapping, plus existing plant lifecycle coverage. Real Chrome clicks on all four positions with 417 mature blooms yielded 0/2/4/8 bees. High-to-Low mouse dragging selected Low without camera yaw changes or planting; no page errors. Panel screenshot inspected. Syntax and whitespace checks passed. Shared runtime files were not modified; the shared README consumer list records the new mapping consumer. Physical Quest slider interaction still needs testing. Local, uncommitted and unpushed.
+
+
+## Bee release — 2026-10-30
+
+User authorized committing and pushing the mature-flower bees and four-position Off / Low (1:150) / Medium (1:100, default) / High (1:50) slider. Final cache version 56. Reviewed the complete scoped change; all 61 garden tests and whitespace checks pass. Chrome rendering and slider checks are recorded above. Shared runtime files are unchanged. Quest appearance, drag interaction and sustained performance remain pending user testing. Earlier local/uncommitted notes describe pre-release state.
