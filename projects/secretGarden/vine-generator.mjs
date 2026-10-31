@@ -1,5 +1,5 @@
 import {flowerHue} from './flower-colors.mjs?v=82';
-import {randomFor,MAX_COMPONENTS,BLOOM_FORMS} from './generator.mjs?v=82';
+import {randomFor,MAX_COMPONENTS,BLOOM_FORMS} from './generator.mjs?v=89';
 
 // Local XY is the support wall, +Z faces into the garden. The seed defines
 // growth rules; bounds determine floor/top bends and the continuous wall perimeter.

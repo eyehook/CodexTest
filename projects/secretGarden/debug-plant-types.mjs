@@ -1,4 +1,4 @@
-import {generatePlant} from './generator.mjs?v=82';
+import {generatePlant} from './generator.mjs?v=89';
 export const DEBUG_PLANT_TYPES=[
  {id:'flower',label:'Flowers',form:'flower'}, {id:'bush',label:'Shrubs',form:'bush'},
  {id:'grass',label:'Grass',form:'grass'}, {id:'vine',label:'Ivy',surface:'wall'},

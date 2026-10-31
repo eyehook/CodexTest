@@ -2,7 +2,7 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {VRCheckbox} from '../../shared/ui/checkbox.mjs';
 import {SettingsSlider} from './bee-slider.mjs?v=73';
-import {styleVRControl} from './vr-control-style.mjs?v=74';
+import {styleVRControl,ROOM_HOVER_BRIGHTNESS} from './vr-control-style.mjs?v=84';
 import {ROOM_BACK} from './garden-layout.mjs?v=46';
 
 export function createShadowSettings(scene,renderer,{onReset=()=>{},bees={count:3,setCount(value){this.count=value;}}}={}){
@@ -32,7 +32,7 @@ export function createSettingsPanel(scene,renderer,options={}){
  buttonMesh.name='reset-garden-button';buttonMesh.position.set(0,-.46,.003);group.add(buttonMesh);
  let hover=false;
  const drawButton=()=>{const c=buttonCanvas.getContext('2d');c.clearRect(0,0,1024,120);c.fillStyle='#293e35';c.beginPath();c.roundRect(0,0,1024,120,18);c.fill();c.fillStyle='#dfbd79';c.font='38px system-ui';c.textAlign='left';c.textBaseline='middle';c.fillText(settings.model.label(settings.model.definition('reset'),'vr'),54,60);buttonTexture.needsUpdate=true;};
- const resetButton={mesh:buttonMesh,activate({source='vr'}={}){for(let object=buttonMesh;object;object=object.parent)if(!object.visible)return false;return settings.model.activate('reset',{source});},setHover(value){value=!!value;if(value!==hover){hover=value;const brightness=hover?1.12:1;buttonMesh.material.color.setRGB(brightness,brightness,brightness);}}};
+ const resetButton={mesh:buttonMesh,activate({source='vr'}={}){for(let object=buttonMesh;object;object=object.parent)if(!object.visible)return false;return settings.model.activate('reset',{source});},setHover(value){value=!!value;if(value!==hover){hover=value;const brightness=hover?ROOM_HOVER_BRIGHTNESS:1;buttonMesh.material.color.setRGB(brightness,brightness,brightness);}}};
  buttonMesh.userData.control=resetButton;drawButton();
  const controls=[checkbox,beesSlider,resetButton];
  return {...settings,group,checkbox,beesSlider,resetButton,setHover(control){for(const widget of controls)widget.setHover(widget===control);},targets:[checkbox.mesh,beesSlider.mesh,buttonMesh,board]};

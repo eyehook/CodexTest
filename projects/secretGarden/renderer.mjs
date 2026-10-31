@@ -2,12 +2,12 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {installPlantPicker} from './plant-picker.mjs?v=40';
 import {installGrassPicker} from './grass-picker.mjs?v=35';
 import {MatureBatches} from './mature-batches.mjs?v=48';
-import {componentPose,BLOOM_FORMS} from './generator.mjs?v=82';
+import {componentPose,BLOOM_FORMS} from './generator.mjs?v=89';
 const up=new THREE.Vector3(0,1,0);
-function leafGeometry(shape) {
-  const widths=[.48,.8,.24],w=widths[shape];
+function leafGeometry(shape,pointedBase=false) {
+  const widths=[.48,.8,.24],w=widths[shape]*(pointedBase?.5:1),shoulder=pointedBase?.65:.45,ridge=pointedBase?.58:.42;
   const g=new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,-w,.45,0,0,.42,.13,0,1,0,w,.45,0],3));
+  g.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,-w,shoulder,0,0,ridge,.13,0,1,0,w,shoulder,0],3));
   g.setIndex([0,1,2,1,3,2,3,4,2,4,0,2]);g.computeVertexNormals();return g;
 }
 function ivyGeometry() {
@@ -44,7 +44,7 @@ const bloomAxis=new THREE.Vector3(0,0,1),petalHinge=new THREE.Vector3(1,0,0);
 export class PlantRenderer {
   constructor(scene,{batchMature=true}={}) {
     this.scene=scene;this.dummy=new THREE.Object3D();this.direction=new THREE.Vector3();this.bloomQuaternion=new THREE.Quaternion();this.petalQuaternion=new THREE.Quaternion();this.openQuaternion=new THREE.Quaternion();
-    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leaf3:ivyGeometry(),leaf4:grassGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),hydrangea:hydrangeaGeometry(),center:new THREE.IcosahedronGeometry(1,0)};
+    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf3:ivyGeometry(),leaf4:grassGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),hydrangea:hydrangeaGeometry(),center:new THREE.IcosahedronGeometry(1,0)};
     this.geometries.crown.computeVertexNormals();
     this.geometries.spire=this.geometries.crown.clone();
     const spirePositions=this.geometries.spire.attributes.position;
@@ -65,7 +65,7 @@ export class PlantRenderer {
     for(const p of structure.parts) {
       if(p.kind==='stem')put(p.taper===0?'stemPoint':'stem'+Math.round((p.taper-.48)/.095),p);
       else if(p.kind==='foliage')put(p.shape,p);
-      else if(p.kind==='leaf')put('leaf'+p.shape,p);
+      else if(p.kind==='leaf')put((structure.parameters.form==='flower'?'leafFlower':'leaf')+p.shape,p);
       else if(p.volume)put('hydrangea',p);
       else {for(let i=0;i<p.petals*p.layers;i++)put('petal'+p.shape,p,i);put('center',p);}
     }
@@ -107,7 +107,7 @@ export class PlantRenderer {
         } else if(key==='crown'||key==='pine'||key==='spire') {
           d.rotation.set(p.tilt,p.yaw,p.tilt*.6);d.scale.fromArray(p.scale).multiplyScalar(g);
         } else if(key.startsWith('leaf')) {
-          if(p.orientation)d.rotation.fromArray(p.orientation);else d.rotation.set(.5+p.tilt,p.yaw,.7);
+          if(p.direction)d.quaternion.setFromUnitVectors(up,this.direction.fromArray(p.direction).normalize());else if(p.orientation)d.rotation.fromArray(p.orientation);else d.rotation.set(.5+p.tilt,p.yaw,.7);
           if(p.offset)d.position.set(d.position.x+p.offset[0],d.position.y+p.offset[1],d.position.z+p.offset[2]);if(p.shape===4)d.scale.set(p.width*g,p.height*g,p.height*g);else d.scale.setScalar(p.size*g);
         } else {
           this.direction.fromArray(p.normal).normalize();

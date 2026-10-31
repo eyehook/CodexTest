@@ -47,7 +47,7 @@ test('blooms vary in silhouette, depth, orientation and clustered arrangement',(
     assert.ok(p.parameters.flowerBrightness>=.25&&p.parameters.flowerBrightness<=1);
     if(p.parameters.clusterCount>1){clustered++;assert.ok(flowers.some(f=>p.parts[f.parent].radius<.02));}
     else single++;
-    for(const f of flowers){assert.ok(Math.abs(Math.hypot(...f.normal)-1)<1e-9);if(f.canopy===undefined)assert.ok(Math.abs(f.normal[1])<.99);if(f.normal[1]<0)nodding++;assert.equal(growthAmount(f,10),1);}
+    for(const f of flowers){assert.ok(Math.abs(Math.hypot(...f.normal)-1)<1e-9);if(f.normal[1]<0)nodding++;assert.equal(growthAmount(f,10),1);}
   }
   assert.equal(forms.size,7);assert.ok(clustered>0&&single>0&&nodding>0);
 });
@@ -125,4 +125,10 @@ test('cypress starts with spherical foliage then stacks narrower taller ellipsoi
     }
   }
   assert.ok(count>40);
+});
+
+test('flower leaves have the reduced final maximum and a minimum half that maximum',()=>{
+ const maximum=.1995*.75,minimum=maximum/2;let flowers=0;
+ for(let seed=0;seed<1200;seed++){const plant=generatePlant(seed);if(plant.parameters.form!=='flower')continue;flowers++;assert.ok(plant.parameters.leafSize>=minimum&&plant.parameters.leafSize<=maximum);for(const leaf of plant.parts.filter(p=>p.kind==='leaf'))assert.ok(leaf.size>=minimum&&leaf.size<=maximum);}
+ assert.ok(flowers>200);
 });

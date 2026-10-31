@@ -1,24 +1,24 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {createSettingsPanel} from './settings-panel.mjs?v=74';
+import {createSettingsPanel} from './settings-panel.mjs?v=84';
 import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
 import {ControllerPointer,createPointerLine} from '../../shared/xr/pointer.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=63';
-import {PlantRenderer} from './renderer.mjs?v=82';
+import {PlantRenderer} from './renderer.mjs?v=90';
 import {DeleteHold} from './delete-hold.mjs?v=13';
 import {ActiveController} from './controller-actions.mjs?v=19';
 import {doorwayPlantingBlocked} from './garden-layout.mjs?v=46';
-import {Bees} from './bees.mjs?v=82';
-import {PlantManager} from './manager.mjs?v=82';
-import {DebugMenu} from './debug-menu.mjs?v=82';
-import {GardenSaves} from './garden-saves.mjs?v=82';
+import {Bees} from './bees.mjs?v=89';
+import {PlantManager} from './manager.mjs?v=89';
+import {DebugMenu} from './debug-menu.mjs?v=89';
+import {GardenSaves} from './garden-saves.mjs?v=89';
 import {Teleport} from './teleport.mjs?v=70';
 import {SnapTurn} from './snap-turn.mjs?v=71';
 import {Preferences} from './preferences.mjs?v=73';
-import {createVRSettings,applyHeightOffset} from './vr-settings.mjs?v=74';
-import {createSavePanel} from './save-panel.mjs?v=74';
+import {createVRSettings,applyHeightOffset} from './vr-settings.mjs?v=84';
+import {createSavePanel} from './save-panel.mjs?v=84';
 const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.025,250);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
 const rig=new THREE.Group();scene.add(rig);rig.add(camera);rig.position.z=2.1;camera.position.set(0,1.6,0);camera.rotation.x=-.22;
@@ -50,10 +50,9 @@ const preferences=new Preferences(storage),saves=new GardenSaves(storage);
 const vrValues={...preferences.value},vrSettings=createVRSettings(scene,vrValues,navigation);
 settings.model.set('shadows',preferences.value.shadows);settings.model.set('bees',preferences.value.bees);
 let settingsTimer=null;
-function persistSettings(){clearTimeout(settingsTimer);settingsTimer=null;try{preferences.save({...vrValues,shadows:renderer.shadowMap.enabled,bees:bees.count});vrSettings.setMessage('Settings saved');}catch{vrSettings.setMessage('Settings could not be saved');}}
-function scheduleSettingsSave(){clearTimeout(settingsTimer);vrSettings.setMessage('Saving settings…');settingsTimer=setTimeout(persistSettings,250);}
+function persistSettings(){clearTimeout(settingsTimer);settingsTimer=null;try{preferences.save({...vrValues,shadows:renderer.shadowMap.enabled,bees:bees.count});}catch{savePanel.setMessage('Settings could not be saved');}}
+function scheduleSettingsSave(){clearTimeout(settingsTimer);settingsTimer=setTimeout(persistSettings,250);}
 settings.model.onChange=id=>{if(id==='shadows'||id==='bees')scheduleSettingsSave();};vrSettings.model.onChange=id=>{if(id==='teleport')teleport.reset();snapTurn.reset();scheduleSettingsSave();};
-if(preferences.error)vrSettings.setMessage('Settings storage unavailable or invalid');
 window.addEventListener('pagehide',()=>{if(settingsTimer!==null)persistSettings();});
 function clearGardenInteraction(){deleteHold.cancel();target=null;desktopSlider=vrSlider=null;marker.visible=selection.visible=cloneIcon.visible=debugIcon.visible=deleteFill.visible=false;}
 function restoreGarden(save){
@@ -65,6 +64,7 @@ const savePanel=createSavePanel(scene,saves,{
   onLoad(index){try{if(!saves.slots[index])return;restoreGarden(saves.slots[index]);savePanel.setMessage('Loaded Slot '+(index+1));}catch{savePanel.setMessage('Could not load this save.');}}
 });
 const latestSave=saves.latest();if(latestSave){try{restoreGarden(latestSave.save);savePanel.setMessage('Loaded latest save: Slot '+(latestSave.index+1));}catch{savePanel.setMessage('Could not load the latest save.');}}
+if(preferences.error)savePanel.setMessage('Settings storage unavailable or invalid');
 function resolve(hit){if(!hit)return null;if(hit.object.userData.control)return {point:hit.point,kind:'control',uv:hit.uv,control:hit.object.userData.control};return {point:hit.point,kind:hit.object.userData.plantId?'plant':hit.object.userData.surface,id:hit.object.userData.plantId,support:hit.object.userData.wallSurface&&hit.face?.normal.z<-.9&&!doorwayPlantingBlocked(hit.point)?hit.object.userData.wallSurface:null};}
 function targetFrom(ray){return resolve(ray.intersectObjects([...settings.targets,...savePanel.targets,...vrSettings.targets,...environment.targets,...plants.targets],true)[0]);}
 function perform(action,hit){

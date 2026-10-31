@@ -1,3 +1,4 @@
+import {ROOM_HOVER_BRIGHTNESS} from './vr-control-style.mjs?v=84';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {ROOM_SIZE,ROOM_FRONT,ROOM_BACK} from './garden-layout.mjs?v=46';
@@ -10,7 +11,7 @@ export function createSavePanel(scene,saves,{onSave,onLoad}){
  const header=canvasMesh(1024,160,1.65,1.65*160/1024,0,.67),footer=canvasMesh(1024,80,1.65,1.65*80/1024,0,-.75);
  const rows=Array.from({length:3},(_,i)=>{
   const row=canvasMesh(1024,210,1.65,1.65*210/1024,0,.23-i*.36);let hover=false;
-  const control={mesh:row.mesh,activate({uv,source='vr'}={}){for(let o=row.mesh;o;o=o.parent)if(!o.visible)return false;if(!Number.isFinite(uv?.x)||uv.y<.12||uv.y>.88)return false;const x=uv.x*1024;if(x>=560&&x<=755)return model.activate('save'+i,{source});if(x>=790&&x<=985)return model.activate('load'+i,{source});return false;},setHover(value){if(hover!==!!value){hover=!!value;const brightness=hover?1.12:1;row.mesh.material.color.setRGB(brightness,brightness,brightness);}}};row.mesh.userData.control=control;row.hover=()=>hover;controls.push(control);targets.push(row.mesh);return row;
+  const control={mesh:row.mesh,activate({uv,source='vr'}={}){for(let o=row.mesh;o;o=o.parent)if(!o.visible)return false;if(!Number.isFinite(uv?.x)||uv.y<.12||uv.y>.88)return false;const x=uv.x*1024;if(x>=560&&x<=755)return model.activate('save'+i,{source});if(x>=790&&x<=985)return model.activate('load'+i,{source});return false;},setHover(value){if(hover!==!!value){hover=!!value;const brightness=hover?ROOM_HOVER_BRIGHTNESS:1;row.mesh.material.color.setRGB(brightness,brightness,brightness);}}};row.mesh.userData.control=control;row.hover=()=>hover;controls.push(control);targets.push(row.mesh);return row;
  });
  function draw(){
   const h=header.canvas.getContext('2d');h.fillStyle='#1d2e27';h.fillRect(0,0,1024,160);h.fillStyle='#edf2e8';h.font='bold 48px system-ui';h.textAlign='left';h.textBaseline='middle';h.fillText('Save / Load',54,48);h.fillStyle='#a9beb1';h.font='26px system-ui';h.fillText('Your gardens',54,115);header.texture.needsUpdate=true;

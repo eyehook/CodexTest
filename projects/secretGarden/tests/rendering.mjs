@@ -25,7 +25,7 @@ test('rendered plant batches resolve ray hits to instance IDs and clones have id
       const matrix=new THREE.Matrix4();mesh.getMatrixAt(j,matrix);
       const center=new THREE.Vector3(0,key.startsWith('leaf')||key.startsWith('petal')?.4:0,0).applyMatrix4(matrix);
       ray.set(center.clone().add(new THREE.Vector3(0,0,2)),new THREE.Vector3(0,0,-1));
-      const hits=ray.intersectObject(mesh);if(hits.length){assert.equal(hits[0].object.userData.plantId,11);hitsByKind.add(key.replace(/\d/g,''));break;}
+      const hits=ray.intersectObject(mesh);if(hits.length){assert.equal(hits[0].object.userData.plantId,11);hitsByKind.add(key.startsWith('leaf')?'leaf':key.replace(/\d/g,''));break;}
     }
   }
   assert.ok(hitsByKind.has('stem'));assert.ok(hitsByKind.has('leaf'));

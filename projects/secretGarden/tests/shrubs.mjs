@@ -17,3 +17,11 @@ const scene=new THREE.Scene(),r=new PlantRenderer(scene),instance={structure:p,v
  }
  assert.deepEqual([...counts].sort(),[1,2,3,4,5]);assert.ok(shrubs>200&&flowering>30&&plain>100);
 });
+
+test('shrub branches rise 0–30 degrees and have random azimuths at least 30 degrees apart',()=>{
+ let branches=0,irregular=0;
+ for(let seed=0;seed<1200;seed++){const p=generatePlant(seed);if(p.parameters.form!=='bush')continue;const root=p.parts.find(p=>p.kind==='stem'&&p.parent===null),limbs=p.parts.filter(p=>p.kind==='stem'&&p.parent===root.id&&p.radius===.018),angles=[];
+ for(const limb of limbs){const dx=limb.end[0]-limb.start[0],dy=limb.end[1]-limb.start[1],dz=limb.end[2]-limb.start[2],angle=Math.atan2(dz,dx);const elevation=Math.atan2(dy,Math.hypot(dx,dz));assert.ok(elevation>=-1e-10&&elevation<=Math.PI/6+1e-10);for(const other of angles)assert.ok(Math.acos(Math.cos(angle-other))>=Math.PI/6-1e-10);angles.push(angle);branches++;}
+ if(angles.length>=3){angles.sort((a,b)=>a-b);const gaps=angles.map((a,i)=>(angles[(i+1)%angles.length]-a+Math.PI*2)%(Math.PI*2));if(Math.max(...gaps)-Math.min(...gaps)>.1)irregular++;}
+ }assert.ok(branches>300);assert.ok(irregular>30);
+});

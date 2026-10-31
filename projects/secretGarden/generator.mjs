@@ -1,9 +1,11 @@
 import {flowerHue} from './flower-colors.mjs?v=82';
-import {generateShrub} from './shrub-generator.mjs?v=77';
+import {generateShrub} from './shrub-generator.mjs?v=83';
 import {placeCanopyFlowers} from './canopy-flowers.mjs?v=75';
 // Pure plant data: meters, local coordinates, explicit attachments, normalized time.
 export const GROWTH_SECONDS = 10;
 export const MAX_COMPONENTS = 600;
+export const FLOWER_LEAF_MAX = .149625;
+export const FLOWER_LEAF_MIN = FLOWER_LEAF_MAX/2;
 export function randomFor(seed) {
   let state = seed >>> 0;
   return () => { state += 0x6D2B79F5; let t = state; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -43,7 +45,7 @@ export function generatePlant(seed) {
   const profiles = {flower:[.35,1.05,1,3,1,.018], bush:[.45,.85,4,6,2,.045], tree:[1.7,2.85,1,1,3,.035]};
   const [lo,hi,minStems,maxStems,depth,radius] = profiles[form];
   const parameters = {form,height:range(lo,hi),width:form==='bush'?range(1.1,1.5):range(.65,1.15),primaryStems:integer(minStems,maxStems),depth,
-    branchProbability:range(.8,1),branchAngle:range(.45,.95),taper:range(.48,.67),leafSize:form==='tree'?range(.18,.3):range(.09,.19),
+    branchProbability:range(.8,1),branchAngle:range(.45,.95),taper:range(.48,.67),leafSize:form==='tree'?range(.18,.3):form==='flower'?range(FLOWER_LEAF_MIN,FLOWER_LEAF_MAX):range(.09,.19),
     leafShape:integer(0,2),leafDensity:form==='tree'?integer(6,8):integer(3,5),leafHue:range(.22,.36),leafLight:range(.29,.44),
     flowers:form==='flower'||rng()<.3,petals:integer(5,8),petalShape:integer(0,2),flowerSize:range(.1,.18),flowerHue:flowerHue(rng()),flowerSaturation:rng(),flowerBrightness:range(.25,1)};
   const bloomIndex=integer(0,BLOOM_FORMS.length-1), bloom=BLOOM_FORMS[bloomIndex];
@@ -73,9 +75,12 @@ export function generatePlant(seed) {
     const leafy=form!=='tree'||treeForm==='open'&&level>=2;
     const leafCount=form==='tree'&&level===2?Math.ceil(parameters.leafDensity*.5):parameters.leafDensity;
     if(leafy) for(let i=0;i<leafCount;i++) {
-      const t=range(.28,.96), yaw=azimuth+i*2.399+range(-.3,.3);
-      add({kind:'leaf',parent:node.id,attachment:t,position:point(start,end,t),yaw,tilt:range(-.4,.6),
-        size:parameters.leafSize*range(.75,1.4),shape:parameters.leafShape,hue:parameters.leafHue,
+      const t=range(.28,.96), yaw=azimuth+i*2.399+range(-.3,.3),tilt=range(-.4,.6);
+      const inclination=(tilt+.4)*Math.PI/3;
+      const tangent=[Math.cos(angle)*Math.cos(azimuth),-Math.sin(angle),Math.cos(angle)*Math.sin(azimuth)],side=[Math.sin(azimuth),0,-Math.cos(azimuth)];
+      const leafDirection=direction.map((v,j)=>v*Math.cos(inclination)+(tangent[j]*Math.cos(yaw)+side[j]*Math.sin(yaw))*Math.sin(inclination));
+      add({kind:'leaf',...(form==='flower'?{direction:leafDirection}:{}),parent:node.id,attachment:t,position:point(start,end,t),yaw,tilt,
+        size:form==='flower'?range(FLOWER_LEAF_MIN,parameters.leafSize):parameters.leafSize*range(.75,1.4),shape:parameters.leafShape,hue:parameters.leafHue,
         light:parameters.leafLight+range(-.04,.06),begin:begin+duration*t+.035,duration:.14});
     }
     let canopy=null;
@@ -139,10 +144,15 @@ export function generatePlant(seed) {
         }
         const tilt=bloom.name==='bell'?range(1.9,2.65):angle*.5+range(.25,.85);
         const heading=azimuth+range(-.55,.55)+(clustered?bloomNumber*2.399:0);
+        let normal=[Math.sin(tilt)*Math.cos(heading),Math.cos(tilt),Math.sin(tilt)*Math.sin(heading)];
+        if(form==='flower'){
+          const direction=flowerParent.end.map((v,i)=>v-flowerParent.start[i]),length=Math.hypot(...direction);
+          normal=direction.map(v=>v/length);
+        }
         add({kind:'flower',...(canopy?{canopy:canopy.id}:{}),parent:flowerParent.id,attachment:1,position:flowerPosition,
           yaw:range(0,Math.PI*2),size:parameters.flowerSize*(form==='flower'?1:.65)*(clustered?range(.38,.56):1),
           petals:parameters.petals,shape:bloomIndex,layers:bloom.layers,volume:bloom.volume??false,
-          normal:[Math.sin(tilt)*Math.cos(heading),Math.cos(tilt),Math.sin(tilt)*Math.sin(heading)],
+          normal,
           centerScale:bloom.center,hue:parameters.flowerHue,saturation:parameters.flowerSaturation,brightness:parameters.flowerBrightness,
           begin:Math.max(.69,flowerParent.begin+flowerParent.duration)+(clustered?range(0,.015):0),
           duration:clustered?.18:.25});

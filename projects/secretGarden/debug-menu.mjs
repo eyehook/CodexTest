@@ -1,5 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {DEBUG_PLANT_TYPES} from './debug-plant-types.mjs?v=82';
+import {DEBUG_PLANT_TYPES} from './debug-plant-types.mjs?v=89';
 export function leftPalmUp(q,wasOpen=false){return 2*(q.x*q.y+q.w*q.z)>(wasOpen ? .55 : .75);}
 export class DebugMenu {
  constructor(scene,choose){

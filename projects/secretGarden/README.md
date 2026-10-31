@@ -28,7 +28,7 @@ Saves are local to this browser profile, device and site address (local preview 
 
 Facing Settings, the right-hand wall has VR Settings: Height offset (0–1 m in 0.05 m steps, default 0), Movement speed (0.25–3 m/s in 0.25 m/s steps, default 1), and Turn speed (15–120°/s in 15°/s steps, default 45). Click/drag or aim and hold the active trigger. Height offset lifts the tracked head and controllers together in VR for seated play; it does not change desktop eye height. Movement and turn speeds apply through the shared locomotion controls.
 
-Settings (Shadows and total bee count) and VR Settings save automatically together in a separate browser settings record. Changes are saved after a short pause while dragging and flushed on page exit. They restore independently of garden slots; saving/loading/resetting a garden never changes them. Only the current save versions are supported. Garden slots with a different version are deleted and shown as Empty; mismatched settings saves are deleted and defaults are used. Storage failures show feedback on the VR Settings panel.
+Settings (Shadows and total bee count) and VR Settings save automatically together in a separate browser settings record. Changes are saved after a short pause while dragging and flushed on page exit. They restore independently of garden slots; saving/loading/resetting a garden never changes them. Only the current save versions are supported. Garden slots with a different version are deleted and shown as Empty; mismatched settings saves are deleted and defaults are used. Settings storage failures show feedback on the Save / Load panel.
 
 Above the turn slider, Snap turn switches between smooth turning and snap turning (on by default). When enabled, the slider is labeled Snap with 15°, 30° (default), and 45° stops. A right-thumbstick horizontal deflection turns once by the chosen angle about the headset; holding or reversing the stick cannot repeat a snap until the thumbstick returns to neutral. Entering VR, reconnecting/resuming tracking, or changing turn settings also requires neutral first. Smooth turn speed is remembered while Snap is enabled. These choices autosave with the other independent settings. Desktop arrow turning retains smooth speed.
 
@@ -45,3 +45,15 @@ Shrubs now consist of 1–5 overlapping low ellipsoid canopies. Visible trunks, 
 VR debug plant menu: rotate your left palm upward to reveal a floating Plant debug menu; rotate it away to hide it. The right-hand ray and trigger select Flowers, Shrubs, Grass, Ivy, or Rounded/Open leaf/Pine/Cypress/Umbrella trees. Selecting a type enters debug mode: each subsequent placement gets a fresh matching seed. A plus inside the target circle indicates debug mode; overlapping rectangles remain exclusive to cloning. B/Y clears either mode. Ivy debug planting requires walls; other types require ground, and incompatible surfaces do not plant or clear the selection. Copying an existing plant exits debug mode and enters ordinary clone mode. Menu interaction temporarily takes priority over locomotion, teleport and world actions, then restores the previous pointer state.
 
 Flower colors exclude greenish hues (70–170°: yellow-green through green/teal) across flowers, shrubs, trees and ivy. Reds, oranges/yellows, cyan/blues, purples and pinks remain, with the existing saturation/brightness variation. Foliage colors are unchanged.
+
+Shrub canopy-support branches have random horizontal directions separated by at least 30°, and rise 0–30° above horizontal. Flower stalk placement is unchanged.
+
+VR Settings has no save-status footer; preferences still save automatically. Room-panel hover highlights use stronger contrast without canvas texture uploads.
+
+On standalone flower plants, all bloom shapes open along their supporting stem direction. Bee landing normals use that same direction. Shrub/tree canopy blossoms continue to face outward from the foliage surface.
+
+Standalone flower leaf sizes range from half the maximum to the maximum. The current maximum is .149625 m before plant scaling, following two successive 25% reductions from the original cap. Other plant types are unchanged.
+
+Standalone flower leaves attach at the diamond’s base and point 0–60° away from their own supporting stem, with seeded variation around the stem. Their bases remain attached during growth.
+
+The attached base is the sharpest (smallest-angle) corner of each standalone flower leaf’s diamond outline; broader corners face outward.

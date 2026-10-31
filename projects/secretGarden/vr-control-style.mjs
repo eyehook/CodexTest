@@ -1,10 +1,11 @@
 import {PlaneGeometry} from '../../shared/vendor/three-r180/three.module.js';
+export const ROOM_HOVER_BRIGHTNESS=2.2;
 // Room-panel skin only: existing widgets retain model bindings and input behavior.
 export function styleVRControl(widget){
  const d=widget.model.definition(widget.id),toggle=d.kind==='toggle',height=toggle?120:212;
  widget.canvas.width=1024;widget.canvas.height=height;widget.mesh.geometry.dispose();widget.mesh.geometry=new PlaneGeometry(1.65,1.65*height/1024);widget.mesh.scale.set(1,1,1);
  widget.mesh.material.transparent=false;widget.mesh.material.alphaTest=.05;
- const highlight=()=>{const brightness=widget.hover&&!widget.model.disabled(d)?1.12:1;widget.mesh.material.color.setRGB(brightness,brightness,brightness);};
+ const highlight=()=>{const brightness=widget.hover&&!widget.model.disabled(d)?ROOM_HOVER_BRIGHTNESS:1;widget.mesh.material.color.setRGB(brightness,brightness,brightness);};
  widget.setHover=value=>{value=!!value;if(value===widget.hover)return;widget.hover=value;highlight();};
  widget.draw=()=>{
   const c=widget.canvas.getContext('2d'),value=widget.model.value(widget.id),disabled=widget.model.disabled(d),accent='#dfbd79',text='#edf2e8',muted='#a9beb1';

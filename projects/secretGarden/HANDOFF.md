@@ -680,3 +680,59 @@ Validation: full garden suite passes. New 1,200-seed ground-and-vine sweep check
 User authorized committing/pushing exposed ellipsoid-tree flowers, 1–5 ellipsoid shrubs with visible trunks/branches/flower connections, the options-only left-palm debug menu, distinct fresh-seed-per-placement debug mode and plus indicator, and exclusion of greenish flower hues. Final entry cache version 82; current garden save version 6 (obsolete slots deleted under the development policy), settings version 4 unchanged.
 
 Final scoped changes reviewed; all 97 garden tests pass and whitespace checks are clean. Chrome visual/ray/planting checks and user headset feedback remain recorded above. No shared runtime changes or build step required. Earlier local/unpushed notes are historical after release.
+
+
+## Random upward shrub canopy branches — 2026-10-31
+
+Shrub ellipsoid-support branches now use random azimuths separated by at least 30° around the circle, and independent 0–30° elevation above horizontal. Circular gaps reserve the minimum angle and distribute remaining angle randomly, avoiding evenly spaced placement/rejection loops. Branch spread is bounded against the rotated central ellipsoid to keep strong overlap despite added rise. Central trunk stays vertical; flower stalk behavior is unchanged, as explicitly clarified by the user. SAVE_VERSION bumped to 7 under the development policy; independent settings stay 4. Affected generator/shrub/renderer/manager/bees/vine/debug-type/menu/save/entry cache queries advanced to 83. All 98 garden tests passed, including a 1,200-seed angle/separation/irregularity sweep and existing overlap/growth coverage. Local and unpushed.
+
+## Remove VR footer and increase room-panel hover contrast — 2026-10-31
+
+Removed the VR Settings footer canvas/mesh and status-message API, and trimmed unused board space below the last control. Automatic preferences persistence/debounce/pagehide flush remains unchanged; failures are reported on the existing Save/Load status line instead. No saved/pending success footer is shown. All three room panels now share ROOM_HOVER_BRIGHTNESS=2.2 (previously 1.12) for stronger material-only highlights. Styled checkboxes/sliders, Reset Garden and Save/Load rows use the same level; disabled controls remain unhighlighted. No canvas uploads on hover, transparent row sorting or save-schema changes introduced. Affected entry/VR/settings/save/style query versions advanced to 84.
+
+Validation: 15 relevant panel/settings/preferences/save tests pass, including stronger highlights, disabled controls, absent footer and zero texture uploads during rapid hover. Chrome screenshot reviewed; pointer hovering a real control produced the expected highlight and no page errors. Syntax/whitespace checks pass. Local, uncommitted and unpushed.
+
+
+## Standalone cup-flower/stem alignment — 2026-10-31
+
+User confirmed tulip-like blooms on standalone plants and their bee landing normals did not match the stem. Reproduced seed 9 bell form with ~92° between the generated flower normal and supporting stem direction. Petal rendering consistently uses the stored +Z bloom axis; the mismatch came from independently sampled bloom tilt/heading (including intentional bell nodding), not a renderer-wide 90° axis error.
+
+Standalone deep-cup forms (lily/bell, cup>=.6) now derive the flower normal from the final supporting stem direction, including cluster stalks. Existing random draws are retained to avoid unrelated geometry/color changes. Rendered bloom opening and flowerLandings now share the corrected direction automatically. Shrub/tree surface blooms and ivy normals retain their surface behavior. SAVE_VERSION bumped to 8 for changed seeded orientation, with no migration; independent settings remain version 4. Affected entry/generator/renderer/manager/bees/vine/debug-types/menu/save cache versions advanced to 85.
+
+Validation: full garden suite passes (100 tests). A 1,200-seed regression verifies every standalone lily/bell normal and world-transformed bee landing normal against its stem; an actual petal-instance geometry test verifies the rendered opening axis on seed 9. Removed the old arbitrary test restriction against upright normals. Chrome compared seeds 7/lily and 9/bell after correction; screenshot inspected, no page errors. Syntax/whitespace checks pass. Quest visual verification remains pending. Local, uncommitted and unpushed.
+
+
+## Align all standalone flower forms — 2026-10-31
+
+User reports the same stem/flower orientation mismatch on a six-petaled star-like bloom. Extended the previous cup-only correction to all standalone flower forms: bloom normals always follow the final supporting stem, and bee landing normals inherit that direction. Shrub/tree/ivy surface normals are unchanged. The seed-sweep regression now covers all seven bloom forms. SAVE_VERSION bumped to 9 under the current-only development policy; settings remain 4. Affected dependency/entry query versions advanced to 86. Full garden suite and whitespace checks pass. Local, uncommitted and unpushed.
+
+
+## Smaller maximum flower leaves — 2026-10-31
+
+Reduced standalone flower base leafSize maximum from .19 to .1425 (75%), retaining the .09 minimum and per-leaf .75–1.4 variation. Final unscaled leaf-size cap is .1995 instead of .266. Other plant types keep their existing size rules. Single existing PRNG sample is retained. SAVE_VERSION bumped to 10 under the development policy; settings remain 4. Affected entry/dependency query versions advanced to 87. Regression sweeps 1,200 seeds checking base/final caps. Full garden suite and whitespace checks pass. Local, uncommitted and unpushed.
+
+
+## Second flower leaf-size reduction — 2026-10-31
+
+Reduced the actual standalone flower leaf cap another 25%, from .1995 to .149625, and set the final minimum to half the cap (.0748125). Exported explicit FLOWER_LEAF_MIN/MAX constants. Per-plant leaf size chooses an upper size within those limits, then individual leaves sample between the fixed minimum and that plant’s upper size. This replaces the flower-only multiplicative variation, so the final limits apply to actual leaf geometry sizes rather than only a base parameter. Other forms retain their previous variation. SAVE_VERSION bumped to 11 under project policy; settings remain 4. Affected dependency/entry query versions advanced to 88. Full garden suite and 1,200-seed leaf-size regression pass, with whitespace checks clean. Local, uncommitted and unpushed.
+
+
+## Flower leaf base attachment and relative orientation — 2026-10-31
+
+Standalone flower leaves now carry a seeded unit direction constructed in the supporting stem’s local tangent frame. The deviation from that stem is uniformly 0–60°, using the previous tilt PRNG sample mapped into the new range; azimuth distributes leaves around the stem. Renderer maps the diamond geometry’s +Y base-to-tip axis to this direction, retaining its origin at the component attachment anchor. This replaces the unrelated world-Euler tilt for standalone flowers. Existing diamond geometry, reduced size limits and growth scaling are unchanged; other leaf types keep their existing orientation paths.
+
+SAVE_VERSION bumped to 12 for changed seeded appearance; settings remain 4. Affected dependency/entry cache versions advanced to 89. All 103 garden tests pass. New 1,200-seed checks cover unit directions/0–60° spread; actual instance matrices at multiple growth ages verify the diamond base is attached and tip direction matches. Chrome rendered representative lily/bell flower plants without page errors; screenshot reviewed. Whitespace checks pass. Local, uncommitted and unpushed.
+
+
+## Sharp-corner flower leaf attachment — 2026-10-31
+
+User clarified that the diamond base must be its smallest-angle corner. Added three flower-specific folded diamond geometries with narrower half-widths and shoulders at 65% of base-to-tip length. All three have an acute base angle smaller than either side or tip angle. Their origin remains the stem attachment, preserving the existing 0–60° direction rule. Standalone flower leaves use leafFlower0/1/2 buckets, including normal mature pooling/picking; open-tree leaves retain their original geometries. Renderer/entry cache version 90. Generator/save formats are unchanged for this renderer-only geometry correction.
+
+Validation: full garden suite passes, with explicit corner-angle regression for all three flower outlines and existing multi-age base attachment/direction checks. Rendering test classifies all leaf geometry variants as leaves. Whitespace checks pass. Local, uncommitted and unpushed.
+
+
+## Flower/leaf refinement release — 2026-10-31
+
+User authorized committing/pushing the accumulated random upward shrub support branches (flower stalk behavior retained), VR status-footer removal and stronger room hover contrast, standalone bloom/stem/bee-normal alignment, two leaf-size reductions and half-maximum minimum, and base-anchored 0–60° flower leaves with sharpest-corner diamond attachment. Final entry cache version 90; garden SAVE_VERSION 12 under current-only policy; independent settings version 4 unchanged.
+
+All 104 garden tests pass, scoped changes reviewed and whitespace checks clean. Chrome visual/interaction checks and user visual feedback are recorded above. No shared runtime changes or build required. Earlier local/unpushed notes are historical after this release.
