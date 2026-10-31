@@ -776,3 +776,15 @@ Changed cloud traversal/recycle duration from the temporary 60-second test cycle
 ## Cloud release — 2026-10-31
 
 User authorized committing/pushing 10 varied clouds, west-to-east shallow arcs, complete wall-hidden recycling and the final 30-minute cycle. Final entry cache version 95. All 105 garden tests pass and whitespace checks are clean. Chrome visual checks and coverage/recycling tests are recorded above. No save-version/shared-runtime changes or build step required. Earlier testing-speed/radial-path/local notes are historical.
+
+
+## Bloom all standalone flower stem tips — 2026-10-31
+
+Standalone flower stems now retain their terminal bloom or bloom cluster even when side branches sprout below the tip. Previously any successful side branch suppressed the parent tip bloom, leaving its upper section bare. Side branches retain their own terminal blooms; tree/shrub rules remain unchanged. Garden SAVE_VERSION is now 13 for changed seeded generation, with current-only saves and no compatibility implementation; settings remain version 4. Changed generator/import chains and entry query versions advanced to 96.
+
+Added a 1,200-seed regression checking every standalone stem ends in a bloom or tip-attached flowering stalks, including branching and clustered examples, with blooms fully grown at 10 seconds and component bounds respected. Validation: all 106 garden tests pass; `git diff --check` is clean. Headset visual verification remains pending. Local and unpushed.
+
+
+## Flower-tip release — 2026-10-31
+
+User confirmed the flower-tip change looks better and authorized publication. All 106 garden tests pass and whitespace checks are clean. Release includes terminal blooms on branched standalone stems, regression coverage, garden save version 13 and entry/import cache version 96. Earlier local/unpushed and pending visual-review notes are historical.

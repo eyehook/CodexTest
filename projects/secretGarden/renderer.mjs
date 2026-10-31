@@ -2,7 +2,7 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {installPlantPicker} from './plant-picker.mjs?v=40';
 import {installGrassPicker} from './grass-picker.mjs?v=35';
 import {MatureBatches} from './mature-batches.mjs?v=48';
-import {componentPose,BLOOM_FORMS} from './generator.mjs?v=89';
+import {componentPose,BLOOM_FORMS} from './generator.mjs?v=96';
 const up=new THREE.Vector3(0,1,0);
 function leafGeometry(shape,pointedBase=false) {
   const widths=[.48,.8,.24],w=widths[shape]*(pointedBase?.5:1),shoulder=pointedBase?.65:.45,ridge=pointedBase?.58:.42;

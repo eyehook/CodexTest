@@ -129,7 +129,8 @@ export function generatePlant(seed) {
           azimuth+i*2.399+range(-.6,.6),thickness*parameters.taper,level+1,node,t);
       }
     }
-    if(parameters.flowers&&!branched&&(form!=='tree'||treeBloomCount<30)) {
+    // Standalone side branches do not replace the parent stem's terminal bloom.
+    if(parameters.flowers&&(form==='flower'||!branched)&&(form!=='tree'||treeBloomCount<30)) {
       for(let bloomNumber=0;bloomNumber<parameters.clusterCount&&(form!=='tree'||treeBloomCount<30);bloomNumber++) {
         if(form==='tree')treeBloomCount++;
         let flowerParent=node,flowerPosition=end;
