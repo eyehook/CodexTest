@@ -3,10 +3,12 @@ import {PlaneGeometry} from '../../shared/vendor/three-r180/three.module.js';
 export function styleVRControl(widget){
  const d=widget.model.definition(widget.id),toggle=d.kind==='toggle',height=toggle?120:212;
  widget.canvas.width=1024;widget.canvas.height=height;widget.mesh.geometry.dispose();widget.mesh.geometry=new PlaneGeometry(1.65,1.65*height/1024);widget.mesh.scale.set(1,1,1);
- widget.mesh.material.transparent=true;
+ widget.mesh.material.transparent=false;widget.mesh.material.alphaTest=.05;
+ const highlight=()=>{const brightness=widget.hover&&!widget.model.disabled(d)?1.12:1;widget.mesh.material.color.setRGB(brightness,brightness,brightness);};
+ widget.setHover=value=>{value=!!value;if(value===widget.hover)return;widget.hover=value;highlight();};
  widget.draw=()=>{
   const c=widget.canvas.getContext('2d'),value=widget.model.value(widget.id),disabled=widget.model.disabled(d),accent='#dfbd79',text='#edf2e8',muted='#a9beb1';
-  c.globalAlpha=1;c.clearRect(0,0,1024,height);c.fillStyle=widget.hover&&!disabled?'#354d40':'#293e35';c.beginPath();c.roundRect(0,0,1024,height,18);c.fill();
+  c.globalAlpha=1;c.clearRect(0,0,1024,height);c.fillStyle='#293e35';c.beginPath();c.roundRect(0,0,1024,height,18);c.fill();
   c.globalAlpha=disabled?.4:1;c.textBaseline='middle';c.textAlign='left';c.font='38px system-ui';c.fillStyle=text;
   if(toggle){
    c.strokeStyle=value?accent:muted;c.lineWidth=4;c.beginPath();c.roundRect(54,37,46,46,6);c.stroke();
@@ -21,6 +23,6 @@ export function styleVRControl(widget){
    else if(d.stops){c.textAlign='center';for(const stop of d.stops)c.fillText(d.stopFormat?d.stopFormat(stop):stop+'°',100+(stop-d.min)/(d.max-d.min)*824,170);}
    else {c.textAlign='left';c.fillText(d.min+' '+d.unit,100,170);c.textAlign='right';c.fillText(d.max+' '+d.unit,924,170);}
   }
-  c.globalAlpha=1;widget.texture.needsUpdate=true;
+  c.globalAlpha=1;highlight();widget.texture.needsUpdate=true;
  };widget.draw();return widget;
 }

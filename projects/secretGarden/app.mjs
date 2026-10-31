@@ -1,5 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {createSettingsPanel} from './settings-panel.mjs?v=73';
+import {createSettingsPanel} from './settings-panel.mjs?v=74';
 import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
@@ -16,8 +16,8 @@ import {GardenSaves} from './garden-saves.mjs?v=60';
 import {Teleport} from './teleport.mjs?v=70';
 import {SnapTurn} from './snap-turn.mjs?v=71';
 import {Preferences} from './preferences.mjs?v=73';
-import {createVRSettings,applyHeightOffset} from './vr-settings.mjs?v=73';
-import {createSavePanel} from './save-panel.mjs?v=72';
+import {createVRSettings,applyHeightOffset} from './vr-settings.mjs?v=74';
+import {createSavePanel} from './save-panel.mjs?v=74';
 const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.025,250);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
 const rig=new THREE.Group();scene.add(rig);rig.add(camera);rig.position.z=2.1;camera.position.set(0,1.6,0);camera.rotation.x=-.22;

@@ -593,3 +593,15 @@ Validation: all 87 garden tests passed after the count conversion; focused tests
 ## Bee-count release — 2026-10-31
 
 User authorized committing/pushing the exact 0–10 bee selector (default 3), random wall fallback when no other mature flower exists, obsolete density-code removal and independent settings version 4. Entry cache version 73. Final scoped diff reviewed, all 87 garden tests passed and whitespace checks clean. Chrome checks and Quest limitations remain recorded above. No shared runtime changes/build required. Earlier local/unpushed notes are historical after release.
+
+
+## Quest 2 rapid-hover flicker mitigation — 2026-10-31
+
+User reports flicker when quickly pointing between settings on Quest 2. Inspection found per-hover canvas redraw/texture uploads (including whole Save/Load panel redraws) and transparent sorting for fully opaque rounded row contents. Replaced hover redraws with material-color highlighting for styled sliders/checkboxes, Reset Garden and Save/Load rows. Actual value/label/status changes still redraw their textures. Rounded edges now use opaque alpha-test cutouts (.05) instead of transparent row blending; plain Settings header is opaque. Controller rays retain their high-order transparent/depth-disabled overlay policy. No shared runtime or save-schema changes. Entry/settings/save/VR/style cache versions advanced to 74.
+
+Validation: all 88 garden tests pass. New regression cycles rapid hover across all three panels and asserts zero texture-version increments, opaque cutout row flags, continued value redraw and working highlight changes. Isolated Chrome verified Save/Load, Shadows and bee-count interactions without page errors; Settings screenshot inspected. Whitespace/syntax checks pass. Root cause is not confirmed on hardware: these changes address plausible texture-upload/frame-time and transparent-ordering causes; physical Quest 2 rapid-hover retesting is required before claiming the reported flicker resolved. Local, uncommitted and unpushed.
+
+
+## Rapid-hover mitigation release — 2026-10-31
+
+User authorized committing/pushing the GPU-only hover highlighting and opaque cutout panel-row mitigation for Quest 2 flicker. Final entry cache version 74. All 88 garden tests and Chrome interaction/rendering checks passed as recorded above; whitespace checks clean. Actual Quest 2 resolution remains unconfirmed pending headset testing. No shared runtime/save-schema changes. Earlier local/unpushed notes are historical after release.

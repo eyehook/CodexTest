@@ -1,7 +1,7 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {VRCheckbox} from '../../shared/ui/checkbox.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
-import {styleVRControl} from './vr-control-style.mjs?v=72';
+import {styleVRControl} from './vr-control-style.mjs?v=74';
 import {SettingsSlider} from './bee-slider.mjs?v=73';
 import {ROOM_SIZE,ROOM_FRONT,ROOM_BACK} from './garden-layout.mjs?v=46';
 export function createVRSettings(scene,values,navigation){
