@@ -1,32 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
+import {randomFor} from '../generator.mjs';
 import {CloudSky} from '../cloud-sky.mjs';
-test('clouds are eight times larger and their arc stays overhead',()=>{
- const sky=new CloudSky(new THREE.Scene(),{halfWidth:4.572,halfDepth:6.858,viewDistance:250});
- assert.deepEqual(sky.clouds.map(c=>c.scale),[1.05,.85,1.2,.95,1.1].map(s=>s*8));
- const c=sky.clouds[2],m=new THREE.Matrix4();
- sky.update(0);sky.mesh.getMatrixAt(2,m);const top=m.elements[13];
- sky.elapsed=sky.wrapDistance*.8/c.speed;sky.update(0);sky.mesh.getMatrixAt(2,m);
- assert.ok(top>m.elements[13]);assert.ok(m.elements[13]>30);assert.ok(sky.arcBend>0);
- assert.equal(sky.mesh.material.transparent,false);assert.equal(sky.mesh.castShadow,false);sky.dispose();
+const options={halfWidth:4.572,halfDepth:6.858,wallHeight:3.048};
+test('ten varied clouds move west to east on shallow arcs in thirty minutes',()=>{
+ const sky=new CloudSky(new THREE.Scene(),{...options,random:randomFor(8)}),matrix=new THREE.Matrix4();assert.equal(sky.mesh.count,10);assert.equal(sky.cycleSeconds,1800);assert.equal(sky.mesh.castShadow,false);assert.equal(sky.mesh.material.transparent,false);
+ for(let i=0;i<10;i++){const c=sky.clouds[i];assert.equal(c.speed*sky.cycleSeconds,sky.wrapDistance*2);sky.elapsed=(.3-c.phase+1)*sky.cycleSeconds;sky.update(0);sky.mesh.getMatrixAt(i,matrix);const west=new THREE.Vector3().setFromMatrixPosition(matrix);sky.elapsed=(.7-c.phase+1)*sky.cycleSeconds;sky.update(0);sky.mesh.getMatrixAt(i,matrix);const east=new THREE.Vector3().setFromMatrixPosition(matrix);assert.ok(east.x>west.x);assert.ok(Math.abs(west.z-east.z)<1e-6);assert.ok(Math.abs(west.y-east.y)<1e-5);}
+ const scales=sky.clouds.map(c=>c.scale),heights=sky.clouds.map(c=>c.y);assert.ok(Math.max(...scales)/Math.min(...scales)>=2);assert.ok(Math.max(...heights)-Math.min(...heights)>=16);assert.ok(new Set(sky.clouds.map(c=>c.z)).size>5);sky.dispose();
 });
-test('recycling endpoints fully clear every garden corner and scale with garden size',()=>{
- const small=new CloudSky(new THREE.Scene(),{halfWidth:4,halfDepth:6,viewDistance:250});
- const large=new CloudSky(new THREE.Scene(),{halfWidth:20,halfDepth:30,viewDistance:250});
- assert.ok(large.wrapDistance>small.wrapDistance);
- for(const [sky,w,d] of [[small,4,6],[large,20,30]]){
-  for(const sign of [-1,1])for(const x of [-w,w])for(const z of [-d,d]){
-   const nearest=Math.hypot(sign*sky.wrapDistance-x,z)-sky.cloudReach;
-   assert.ok(nearest>sky.visibilityRadius);
-  }
-  sky.update(1e7);
-  const m=new THREE.Matrix4();for(let i=0;i<sky.mesh.count;i++){sky.mesh.getMatrixAt(i,m);assert.ok(Math.abs(m.elements[12])<=sky.wrapDistance);}
-  sky.dispose();
+test('recycling occurs only when the entire cloud is beyond the garden and hidden below the wall top',()=>{
+ const sky=new CloudSky(new THREE.Scene(),{...options,random:randomFor(41)}),matrix=new THREE.Matrix4(),point=new THREE.Vector3(),positions=sky.mesh.geometry.attributes.position;
+ for(let i=0;i<10;i++)for(const phase of [.001,.049,.951,.999]){sky.elapsed=(phase-sky.clouds[i].phase+1)*sky.cycleSeconds;sky.update(0);sky.mesh.getMatrixAt(i,matrix);for(let j=0;j<positions.count;j++){point.fromBufferAttribute(positions,j).applyMatrix4(matrix);assert.ok(point.y<options.wallHeight-.19);assert.ok(phase<.5?point.x<-options.halfWidth:point.x>options.halfWidth);}}
+ sky.dispose();
+});
+test('west-east journeys are time-based and repeat after the 30-minute cycle',()=>{
+ const a=new CloudSky(new THREE.Scene(),{...options,random:()=>.5}),b=new CloudSky(new THREE.Scene(),{...options,random:()=>.5});a.update(21);for(let i=0;i<210;i++)b.update(.1);a.mesh.instanceMatrix.array.forEach((v,i)=>assert.ok(Math.abs(v-b.mesh.instanceMatrix.array[i])<1e-5));const before=a.mesh.instanceMatrix.array.slice();a.update(a.cycleSeconds);before.forEach((v,i)=>assert.ok(Math.abs(v-a.mesh.instanceMatrix.array[i])<1e-5));a.dispose();b.dispose();
+});
+test('staggered journeys leave visible cloud geometry above the garden walls throughout recycling',()=>{
+ for(const random of [()=>0,()=>1,randomFor(3),randomFor(8),randomFor(41)]){
+  const sky=new CloudSky(new THREE.Scene(),{...options,random}),matrix=new THREE.Matrix4(),point=new THREE.Vector3(),positions=sky.mesh.geometry.attributes.position;
+  for(let frame=0;frame<120;frame++){sky.elapsed=frame/120*sky.cycleSeconds;sky.update(0);
+   for(const x of [-options.halfWidth+.18,options.halfWidth-.18])for(const z of [-options.halfDepth+.18,options.halfDepth-.18]){let visible=false;
+    for(let i=0;i<10&&!visible;i++){sky.mesh.getMatrixAt(i,matrix);for(let j=0;j<positions.count&&!visible;j++){point.fromBufferAttribute(positions,j).applyMatrix4(matrix);const dx=point.x-x,dz=point.z-z,t=Math.min(dx>0?(options.halfWidth-x)/dx:dx<0?(-options.halfWidth-x)/dx:Infinity,dz>0?(options.halfDepth-z)/dz:dz<0?(-options.halfDepth-z)/dz:Infinity);const wallY=1.6+(point.y-1.6)*t;visible=point.distanceTo(new THREE.Vector3(x,1.6,z))<250&&point.y>options.wallHeight&&(t>=1||wallY>options.wallHeight);}}
+    assert.ok(visible,'some cloud geometry must remain visible above the walls');
+   }
+  }sky.dispose();
  }
-});
-test('cloud arc motion is time based and independent of update frequency',()=>{
- const a=new CloudSky(new THREE.Scene(),{halfWidth:4,halfDepth:6}),b=new CloudSky(new THREE.Scene(),{halfWidth:4,halfDepth:6});
- a.update(60);for(let i=0;i<600;i++)b.update(.1);
- a.mesh.instanceMatrix.array.forEach((v,i)=>assert.ok(Math.abs(v-b.mesh.instanceMatrix.array[i])<1e-5));a.dispose();b.dispose();
 });

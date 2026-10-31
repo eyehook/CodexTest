@@ -736,3 +736,43 @@ Validation: full garden suite passes, with explicit corner-angle regression for 
 User authorized committing/pushing the accumulated random upward shrub support branches (flower stalk behavior retained), VR status-footer removal and stronger room hover contrast, standalone bloom/stem/bee-normal alignment, two leaf-size reductions and half-maximum minimum, and base-anchored 0–60° flower leaves with sharpest-corner diamond attachment. Final entry cache version 90; garden SAVE_VERSION 12 under current-only policy; independent settings version 4 unchanged.
 
 All 104 garden tests pass, scoped changes reviewed and whitespace checks clean. Chrome visual/interaction checks and user visual feedback are recorded above. No shared runtime changes or build required. Earlier local/unpushed notes are historical after this release.
+
+
+## Ten clouds with continuous sky coverage — 2026-10-31
+
+Increased CloudSky to 10 instances. Nine clouds occupy bounded-jitter angular sectors around the garden, with a larger tenth near overhead to cover high sky angles. Ring radii are approximately 105–117 m for the current garden/view range; altitudes remain 36–45 m and cloud scale remains 8× with seeded/injectable random variation (.85–1.2 multiplier, overhead 1.1–1.2). Default layout varies each page via Math.random; tests inject deterministic samplers. Random phase/radius/height/scale/yaw are sampled only at construction.
+
+Replaced the old long horizontal wrap path with slow continuous circular drift at .28/110 radians/s (~.28 m/s on the ring). Shared angular speed preserves sector separation. No visible reset/recycling endpoints exist; overhead cloud drifts within 2 m of the center. This keeps coverage around the garden and near zenith instead of merely ensuring some cloud is within far clipping range. All instances retain shared geometry/material, a single draw call, baked facet shading and no shadows. Coverage concerns visible sky, not views blocked by room ceilings/walls or looking down. No save-schema/shared runtime changes. Entry/environment/cloud query versions advanced to 91.
+
+Validation: full garden suite passes. Cloud tests verify 10 instances, scale/shadow policy, continuous complete loops, frame-rate independence and randomized layouts. Coverage checks actual mesh vertices in 65° square-camera frusta across every garden corner, 24 horizontal headings, 0°/30°/60°/90° sky pitches, 24 phases of a full cycle, and extreme/random layout samples. Chrome verified 10 clouds, no shadows and no page errors; sky screenshot inspected. Whitespace checks pass. Physical Quest sky review remains pending. Local, uncommitted and unpushed.
+
+
+## More varied cloud spacing, scale and altitude — 2026-10-31
+
+Replaced near-even ring-sector jitter with randomized circular gaps constrained to 16–60°. Pairwise angle transfers preserve 360° coverage while creating clusters and open gaps; no fixed-spacing fallback. Cloud scale range expanded from .85–1.2× to .4–1.7× the base 8× scale, with guaranteed small/large examples per layout. Heights now range 28–64 m and include low/high examples. Ring depth/radius follows randomized elevation/altitude, bounded to keep horizon coverage; yaw now varies through the full circle. Overhead cloud remains near center with an appropriate large scale to cover high-angle views. Count stays 10, shared angular drift preserves the irregular layout, and rendering remains one shadow-free instanced batch. Environment/cloud/entry cache version 92; no save/shared runtime changes.
+
+Validation: full garden suite passes. Cloud tests cover size/height contrast, irregular bounded gaps, deterministic time-based continuous loops and actual-geometry sky coverage across extreme and multiple seeded layouts. Chrome verified 10 clouds without page errors; screenshot inspected for visibly different sizes/depths/heights. Whitespace checks pass. Local, uncommitted and unpushed.
+
+
+## One-minute cloud loop for testing — 2026-10-31
+
+Temporarily increased shared cloud angular speed to 2π/60 rad/s, so all 10 clouds complete their loops in exactly one minute. Relative spacing/height/scale are unchanged. This is a testing speed, superseding the previous ~41-minute loop until user requests otherwise. Entry/environment/cloud cache version 93. Cloud regressions verify 60-second period, continuity, frame-rate independence and sky coverage. Whitespace checks pass. Local and unpushed.
+
+
+## West-to-east cloud arcs and wall-hidden recycling — 2026-10-31
+
+Replaced the radial orbit with monotonic west (−X) to east (+X) journeys. Ten cloud phases are stratified with bounded jitter; tracks vary across north/central/south depth lanes with additional offsets, height, size and yaw variation. Each path has a gentle 3 m height bow and small lateral bend across the garden. Past 65% of the path half-width, smooth endpoint easing lowers the cloud; beyond 90%, its highest geometry vertex is already .2 m below the wall top. Only then does it recycle from far east to far west. Endpoint X bounds include cloud reach/garden dimensions, keeping the complete geometry beyond the walls at reset. This is actual wall/floor occlusion, not a visible far-plane teleport.
+
+Retained the user’s 60-second testing cycle; with the current 400 m route, speed is ~6.67 m/s. Central cruise heights remain varied (28–64 m plus the shallow bow); endpoint heights intentionally dip below the horizon and do not represent cruise altitude. Random depth lanes are around −100/0/+100 m to fill near-horizon and overhead regions. One instanced draw, no shadows, no shared-runtime/save changes. Entry/environment/cloud query versions advanced to 94. Earlier radial-orbit descriptions are superseded.
+
+Validation: full garden suite passes. Cloud tests verify eastward travel, symmetric shallow arcs, complete mesh bounds beyond the garden/below the wall at both reset ends, frame-rate independence and exact 60-second traversal recurrence. Through a full test cycle and extreme/seeded layouts, actual cloud vertices remain visible above wall intersections from all four inset garden corners. This guarantees available sky cloud coverage, not visibility through room ceilings or while looking at the floor. Chrome verified 10 shadow-free clouds with no page errors; final screenshot reviewed. Whitespace checks pass. Physical Quest motion/recycle review remains pending. Local, uncommitted and unpushed.
+
+
+## Thirty-minute cloud cycle — 2026-10-31
+
+Changed cloud traversal/recycle duration from the temporary 60-second test cycle to 1800 seconds (30 minutes). Current 400 m route speed is ~.222 m/s. West-east arcs, wall-hidden reset, randomized layout/size/height and coverage remain unchanged. Entry/environment/cloud cache version 95. Cloud tests cover the 1800-second period and sample coverage/recycle checks relative to cycleSeconds. Whitespace checks pass. Local and unpushed.
+
+
+## Cloud release — 2026-10-31
+
+User authorized committing/pushing 10 varied clouds, west-to-east shallow arcs, complete wall-hidden recycling and the final 30-minute cycle. Final entry cache version 95. All 105 garden tests pass and whitespace checks are clean. Chrome visual checks and coverage/recycling tests are recorded above. No save-version/shared-runtime changes or build step required. Earlier testing-speed/radial-path/local notes are historical.

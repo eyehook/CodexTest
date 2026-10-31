@@ -57,3 +57,9 @@ Standalone flower leaf sizes range from half the maximum to the maximum. The cur
 Standalone flower leaves attach at the diamond’s base and point 0–60° away from their own supporting stem, with seeded variation around the stem. Their bases remain attached during growth.
 
 The attached base is the sharpest (smallest-angle) corner of each standalone flower leaf’s diamond outline; broader corners face outward.
+
+The sky contains 10 low-poly clouds moving west (−X) to east (+X) along shallow rising/laterally curved paths. Their phases and north/central/south track positions vary, retaining varied sizes and heights. At the far east, the entire cloud lowers below the wall top before recycling to a hidden western starting point, avoiding visible jumps. They share one instanced draw call and cast no shadows.
+
+Cloud spacing is deliberately irregular, with clustered and open patches. Sizes vary from 0.4× to 1.7× the shared base scale, and heights from 28–64 m. Layouts include distinctly small/large and low/high clouds while retaining sky coverage.
+
+Clouds complete one west-to-east traversal/recycle every 30 minutes.

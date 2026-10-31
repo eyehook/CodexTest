@@ -5,7 +5,7 @@ import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
 import {ControllerPointer,createPointerLine} from '../../shared/xr/pointer.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=63';
+import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=95';
 import {PlantRenderer} from './renderer.mjs?v=90';
 import {DeleteHold} from './delete-hold.mjs?v=13';
 import {ActiveController} from './controller-actions.mjs?v=19';

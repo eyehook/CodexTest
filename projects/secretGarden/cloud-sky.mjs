@@ -1,7 +1,7 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 
 const CLOUD_SCALE=8;
-// A single faceted cloud geometry shared by five moving instances.
+// A single faceted cloud geometry shared by ten moving instances.
 function cloudGeometry() {
   const lobe=new THREE.IcosahedronGeometry(1,0),source=lobe.attributes.position;
   const positions=[];
@@ -18,42 +18,32 @@ function cloudGeometry() {
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));return geometry;
 }
 export class CloudSky {
-  constructor(scene,{halfWidth=0,halfDepth=0,viewDistance=250,viewRadius=viewDistance*3}={}) {
-    this.scene=scene;this.elapsed=0;this.dummy=new THREE.Object3D();
-    this.clouds=[
-      {x:-26,y:13,z:-12,speed:.28,scale:1.05,yaw:.15},
-      {x:-13,y:15,z:8,speed:.22,scale:.85,yaw:-.3},
-      {x:0,y:12,z:-3,speed:.32,scale:1.2,yaw:.2},
-      {x:13,y:14,z:16,speed:.25,scale:.95,yaw:-.15},
-      {x:26,y:15,z:-16,speed:.3,scale:1.1,yaw:.4},
-    ];
-    this.clouds.forEach(cloud=>{cloud.scale*=CLOUD_SCALE;cloud.x*=CLOUD_SCALE;cloud.y*=3;cloud.z*=2;});
-    const geometry=cloudGeometry();geometry.computeBoundingSphere();
-    const maximumScale=Math.max(...this.clouds.map(cloud=>cloud.scale));
-    this.cloudReach=(geometry.boundingSphere.radius+geometry.boundingSphere.center.length())*maximumScale;
-    // At either endpoint even the nearest cloud vertex is beyond a conservative full-frustum radius
-    // from every position in the garden, regardless of view direction.
-    this.visibilityRadius=viewRadius;
-    this.wrapDistance=viewRadius+Math.hypot(halfWidth,halfDepth)+this.cloudReach+5;
-    this.arcLift=Math.hypot(halfWidth,halfDepth)*.6;
-    this.arcBend=halfWidth;
-    this.arcRun=Math.max(halfWidth,halfDepth)*4+this.cloudReach*2;
+  constructor(scene,{halfWidth=0,halfDepth=0,wallHeight=3.048,viewDistance=250,random=Math.random}={}) {
+    this.scene=scene;this.elapsed=0;this.dummy=new THREE.Object3D();this.cycleSeconds=1800;this.wallHeight=wallHeight;
+    this.clouds=Array.from({length:10},(_,i)=>({
+      phase:((i/10+(random()-.5)*.06)%1+1)%1,
+      y:i===0?28+random()*4:i===1?48+random()*10:i<9?28+random()*30:48+random()*16,
+      z:[-100,0,100][i%3]+(random()-.5)*(i%3===1?10:24),bend:(random()-.5)*8,
+      scale:(i===0?.4+random()*.2:i===1?1.3+random()*.4:i===9?1.3+random()*.3:.45+random()*1.2)*CLOUD_SCALE,yaw:random()*Math.PI*2
+    }));
+    const geometry=cloudGeometry();geometry.computeBoundingSphere();geometry.computeBoundingBox();
+    this.cloudReach=(geometry.boundingSphere.radius+geometry.boundingSphere.center.length())*Math.max(...this.clouds.map(c=>c.scale));
+    this.wrapDistance=Math.max(viewDistance*.8,Math.hypot(halfWidth,halfDepth)+this.cloudReach+20);
+    for(const cloud of this.clouds){cloud.speed=this.wrapDistance*2/this.cycleSeconds;cloud.hiddenY=wallHeight-.2-geometry.boundingBox.max.y*cloud.scale;}
     const material=new THREE.MeshBasicMaterial({color:0xffffff,vertexColors:true,toneMapped:false});
-    this.mesh=new THREE.InstancedMesh(geometry,material,this.clouds.length);
-    this.mesh.name='drifting-clouds';this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    // Decorative sky geometry is outside interaction targets and casts no shadows.
+    this.mesh=new THREE.InstancedMesh(geometry,material,10);this.mesh.name='drifting-clouds';this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.castShadow=false;this.mesh.receiveShadow=false;scene.add(this.mesh);this.update(0);
   }
   update(dt) {
-    if(!Number.isFinite(dt)||dt<0)return;
-    this.elapsed+=dt;
+    if(!Number.isFinite(dt)||dt<0)return;this.elapsed+=dt;
     this.clouds.forEach((cloud,i)=>{
-      const wrap=this.wrapDistance;
-      const x=((cloud.x+this.elapsed*cloud.speed+wrap)%(wrap*2))-wrap;
-      const arc=Math.exp(-((x/this.arcRun)**2));
-      this.dummy.position.set(x,cloud.y+this.arcLift*arc,cloud.z+this.arcBend*arc);this.dummy.rotation.set(0,cloud.yaw,0);this.dummy.scale.setScalar(cloud.scale);this.dummy.updateMatrix();this.mesh.setMatrixAt(i,this.dummy.matrix);
-    });
-    this.mesh.instanceMatrix.needsUpdate=true;this.mesh.computeBoundingSphere();
+      const phase=((cloud.phase+this.elapsed/this.cycleSeconds)%1+1)%1;
+      const x=(phase*2-1)*this.wrapDistance,u=x/this.wrapDistance,arc=1-u*u;
+      // The final 10% at each end is fully below the wall top before any wrap.
+      const t=Math.max(0,Math.min(1,(Math.abs(u)-.65)/.25)),sink=t*t*(3-2*t);
+      const y=(cloud.y+3*arc)*(1-sink)+cloud.hiddenY*sink;
+      this.dummy.position.set(x,y,cloud.z+cloud.bend*arc);this.dummy.rotation.set(0,cloud.yaw,0);this.dummy.scale.setScalar(cloud.scale);this.dummy.updateMatrix();this.mesh.setMatrixAt(i,this.dummy.matrix);
+    });this.mesh.instanceMatrix.needsUpdate=true;this.mesh.computeBoundingSphere();
   }
   dispose(){this.scene.remove(this.mesh);this.mesh.dispose();this.mesh.geometry.dispose();this.mesh.material.dispose();}
 }

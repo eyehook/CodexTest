@@ -1,5 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {CloudSky} from './cloud-sky.mjs?v=32';
+import {CloudSky} from './cloud-sky.mjs?v=95';
 import {mergeGeometries} from '../../shared/vendor/three-r180/addons/BufferGeometryUtils.js';
 import {createGardenRoom} from './garden-room.mjs?v=63';
 import {HALF_WIDTH,HALF_DEPTH,WALL_HEIGHT,DOOR_WIDTH,DOOR_HEIGHT,DOOR_WALL_ID,constrainPosition} from './garden-layout.mjs?v=46';
@@ -60,7 +60,7 @@ export function createEnvironment(scene,renderer,{viewDistance=250}={}) {
   }
   blocks.count=n;
   scene.add(blocks);
-  const clouds=new CloudSky(scene,{halfWidth:HALF_WIDTH,halfDepth:HALF_DEPTH,viewDistance});
+  const clouds=new CloudSky(scene,{halfWidth:HALF_WIDTH,halfDepth:HALF_DEPTH,wallHeight:WALL_HEIGHT,viewDistance});
   const room=createGardenRoom(scene);
   return {ground,walls,clouds,room,targets:[ground,...walls,...room.targets]};
 }
