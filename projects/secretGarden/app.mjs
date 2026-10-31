@@ -6,13 +6,14 @@ import {ButtonEdges} from '../../shared/xr/input.mjs';
 import {ControllerPointer,createPointerLine} from '../../shared/xr/pointer.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=63';
-import {PlantRenderer} from './renderer.mjs?v=51';
+import {PlantRenderer} from './renderer.mjs?v=82';
 import {DeleteHold} from './delete-hold.mjs?v=13';
 import {ActiveController} from './controller-actions.mjs?v=19';
 import {doorwayPlantingBlocked} from './garden-layout.mjs?v=46';
-import {Bees} from './bees.mjs?v=73';
-import {PlantManager} from './manager.mjs?v=58';
-import {GardenSaves} from './garden-saves.mjs?v=60';
+import {Bees} from './bees.mjs?v=82';
+import {PlantManager} from './manager.mjs?v=82';
+import {DebugMenu} from './debug-menu.mjs?v=82';
+import {GardenSaves} from './garden-saves.mjs?v=82';
 import {Teleport} from './teleport.mjs?v=70';
 import {SnapTurn} from './snap-turn.mjs?v=71';
 import {Preferences} from './preferences.mjs?v=73';
@@ -23,9 +24,9 @@ const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(
 const rig=new THREE.Group();scene.add(rig);rig.add(camera);rig.position.z=2.1;camera.position.set(0,1.6,0);camera.rotation.x=-.22;
 const environment=createEnvironment(scene,renderer,{viewDistance:camera.far}),plants=new PlantManager(new PlantRenderer(scene));
 const bees=new Bees(scene);
-const settings=createSettingsPanel(scene,renderer,{bees,onReset:()=>{plants.reset();deleteHold.cancel();target=null;marker.visible=selection.visible=cloneIcon.visible=deleteFill.visible=false;}});
+const settings=createSettingsPanel(scene,renderer,{bees,onReset:()=>{plants.reset();deleteHold.cancel();target=null;marker.visible=selection.visible=cloneIcon.visible=debugIcon.visible=deleteFill.visible=false;}});
 const navigation=new Locomotion(rig,{moveSpeed:1,turnSpeed:Math.PI/4}),edges=new ButtonEdges(),frameState=new XRFrameState();
-const snapTurn=new SnapTurn(),teleport=new Teleport(scene);
+const snapTurn=new SnapTurn(),teleport=new Teleport(scene),debugMenu=new DebugMenu(scene,id=>plants.chooseType(id));
 const pointer=new ControllerPointer({far:25}),desktopRay=new THREE.Raycaster(),mouse=new THREE.Vector2(0,0),keys=new Set();
 const controllers=[0,1].map(i=>{const c=renderer.xr.getController(i);rig.add(c);const line=createPointerLine({color:0xd5e9ac,length:8});line.material.transparent=true;line.material.depthWrite=false;c.add(line);c.addEventListener('connected',e=>{c.userData.source=e.data;c.userData.fresh=true;});c.addEventListener('disconnected',()=>{edges.reset(c.userData.source);delete c.userData.source;});return {controller:c,line};});
 const marker=new THREE.Mesh(new THREE.RingGeometry(.055,.073,24),new THREE.MeshBasicMaterial({color:0xe0edb9,side:THREE.DoubleSide,depthTest:false}));marker.rotation.x=-Math.PI/2;marker.renderOrder=5;marker.visible=false;scene.add(marker);
@@ -39,6 +40,8 @@ for(const [x,y] of [[-.008,.008],[.008,-.008]]) {
 }
 const cloneIcon=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(cloneVertices,3)),new THREE.LineBasicMaterial({color:0xe0edb9,depthTest:false,toneMapped:false}));
 cloneIcon.name='clone-target-icon';cloneIcon.rotation.x=-Math.PI/2;cloneIcon.renderOrder=7;cloneIcon.visible=false;scene.add(cloneIcon);
+const debugIcon=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute([-.022,0,0,.022,0,0,0,-.022,0,0,.022,0],3)),cloneIcon.material.clone());
+debugIcon.name='debug-target-icon';debugIcon.material.transparent=true;debugIcon.material.depthWrite=false;debugIcon.rotation.x=-Math.PI/2;debugIcon.renderOrder=7;debugIcon.visible=false;scene.add(debugIcon);
 let now=0,last=0,target=null,hudText='',shadowRevision=-1,drag=null,dragged=false,desktopSlider=null,vrSlider=null;
 const activeController=new ActiveController(),deleteHold=new DeleteHold(),viewerWorld=new THREE.Vector3();
 const status=document.querySelector('#status');
@@ -52,7 +55,7 @@ function scheduleSettingsSave(){clearTimeout(settingsTimer);vrSettings.setMessag
 settings.model.onChange=id=>{if(id==='shadows'||id==='bees')scheduleSettingsSave();};vrSettings.model.onChange=id=>{if(id==='teleport')teleport.reset();snapTurn.reset();scheduleSettingsSave();};
 if(preferences.error)vrSettings.setMessage('Settings storage unavailable or invalid');
 window.addEventListener('pagehide',()=>{if(settingsTimer!==null)persistSettings();});
-function clearGardenInteraction(){deleteHold.cancel();target=null;desktopSlider=vrSlider=null;marker.visible=selection.visible=cloneIcon.visible=deleteFill.visible=false;}
+function clearGardenInteraction(){deleteHold.cancel();target=null;desktopSlider=vrSlider=null;marker.visible=selection.visible=cloneIcon.visible=debugIcon.visible=deleteFill.visible=false;}
 function restoreGarden(save){
   plants.restore(save.plants,performance.now()/1000,environment.walls.map(w=>w.userData.wallSurface));
   clearGardenInteraction();const count=bees.count;bees.setCount(0);bees.setCount(count);bees.update(plants,performance.now()/1000);
@@ -80,6 +83,8 @@ function showTarget(hit){
   if(selection.visible){const p=plants.instances.get(hit.id);if(p){type=p.surface??'ground';normal=p.support?.normal??groundNormal;placeIndicator(selection,p.position,normal,.012);}else selection.visible=false;}
   cloneIcon.visible=plants.canClone(type)&&marker.visible;
   if(cloneIcon.visible){const circle=selection.visible?selection:marker;cloneIcon.position.copy(circle.position).addScaledVector(normal,.003);cloneIcon.quaternion.copy(circle.quaternion);cloneIcon.scale.setScalar(selection.visible ? .13/.055 : 1);}
+  debugIcon.visible=plants.canDebug(type)&&(marker.visible||selection.visible);
+  if(debugIcon.visible){const circle=selection.visible?selection:marker;debugIcon.position.copy(circle.position).addScaledVector(normal,.003);debugIcon.quaternion.copy(circle.quaternion);debugIcon.scale.setScalar(selection.visible?.13/.055:1);}
 }
 function updateHUD(){
   const text=`${plants.instances.size} plants · ${plants.growing.size} growing`;
@@ -92,18 +97,19 @@ renderer.domElement.addEventListener('pointercancel',()=>{drag=null;desktopSlide
 window.addEventListener('keydown',e=>{if(e.target.closest('button'))return;keys.add(e.code);if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();if(!e.repeat&&!renderer.xr.isPresenting){if(e.code==='KeyB')perform('copy',target);if(e.code==='KeyX')perform('delete',target);if(e.code==='Space'){e.preventDefault();perform('plant',target);};}});
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=null;desktopSlider=null;});
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-renderer.xr.addEventListener('sessionstart',()=>{document.body.classList.add('xr');edges.reset();teleport.reset();snapTurn.reset();desktopSlider=vrSlider=null;activeController.hand='right';activeController.enabled=true;deleteHold.cancel();keys.clear();marker.visible=selection.visible=cloneIcon.visible=false;});
-renderer.xr.addEventListener('sessionend',()=>{document.body.classList.remove('xr');edges.reset();teleport.reset();snapTurn.reset();rig.position.y=0;vrSlider=null;deleteHold.cancel();deleteFill.visible=false;camera.position.set(0,1.6,0);camera.rotation.set(-.22,0,0);for(const c of controllers)c.line.visible=false;});
+renderer.xr.addEventListener('sessionstart',()=>{document.body.classList.add('xr');edges.reset();debugMenu.hide();teleport.reset();snapTurn.reset();desktopSlider=vrSlider=null;activeController.hand='right';activeController.enabled=true;deleteHold.cancel();keys.clear();marker.visible=selection.visible=cloneIcon.visible=debugIcon.visible=false;});
+renderer.xr.addEventListener('sessionend',()=>{document.body.classList.remove('xr');edges.reset();debugMenu.hide();teleport.reset();snapTurn.reset();rig.position.y=0;vrSlider=null;deleteHold.cancel();deleteFill.visible=false;camera.position.set(0,1.6,0);camera.rotation.set(-.22,0,0);for(const c of controllers)c.line.visible=false;});
 try{document.body.append(VRButton.createButton(renderer));}catch(error){status.textContent=`VR unavailable: ${error.message}`;}
 renderer.setAnimationLoop((time,frame)=>{
   const dt=last?Math.min((time-last)/1000,.05):0;last=time;now=time/1000;
   const session=renderer.xr.getSession(),state=frameState.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden);
-  if(!state.active){teleport.reset();snapTurn.reset();vrSlider=null;desktopSlider=null;deleteHold.cancel();deleteFill.visible=false;for(const c of controllers)c.line.visible=false;marker.visible=selection.visible=cloneIcon.visible=false;return;}
+  if(!state.active){debugMenu.hide();teleport.reset();snapTurn.reset();vrSlider=null;desktopSlider=null;deleteHold.cancel();deleteFill.visible=false;for(const c of controllers)c.line.visible=false;marker.visible=selection.visible=cloneIcon.visible=debugIcon.visible=false;return;}
   applyHeightOffset(rig,vrValues,!!session);
   if(session){
-    const viewer=state.pose.transform;if(vrValues.teleport)teleport.sampleSources(session.inputSources,state.resumed,source=>state.isTracked(source.targetRaySpace));else teleport.reset();if(state.resumed)snapTurn.reset();snapTurn.update(navigation,dt,session.inputSources,viewer,vrValues,source=>state.isTracked(source.targetRaySpace));constrainViewer(rig,viewer.position,environment.room.passable);
+    const viewer=state.pose.transform;let palmPose=null;for(const source of session.inputSources)if(source.handedness==='left'&&source.gamepad?.mapping==='xr-standard'&&source.gripSpace)palmPose=frame.getPose(source.gripSpace,renderer.xr.getReferenceSpace());debugMenu.update(palmPose,rig,viewer.position);
+    if(debugMenu.visible){teleport.reset();snapTurn.reset();}else {if(vrValues.teleport)teleport.sampleSources(session.inputSources,state.resumed,source=>state.isTracked(source.targetRaySpace));else teleport.reset();if(state.resumed)snapTurn.reset();snapTurn.update(navigation,dt,session.inputSources,viewer,vrValues,source=>state.isTracked(source.targetRaySpace));}constrainViewer(rig,viewer.position,environment.room.passable);
   }else{
-    navigation.move(dt,Number(keys.has('KeyD'))-Number(keys.has('KeyA')),Number(keys.has('KeyS'))-Number(keys.has('KeyW')),Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),{position:camera.position,orientation:camera.quaternion});constrainViewer(rig,camera.position,environment.room.passable);
+    debugMenu.hide();navigation.move(dt,Number(keys.has('KeyD'))-Number(keys.has('KeyA')),Number(keys.has('KeyS'))-Number(keys.has('KeyW')),Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),{position:camera.position,orientation:camera.quaternion});constrainViewer(rig,camera.position,environment.room.passable);
   }
   const viewerPosition=viewerWorld.copy(session?state.pose.transform.position:camera.position);
   rig.updateMatrixWorld(true);viewerPosition.applyMatrix4(rig.matrixWorld);
@@ -127,9 +133,13 @@ renderer.setAnimationLoop((time,frame)=>{
     }
     // Transfer takes priority for the whole frame and consumes the switching press.
     const teleportFrame=teleport.active;
-    const actions=teleportFrame?[]:activeController.update(inputs);
+    const actions=teleportFrame||debugMenu.visible?[]:activeController.update(inputs);
     const active=activeController.enabled?inputs.find(input=>input.hand===activeController.hand):null;
-    if(teleportFrame){
+    if(debugMenu.visible){
+      vrSlider=null;deleteHold.cancel();const right=inputs.find(input=>input.hand==='right');
+      if(right){const {controller:c,line}=right,hit=pointer.cast(c,debugMenu.targets);line.visible=true;line.scale.z=hit?hit.distance:.8;line.material.color.set(0xdfbd79);debugMenu.setHover(hit?.uv);if(right.trigger)debugMenu.activate({uv:hit?.uv});}
+      else debugMenu.setHover(null);
+    }else if(teleportFrame){
       vrSlider=null;deleteHold.cancel();const owner=inputs.find(input=>input.hand===teleport.source?.handedness);
       if(owner){const {controller:c,line}=owner;const hit=pointer.cast(c,[...settings.targets,...savePanel.targets,...vrSettings.targets,...environment.targets],true);teleport.aim(hit,environment.room.passable,environment.room);line.visible=true;line.scale.z=hit?hit.distance:8;line.material.color.set(teleport.valid?0x83d59a:0xe05b4b);const releasing=teleport.releasing,doorTarget=!!teleport.doorRoom;const moved=teleport.finish(rig,state.pose.transform.position);if(moved&&doorTarget)renderer.shadowMap.needsUpdate=renderer.shadowMap.enabled;if(releasing)line.visible=false;}
       else teleport.reset();
@@ -151,4 +161,4 @@ renderer.setAnimationLoop((time,frame)=>{
   settings.setHover(target?.kind==='control'?target.control:null);savePanel.setHover(target?.kind==='control'?target.control:null);vrSettings.setHover(target?.kind==='control'?target.control:null);showTarget(target);updateHUD();renderer.render(scene,camera);
 });
 // Read-only diagnostic access for local acceptance checks.
-window.secretGarden={scene,renderer,camera,rig,plants,environment,settings,bees,saves,savePanel,vrSettings,vrValues,preferences,teleport};
+window.secretGarden={scene,renderer,camera,rig,plants,environment,settings,bees,saves,savePanel,vrSettings,vrValues,preferences,teleport,debugMenu,debugIcon,cloneIcon};

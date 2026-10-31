@@ -41,7 +41,7 @@ test('maturity preserves exact geometry, colors, world placement and ray targeti
   assert.equal(manager.targets.length,2);
   assert.equal(renderer.matureBatches.pools.size,new Set(a.visual.batches.map(b=>b.key)).size);
   // Detached targeting data retains its mature world transforms and plant IDs.
-  const mesh=a.visual.batches.find(b=>b.key.startsWith('stem')).mesh,local=new THREE.Matrix4();mesh.getMatrixAt(0,local);
+  const mesh=a.visual.batches.find(b=>b.key==='crown'||b.key.startsWith('stem')).mesh,local=new THREE.Matrix4();mesh.getMatrixAt(0,local);
   const center=new THREE.Vector3().applyMatrix4(local).applyMatrix4(mesh.matrixWorld);
   const ray=new THREE.Raycaster(center.clone().add(new THREE.Vector3(0,0,5)),new THREE.Vector3(0,0,-1));
   assert.equal(ray.intersectObjects(manager.targets,true)[0].object.userData.plantId,a.id);

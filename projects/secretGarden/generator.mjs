@@ -1,3 +1,6 @@
+import {flowerHue} from './flower-colors.mjs?v=82';
+import {generateShrub} from './shrub-generator.mjs?v=77';
+import {placeCanopyFlowers} from './canopy-flowers.mjs?v=75';
 // Pure plant data: meters, local coordinates, explicit attachments, normalized time.
 export const GROWTH_SECONDS = 10;
 export const MAX_COMPONENTS = 600;
@@ -42,12 +45,13 @@ export function generatePlant(seed) {
   const parameters = {form,height:range(lo,hi),width:form==='bush'?range(1.1,1.5):range(.65,1.15),primaryStems:integer(minStems,maxStems),depth,
     branchProbability:range(.8,1),branchAngle:range(.45,.95),taper:range(.48,.67),leafSize:form==='tree'?range(.18,.3):range(.09,.19),
     leafShape:integer(0,2),leafDensity:form==='tree'?integer(6,8):integer(3,5),leafHue:range(.22,.36),leafLight:range(.29,.44),
-    flowers:form==='flower'||rng()<.3,petals:integer(5,8),petalShape:integer(0,2),flowerSize:range(.1,.18),flowerHue:rng(),flowerSaturation:rng(),flowerBrightness:range(.25,1)};
+    flowers:form==='flower'||rng()<.3,petals:integer(5,8),petalShape:integer(0,2),flowerSize:range(.1,.18),flowerHue:flowerHue(rng()),flowerSaturation:rng(),flowerBrightness:range(.25,1)};
   const bloomIndex=integer(0,BLOOM_FORMS.length-1), bloom=BLOOM_FORMS[bloomIndex];
   parameters.bloomForm=bloom.name;
   parameters.petals=integer(...bloom.petals);
   parameters.bloomIndex=bloomIndex;
   parameters.clusterCount=rng()<.32?integer(4,8):1;
+  if(form==='bush')return {seed,parameters,parts:generateShrub(parameters,bloom,rng)};
   if(form==='tree') {
     parameters.treeForm=TREE_FORMS[integer(0,TREE_FORMS.length-1)];
     if(parameters.treeForm==='umbrella'){parameters.heightMultiplier=1.25;parameters.height*=parameters.heightMultiplier;parameters.depth=2;parameters.width=range(1,1.3)/parameters.heightMultiplier;}
@@ -74,6 +78,7 @@ export function generatePlant(seed) {
         size:parameters.leafSize*range(.75,1.4),shape:parameters.leafShape,hue:parameters.leafHue,
         light:parameters.leafLight+range(-.04,.06),begin:begin+duration*t+.035,duration:.14});
     }
+    let canopy=null;
     if(form==='tree'&&treeForm!=='open') {
       if(treeForm==='columnar'&&level===0) {
         const tiers=integer(5,7),baseRadius=parameters.height*range(.14,.19);
@@ -98,7 +103,7 @@ export function generatePlant(seed) {
       } else if(treeForm!=='pine'&&level===parameters.depth) {
         const radius=parameters.height*(treeForm==='umbrella'?range(.18,.25)/parameters.heightMultiplier:range(.1,.16));
         const scale=treeForm==='umbrella'?[radius*1.25,radius*range(.5,.65),radius]:[radius*range(.9,1.4),radius*range(.8,1.2),radius];
-        add({kind:'foliage',shape:'crown',parent:node.id,attachment:1,scale,
+        canopy=add({kind:'foliage',shape:'crown',parent:node.id,attachment:1,scale,
           yaw:range(0,Math.PI*2),tilt:range(-.15,.15),hue:parameters.leafHue,
           light:parameters.leafLight+range(-.06,.06),begin:begin+duration+.025,duration:.16});
       }
@@ -114,7 +119,7 @@ export function generatePlant(seed) {
         const t=tree?(treeForm==='umbrella'&&level===0?.66+i/(count-1)*.3:level===0?.42+i/(count-1)*.5+range(-.025,.025):i===count-1?1:range(.48,.9)):range(.3,.95);
         const lengthRatio=tree?(treeForm==='pine'?range(.08,.13)*(1-t*.85):level===0?range(.4,.6):range(.52,.73)):range(.36,.63);
         // An upright continuation fills the crown; other children spread outward.
-        const childAngle=tree?(treeForm==='umbrella'?(i===count-1?range(.65,.9):range(.95,1.35)):treeForm==='pine'?range(1.3,1.55):i===count-1?range(.12,.4):range(.65,1.25)):form==='bush'?range(1.1,1.5):parameters.branchAngle+range(-.15,.22);
+        const childAngle=tree?(treeForm==='umbrella'?(i===count-1?range(.65,.9):range(.95,1.35)):treeForm==='pine'?range(1.3,1.55):i===count-1?range(.12,.4):range(.65,1.25)):parameters.branchAngle+range(-.15,.22);
         stem(point(start,end,t),length*lengthRatio*parameters.width,childAngle,
           azimuth+i*2.399+range(-.6,.6),thickness*parameters.taper,level+1,node,t);
       }
@@ -124,7 +129,7 @@ export function generatePlant(seed) {
         if(form==='tree')treeBloomCount++;
         let flowerParent=node,flowerPosition=end;
         const clustered=parameters.clusterCount>1;
-        if(clustered) {
+        if(clustered||canopy) {
           const spread=parameters.flowerSize*range(.65,1.4);
           const heading=bloomNumber/parameters.clusterCount*Math.PI*2+range(-.25,.25);
           flowerPosition=[end[0]+Math.cos(heading)*spread,end[1]+range(.035,.13),end[2]+Math.sin(heading)*spread];
@@ -134,7 +139,7 @@ export function generatePlant(seed) {
         }
         const tilt=bloom.name==='bell'?range(1.9,2.65):angle*.5+range(.25,.85);
         const heading=azimuth+range(-.55,.55)+(clustered?bloomNumber*2.399:0);
-        add({kind:'flower',parent:flowerParent.id,attachment:1,position:flowerPosition,
+        add({kind:'flower',...(canopy?{canopy:canopy.id}:{}),parent:flowerParent.id,attachment:1,position:flowerPosition,
           yaw:range(0,Math.PI*2),size:parameters.flowerSize*(form==='flower'?1:.65)*(clustered?range(.38,.56):1),
           petals:parameters.petals,shape:bloomIndex,layers:bloom.layers,volume:bloom.volume??false,
           normal:[Math.sin(tilt)*Math.cos(heading),Math.cos(tilt),Math.sin(tilt)*Math.sin(heading)],
@@ -144,7 +149,8 @@ export function generatePlant(seed) {
       }
     }
   }
-  for(let i=0;i<parameters.primaryStems;i++) stem([0,0,0],parameters.height*range(.78,1),form==='tree'?range(.015,.09):form==='bush'?range(.85,1.2):range(.04,.42),form==='bush'?i/parameters.primaryStems*Math.PI*2+range(-.2,.2):range(0,Math.PI*2),radius*parameters.height*range(.8,1.1),0);
+  for(let i=0;i<parameters.primaryStems;i++) stem([0,0,0],parameters.height*range(.78,1),form==='tree'?range(.015,.09):range(.04,.42),range(0,Math.PI*2),radius*parameters.height*range(.8,1.1),0);
+  if(form==='tree'&&parameters.flowers&&['rounded','umbrella'].includes(treeForm))placeCanopyFlowers(parts,rng);
   return {seed,parameters,parts};
 }
 export function growthAmount(part, ageSeconds) {

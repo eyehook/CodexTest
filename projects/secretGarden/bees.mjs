@@ -1,5 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {componentPose,GROWTH_SECONDS} from './generator.mjs?v=51';
+import {componentPose,GROWTH_SECONDS} from './generator.mjs?v=82';
 import {HALF_WIDTH,HALF_DEPTH,WALL_HEIGHT,DOOR_HEIGHT,doorwayPlantingBlocked} from './garden-layout.mjs?v=46';
 const up=new THREE.Vector3(0,1,0),forward=new THREE.Vector3(0,0,1);
 const smooth=value=>{const t=Math.max(0,Math.min(1,value));return t*t*(3-2*t);};

@@ -1,4 +1,5 @@
-import {randomFor,MAX_COMPONENTS,BLOOM_FORMS} from './generator.mjs?v=37';
+import {flowerHue} from './flower-colors.mjs?v=82';
+import {randomFor,MAX_COMPONENTS,BLOOM_FORMS} from './generator.mjs?v=82';
 
 // Local XY is the support wall, +Z faces into the garden. The seed defines
 // growth rules; bounds determine floor/top bends and the continuous wall perimeter.
@@ -6,7 +7,7 @@ export function generateVine(seed,bounds) {
   seed>>>=0;
   const rng=randomFor(seed),range=(a,b)=>a+(b-a)*rng();
   const parameters={form:'vine',surface:'wall',leafHue:range(.24,.38),leafLight:range(.24,.4),
-    leafSize:range(.1,.17),flowers:rng()<.38,flowerHue:rng(),flowerSaturation:range(.3,1),flowerBrightness:range(.35,1)};
+    leafSize:range(.1,.17),flowers:rng()<.38,flowerHue:flowerHue(rng()),flowerSaturation:range(.3,1),flowerBrightness:range(.35,1)};
   const sphereForm=BLOOM_FORMS.findIndex(form=>form.volume);
   parameters.bloomShape=[0,1,2,sphereForm][Math.floor(rng()*4)];
   const parts=[];

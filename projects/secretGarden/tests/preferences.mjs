@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import {Preferences,SETTINGS_KEY,DEFAULT_SETTINGS} from '../preferences.mjs';
-import {GardenSaves,SAVE_PREFIX} from '../garden-saves.mjs';
+import {GardenSaves,SAVE_PREFIX,SAVE_VERSION} from '../garden-saves.mjs';
 import {createVRSettings,applyHeightOffset} from '../vr-settings.mjs';
 import {Locomotion} from '../../../shared/xr/locomotion.mjs';
 import {ROOM_SIZE} from '../garden-layout.mjs';

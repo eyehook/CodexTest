@@ -12,6 +12,10 @@ Support current save versions only; this is an actively developed project. Do no
 
 Bees are an exact user-selected count from 0–10 (default 3), independent of bloom count. They prefer fully grown flowers and fall back to random inward-facing garden wall spots when no other flower is available. Reset/deletion preserves the count. Earlier Off/Low/Medium/High density notes are historical.
 
+## Current shrub structure
+
+Shrubs (`bush`) use 1–5 overlapping ellipsoid canopies with visible trunks, branches and flower stalks. Individual leaves are not generated. Flowers, when present, sit on the exposed canopy union. Older branching-shrub descriptions below are historical.
+
 ## Preview and controls
 
 Use the repository's `Start-VR.command` for USB Quest testing, or serve the repository with `python3 -m http.server 8080 --bind 127.0.0.1` and visit `/projects/secretGarden/`. No install or build step is required.
@@ -605,3 +609,74 @@ Validation: all 88 garden tests pass. New regression cycles rapid hover across a
 ## Rapid-hover mitigation release — 2026-10-31
 
 User authorized committing/pushing the GPU-only hover highlighting and opaque cutout panel-row mitigation for Quest 2 flicker. Final entry cache version 74. All 88 garden tests and Chrome interaction/rendering checks passed as recorded above; whitespace checks clean. Actual Quest 2 resolution remains unconfirmed pending headset testing. No shared runtime/save-schema changes. Earlier local/unpushed notes are historical after release.
+
+
+## Flowers on exposed ellipsoid canopies — 2026-10-31
+
+Confirmed rounded/umbrella flowering trees previously attached blooms to twig endpoints at the centers of their crown ellipsoids. Added pure `canopy-flowers.mjs` postprocessing: seeded outward directions from owning crowns, ray/rotated-ellipsoid intersection across the canopy union, outermost exit placement with 6 mm clearance, and outward gradient normals. Euler XYZ rotations match the renderer. Existing flower stalks extend to the new surface endpoints; single blooms now also receive a stalk, preserving the ordered stem attachment graph, renderer/batching/picking and bee landing consumers. Blossom count/cap and cluster/color/shape rules remain; open-leaf trees, shrubs and ground flowers retain branch-tip placement. Pines and columnar trees remain nonflowering. Timings are bounded to finish bloom growth by ten seconds.
+
+Generator changes invalidate garden reproduction, so SAVE_VERSION is bumped to 3 with no legacy generator/migration; old garden slots are deleted under the documented development policy. Independent settings stay version 4. Entry/generator/helper/renderer/manager/bees/vine imports and garden-save cache queries updated to 75 where affected.
+
+Validation: full garden suite passes, including 1,200-seed growth/component bounds and new canopy coverage checking exposed placement outside every overlapping ellipsoid, surface normals, stem attachment, clone determinism and renderer-transform parity. Chrome rendered flowering rounded seed 34 (30 blooms) and umbrella seed 50 (12 blooms) at maturity with no page errors; screenshot inspected. Whitespace checks pass. Quest visual review remains pending. Local, uncommitted and unpushed.
+
+
+## Ellipsoid shrubs with hidden structure — 2026-10-31
+
+Added `shrub-generator.mjs`, replacing shrubs’ old visible recursive branch/leaf geometry with 1–5 seeded, low ellipsoid crowns. A hidden root and internal branches position the crowns and drive normalized growth; hidden flower stalks preserve structural attachment. Secondary centers stay inside the central crown, guaranteeing overlap. Crown dimensions/yaw/tilt/colors vary by seed. The existing shrub flowering chance is preserved; flowering shrubs emit 4–7 blooms per crown and reuse exposed-canopy placement/normals, including overlap exclusion. All parts finish within ten seconds and remain well below the component cap.
+
+Renderer skips hidden parts before bucket construction, so internal branches contribute no geometry, draw calls, shadows or ray targets in either growing or mature plants. CPU structural poses still update to support crown/flower growth. Existing crown geometry, pooled mature batches, deletion, clones and bee landing-point generation are reused. Removed unreachable old shrub-angle branches from generic generation; no legacy shrub generator retained.
+
+SAVE_VERSION bumped to 4 because shrub seed reproduction changes, with mismatched garden slots deleted per project policy. Independent settings remain version 4. Entry/generator/shrub/renderer/manager/bees/vine/garden-save cache queries advanced to 76 where affected.
+
+Validation: all 90 garden tests pass. New 1,200-seed shrub sweep covers all canopy counts 1–5, overlap/low proportions, flowering/nonflowering forms, exposed bloom positions, hidden stems, no individual leaves and absence of branch geometry before/after mature batching. Picking regression fixtures now target visible crowns where shrub stems are hidden. Existing determinism, growth, component-bound and clone tests pass. Isolated Chrome rendered flowering 1/3/5-crown shrubs (5/18/28 blooms), screenshot inspected, no page errors. Whitespace checks pass. Physical Quest review remains pending. Local, uncommitted and unpushed.
+
+
+## Restore visible shrub structure — 2026-10-31
+
+User reversed the hidden-branch request. Shrub roots, crown branches and flower stalks are now rendered through normal stem batches, showing their growth and connections before/around expanding foliage. Kept 1–5 overlapping ellipsoids and exposed-surface blossoms. Removed the hidden-part flags and renderer skip path entirely; no unused hidden-structure compatibility code remains. All structural stems are also included in normal targeting, shadows and mature batches. SAVE_VERSION bumped to 5 (current-only policy); independent settings remain version 4. Affected entry/generator/shrub/renderer/manager/bees/vine/save queries advanced to 77.
+
+Validation: all 90 garden tests pass. Shrub regression asserts every structural stem has rendered instances, stems survive mature batching, and flowers stay attached to their stalk endpoints at multiple growth ages. Existing canopy overlap/surface, determinism, growth and picking tests pass. Whitespace checks pass. Headset growth appearance remains pending. Local, uncommitted and unpushed; prior hidden-shrub notes are superseded.
+
+
+## Left-palm plant debug menu — 2026-10-31
+
+Added `debug-menu.mjs` and `debug-plant-types.mjs`. The menu opens when the tracked left grip-space palm normal (+X for a left hand, per https://www.w3.org/TR/webxr/#dom-xrinputsource-gripspace) faces upward: world-up dot >.75 to open and >.55 to remain open. Hysteresis avoids threshold chatter. Pose includes rig yaw and seated height. Menu follows above the palm and faces the viewer; rotating away, tracking loss, suspension or leaving XR hides it. It is controller-based (xr-standard gamepad/gripSpace), not hand-tracking gesture input.
+
+Menu lists Random first, Flowers, Shrubs, Grass, Ivy, Tree/random form and all five named tree forms. Existing single ControllerPointer is temporarily routed to the right controller/menu only, regardless of prior active hand/pointer state. Right trigger rising edge selects; opening-frame triggers are absorbed. Left controls, planting/copy/delete, teleport and locomotion are suppressed while open, but button edges continue sampling to avoid held-input leakage after closing. Prior ActiveController state is preserved. Hover uses an independent small highlight plane, no canvas texture uploads. The menu texture redraws only after selection/status changes.
+
+`PlantManager.chooseType` picks a fresh ordinary seed from browser crypto and bounded deterministic rejection search (512 attempts maximum) against current generated form/treeForm. No forced generator variants or special persisted plant representation. Matching seeds enter normal persistent clone mode, including clone scale/yaw variations and existing incompatible-surface behavior; Ivy sets wall mode, other forms ground. Random clears clone state. Menu selections are temporary debug/clone state, not saved preferences. No generator/save schema changes for the menu. Entry/manager/menu/type-selection cache version 78.
+
+Validation: full garden suite passed (93 tests before an additional focused persistent-clone regression); type tests cover every option, matching seeds, surfaces, palm-normal hysteresis, visibility/trigger suppression, hover upload stability and repeated seeded clone planting. Chrome simulated palm pose and real ray intersections selected all 11 rows, with appropriate seeds/surfaces and no page errors; menu screenshot inspected. Syntax/whitespace checks pass. Real Quest palm orientation, accessibility/reach and trigger routing still require headset validation. Local, uncommitted and unpushed.
+
+
+## Separate debug planting mode and plus marker — 2026-10-31
+
+Plant debug menu no longer borrows clone state. `PlantManager.debugType` records the chosen form; chooseType validates the ID, clears prior clone state and activates that debug type without acquiring a seed. Each valid subsequent plant searches from a fresh random seed for the selected form/treeForm, skips the previous debug seed and keeps the type active. Ivy also receives a new seed per placement. Debug plants use ordinary scale 1 and random ground yaw; clone-only scale variation remains exclusive to cloning. Incompatible surfaces reject planting without consuming a seed or clearing the selected debug type. Copying a plant exits debug mode for persistent cloning; Random, B/Y reset, Reset Garden and garden Load clear debug state through the existing reset/copy paths.
+
+Added `debug-target-icon`, a plus (+) inside the compatible ground/wall/plant targeting circle, oriented to the same surface and lifted like the existing rectangle clone marker. Debug and clone markers are mutually exclusive. All target-reset/session/inactive paths also hide the plus. Menu feedback now says debug ready. No generator or save schema changes: each placed plant still stores a normal deterministic seed, and transient debug mode is not persisted. Entry/manager/menu/type-selection cache version 79.
+
+Validation: all 95 garden tests pass, including every form/treeForm, mode separation, repeated fresh seeded debug placement, retained debug selection, incompatible-surface rejection, cloning after debug and existing palm-menu behavior. Chrome verified a visible four-vertex plus with clone marker hidden, two different shrub seeds, retained bush debug mode and null clone state, without page errors. Whitespace/syntax checks pass. Quest indicator review remains pending. Local, uncommitted and unpushed. Prior menu-as-clone descriptions are superseded.
+
+
+## Specific debug options only — 2026-10-31
+
+Removed Random and Tree/random form from the palm menu. Its nine entries are Flowers, Shrubs, Grass, Ivy and Rounded/Open leaf/Pine/Cypress/Umbrella trees. Canvas height and row hit mapping derive from the option list. B/Y still returns to normal random planting. Entry/menu/type-selection/manager cache queries advanced to 80. Focused menu tests and whitespace checks pass. Local and unpushed.
+
+
+## Options-only debug menu — 2026-10-31
+
+Removed the palm menu title, instruction and status footer. Canvas/plane height now fits nine option rows plus 8 px top/bottom padding; ray UV row mapping and hover positioning use the reduced inset. Selected-row highlight remains. Removed unused status-message state. Entry/menu cache version 81. Focused menu tests and whitespace checks pass. Local and unpushed.
+
+
+## Exclude greenish flower colors — 2026-10-31
+
+Added pure `flower-colors.mjs` hue mapping, excluding 70–170° (yellow-green through green/teal). Ground and ivy generators map their existing single flower-hue PRNG sample uniformly across the remaining hue arc; no additional randomness is consumed, preserving geometric sequences. Shrubs/trees and hydrangea blooms inherit the same palette. Leaf/stem colors, saturation and brightness rules are unchanged. SAVE_VERSION bumped to 6 for changed seeded appearance, with no migration; independent settings remain version 4. Affected entry/generator/renderer/manager/bees/vine/debug-type/menu/save query versions advanced to 82.
+
+Validation: full garden suite passes. New 1,200-seed ground-and-vine sweep checks every blossom hue and covers flower/bush/tree/vine forms, including mapping range endpoints. Syntax/whitespace checks pass. Local, uncommitted and unpushed.
+
+
+## Plant/debug release — 2026-10-31
+
+User authorized committing/pushing exposed ellipsoid-tree flowers, 1–5 ellipsoid shrubs with visible trunks/branches/flower connections, the options-only left-palm debug menu, distinct fresh-seed-per-placement debug mode and plus indicator, and exclusion of greenish flower hues. Final entry cache version 82; current garden save version 6 (obsolete slots deleted under the development policy), settings version 4 unchanged.
+
+Final scoped changes reviewed; all 97 garden tests pass and whitespace checks are clean. Chrome visual/ray/planting checks and user headset feedback remain recorded above. No shared runtime changes or build step required. Earlier local/unpushed notes are historical after release.

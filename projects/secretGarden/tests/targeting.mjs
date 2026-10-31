@@ -35,7 +35,7 @@ test('plant bounds skip detailed misses during growth and mature hierarchy skips
  assert.equal(ray.intersectObjects(m.targets,true).length,0);
  p.visual.batches.forEach((b,i)=>b.mesh.raycast=originals[i]);m.update(10);
  p.visual.batches.forEach(b=>b.mesh.raycast=()=>{throw new Error('Unexpected full batch traversal');});
- const mesh=p.visual.batches.find(b=>b.key.startsWith('stem')).mesh,mat=new THREE.Matrix4();mesh.getMatrixAt(0,mat);
+ const mesh=p.visual.batches.find(b=>b.key==='crown'||b.key.startsWith('stem')).mesh,mat=new THREE.Matrix4();mesh.getMatrixAt(0,mat);
  const center=new THREE.Vector3().applyMatrix4(mat).applyMatrix4(mesh.matrixWorld);
  ray.set(center.clone().add(new THREE.Vector3(0,0,3)),new THREE.Vector3(0,0,-1));
  assert.equal(ray.intersectObjects(m.targets,true)[0].object.userData.plantId,p.id);

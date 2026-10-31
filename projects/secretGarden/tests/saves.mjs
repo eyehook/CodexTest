@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
-import {GardenSaves,SAVE_PREFIX,validateSave} from '../garden-saves.mjs';
+import {GardenSaves,SAVE_PREFIX,SAVE_VERSION,validateSave} from '../garden-saves.mjs';
 import {createSavePanel} from '../save-panel.mjs';
 import {PlantManager} from '../manager.mjs';
 import {PlantRenderer} from '../renderer.mjs';
@@ -11,21 +11,21 @@ const data=()=>({plants:[]});
 function storage(){const map=new Map();return {map,getItem:key=>map.get(key)??null,setItem:(key,value)=>map.set(key,value),removeItem:key=>map.delete(key)};}
 test('three persistent slots, latest save ordering and overwrite failures preserve saved data',()=>{
  const disk=storage(),s=new GardenSaves(disk);assert.deepEqual(s.slots,[null,null,null]);assert.equal(s.latest(),null);
- s.save(2,data());s.save(0,data());assert.equal(s.latest().index,0);assert.equal(new GardenSaves(disk).latest().save.version,2);
+ s.save(2,data());s.save(0,data());assert.equal(s.latest().index,0);assert.equal(new GardenSaves(disk).latest().save.version,SAVE_VERSION);
  s.save(2,data());assert.equal(new GardenSaves(disk).latest().index,2);
  const before=s.slots[2];disk.setItem=()=>{throw Error('Quota exceeded');};assert.throws(()=>s.save(2,data()));assert.equal(s.slots[2],before);
 });
 test('corrupt or inaccessible slots fail safely without losing other saves',()=>{
- const disk=storage(),s=new GardenSaves(disk);s.save(1,data());disk.map.set(SAVE_PREFIX+0,'{');disk.map.set(SAVE_PREFIX+2,JSON.stringify({...data(),version:2,savedAt:1,plants:[{seed:1}]}));
+ const disk=storage(),s=new GardenSaves(disk);s.save(1,data());disk.map.set(SAVE_PREFIX+0,'{');disk.map.set(SAVE_PREFIX+2,JSON.stringify({...data(),version:SAVE_VERSION,savedAt:1,plants:[{seed:1}]}));
  const loaded=new GardenSaves(disk);assert.deepEqual(loaded.errors,[0,2]);assert.equal(loaded.latest().index,1);
  assert.deepEqual(new GardenSaves({getItem(){throw Error('blocked');}}).errors,[0,1,2]);
- assert.throws(()=>validateSave({...data(),version:3,savedAt:1}));
+ assert.throws(()=>validateSave({...data(),version:999,savedAt:1}));
 });
 test('snapshot restores seeds, clone transforms, corner vines, mature batching and partial growth',()=>{
  const scene=new THREE.Scene(),r=new PlantRenderer(scene),env=createEnvironment(scene,{shadowMap:{}}),manager=new PlantManager(r,()=>29,()=>.8,()=>1.2);
  const first=manager.plant(new THREE.Vector3(1,0,-2),0);manager.copy(first.id);manager.plant(new THREE.Vector3(-1,0,-1),7);
  const wall=env.walls[1].userData.wallSurface;manager.plant(new THREE.Vector3(-4.572,1,1),0,wall);manager.update(10);
- const records=JSON.parse(JSON.stringify(manager.snapshot(10))),structures=[...manager.instances.values()].map(p=>p.structure);validateSave({...data(),version:2,savedAt:1,plants:records});
+ const records=JSON.parse(JSON.stringify(manager.snapshot(10))),structures=[...manager.instances.values()].map(p=>p.structure);validateSave({...data(),version:SAVE_VERSION,savedAt:1,plants:records});
  manager.restore(records,100,env.walls.map(w=>w.userData.wallSurface));assert.equal(manager.instances.size,3);assert.equal(manager.growing.size,1);assert.equal(manager.clonedSeed,null);
  const restored=[...manager.instances.values()];restored.forEach((p,i)=>{assert.deepEqual(p.structure,structures[i]);assert.deepEqual(p.position.toArray(),records[i].position);assert.equal(p.scale,records[i].scale);assert.equal(p.rotationY,records[i].rotationY);});
  assert.equal(restored[0].state,'mature');assert.ok(restored[0].visual.matureSlots);assert.equal(restored[1].born,97);assert.equal(restored[2].support.id,wall.id);

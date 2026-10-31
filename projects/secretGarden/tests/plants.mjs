@@ -47,7 +47,7 @@ test('blooms vary in silhouette, depth, orientation and clustered arrangement',(
     assert.ok(p.parameters.flowerBrightness>=.25&&p.parameters.flowerBrightness<=1);
     if(p.parameters.clusterCount>1){clustered++;assert.ok(flowers.some(f=>p.parts[f.parent].radius<.02));}
     else single++;
-    for(const f of flowers){assert.ok(Math.abs(Math.hypot(...f.normal)-1)<1e-9);assert.ok(Math.abs(f.normal[1])<.99);if(f.normal[1]<0)nodding++;assert.equal(growthAmount(f,10),1);}
+    for(const f of flowers){assert.ok(Math.abs(Math.hypot(...f.normal)-1)<1e-9);if(f.canopy===undefined)assert.ok(Math.abs(f.normal[1])<.99);if(f.normal[1]<0)nodding++;assert.equal(growthAmount(f,10),1);}
   }
   assert.equal(forms.size,7);assert.ok(clustered>0&&single>0&&nodding>0);
 });
@@ -81,25 +81,6 @@ test('clones sample independent uniform scale without changing the seed structur
   manager.copy(null);manager.randomSeed=()=>456;const next=manager.plant(position,3);
   assert.equal(next.scale,1);assert.equal(next.seed,456);
   assert.deepEqual(received,[1,.8,1.2,1]);assert.equal(samples,2);
-});
-
-test('shrubs form low spreading crowns with predominantly horizontal limbs',()=>{
-  let shrubs=0;
-  for(let seed=0;seed<600;seed++){
-    const p=generatePlant(seed);if(p.parameters.form!=='bush')continue;shrubs++;
-    const stems=p.parts.filter(x=>x.kind==='stem');
-    const woody=stems.filter(x=>x.radius>.004);
-    const points=woody.flatMap(x=>[x.start,x.end]);
-    const width=Math.max(...points.map(x=>x[0]))-Math.min(...points.map(x=>x[0]));
-    const depth=Math.max(...points.map(x=>x[2]))-Math.min(...points.map(x=>x[2]));
-    const height=Math.max(...points.map(x=>x[1]));
-    assert.ok(Math.max(width,depth)>height*1.5);
-    for(const s of stems.filter(x=>x.parent===null)){
-      const horizontal=Math.hypot(s.end[0]-s.start[0],s.end[2]-s.start[2]);
-      assert.ok(horizontal>s.end[1]-s.start[1]);
-    }
-  }
-  assert.ok(shrubs>100);
 });
 
 test('all five active tree families have bounded foliage and distinct crown proportions',()=>{
