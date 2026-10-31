@@ -47,3 +47,18 @@ test('density levels use 150/100/50 blooms and refresh population without plant 
  for(const [level,count] of [[2,3],[1,2],[3,6],[0,0],[1,2]]){b.setDensity(level);b.update(g,0);assert.equal(b.bees.length,count);assert.equal(b.enabled,level>0);}
  b.dispose();
 });
+
+test('arrival position, surface orientation and wing pose converge before touchdown on floor and wall blooms',()=>{
+ for(const normal of [[0,1,0],[1,0,0],[0,0,-1]]){
+  const b=new Bees(new THREE.Scene(),()=>.4),p=plant(1),g=garden(p);for(const part of p.structure.parts)part.normal=normal;p.state='mature';g.growing.clear();b.update(g,0);b.update(g,4);
+  const bee=b.bees[0],arrival=bee.began+bee.duration;
+  b.update(g,arrival-1/90);const before=bee.position.clone(),rotation=bee.quaternion.clone(),wingBefore=new THREE.Matrix4();b.wings.getMatrixAt(0,wingBefore);
+  b.update(g,arrival);const wingAfter=new THREE.Matrix4();b.wings.getMatrixAt(0,wingAfter);
+  assert.ok(before.distanceTo(bee.position)<.001,'final frame should settle without a position jump');
+  assert.ok(rotation.angleTo(bee.quaternion)<.01,'orientation must already match the flower at arrival');
+  assert.ok(new THREE.Vector3(0,1,0).applyQuaternion(bee.quaternion).distanceTo(bee.target.normal)<1e-8);
+  assert.ok(wingBefore.elements.every((v,i)=>Math.abs(v-wingAfter.elements[i])<.01),'wings must settle before arrival');
+  const endRotation=bee.quaternion.clone();b.update(g,arrival+.5);assert.ok(bee.position.equals(bee.end));assert.ok(endRotation.angleTo(bee.quaternion)<1e-7);
+  b.dispose();
+ }
+});

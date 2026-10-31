@@ -1,3 +1,4 @@
+import {Vector3} from '../../shared/vendor/three-r180/three.module.js';
 import {generatePlant,GROWTH_SECONDS} from './generator.mjs?v=51';
 import {generateVine} from './vine-generator.mjs?v=41';
 import {doorwayPlantingBlocked,gardenGroundContains,vineDoorExclusion} from './garden-layout.mjs?v=46';
@@ -26,6 +27,24 @@ export class PlantManager {
     }
     const instance={id,seed,position:placement,surface:type,support:surface,rotationY,scale,structure,born:now,state:'growing'};
     instance.visual=this.renderer.create(structure,placement,id,rotationY,scale);this.instances.set(id,instance);this.growing.add(instance);this.revision++;if(!['grass','vine'].includes(structure.parameters.form))this.shadowRevision++;this.renderer.update(instance,0);if(!cloning)this.copy(null);return instance;
+  }
+  snapshot(now) {
+    return [...this.instances.values()].map(p=>({seed:p.seed,position:p.position.toArray(),rotationY:p.rotationY,scale:p.scale,surface:p.surface,wallId:p.support?.id??null,bounds:p.structure.bounds??null,age:Math.min(GROWTH_SECONDS,Math.max(0,now-p.born))}));
+  }
+  restore(records,now,surfaces=[]) {
+    // Prepare every deterministic structure before replacing the current garden.
+    const prepared=records.map(record=>{
+      const support=record.surface==='wall'?surfaces.find(s=>s.id===record.wallId):null;
+      if(record.surface==='wall'&&!support)throw new Error('Saved wall is unavailable');
+      return {...record,position:new Vector3().fromArray(record.position),support,structure:record.surface==='wall'?generateVine(record.seed,record.bounds):generatePlant(record.seed)};
+    });
+    this.reset();
+    for(const record of prepared){
+      const id=this.nextId++,instance={...record,id,born:now-record.age,state:'growing'};
+      instance.visual=this.renderer.create(instance.structure,instance.position,id,instance.rotationY,instance.scale);
+      this.instances.set(id,instance);this.growing.add(instance);
+    }
+    this.update(now);
   }
   copy(id) {const p=this.instances.get(id);this.clonedSeed=p?.seed??null;this.clonedSurface=p?(p.surface??'ground'):null;}
   remove(id) {const p=this.instances.get(id);if(!p)return;this.growing.delete(p);this.renderer.remove(p.visual);this.instances.delete(id);this.revision++;if(!['grass','vine'].includes(p.structure.parameters.form))this.shadowRevision++;}

@@ -2,7 +2,11 @@
 
 ## Status and scope
 
-Implemented for desktop and Meta Quest 3. The garden starts empty. No persistence, wind, maintenance, collision between plants, or placement spacing is implemented. The user has tested on Quest and reports mature batching helped. A live USB-debugging capture was taken with 74–75 plants before batching; later changes have not received a complete headset acceptance pass. The user authorized committing and pushing this release on 2026-10-30.
+Implemented for desktop and Meta Quest 3. The garden starts empty. Three local-browser save slots are implemented. Wind, maintenance, collision between plants and placement spacing are not implemented. The user has tested on Quest and reports mature batching helped. A live USB-debugging capture was taken with 74–75 plants before batching; later changes have not received a complete headset acceptance pass. The user authorized committing and pushing this release on 2026-10-30.
+
+## Standing save compatibility policy
+
+Support current save versions only; this is an actively developed project. Do not preserve old generators, deserializers, migrations or compatibility branches for obsolete saves. Bump `SAVE_VERSION` for incompatible garden/generator changes and `SETTINGS_VERSION` for incompatible preferences. Keep keys stable; delete mismatched records, mark garden slots Empty, and use defaults for mismatched settings. Preserve unaffected records. See [project instructions](AGENTS.md) for the standing rules. These rules supersede historical migration notes below unless the user explicitly requests a policy change.
 
 ## Preview and controls
 
@@ -436,3 +440,136 @@ Validation: all 61 garden tests pass, including every density’s population on 
 ## Bee release — 2026-10-30
 
 User authorized committing and pushing the mature-flower bees and four-position Off / Low (1:150) / Medium (1:100, default) / High (1:50) slider. Final cache version 56. Reviewed the complete scoped change; all 61 garden tests and whitespace checks pass. Chrome rendering and slider checks are recorded above. Shared runtime files are unchanged. Quest appearance, drag interaction and sustained performance remain pending user testing. Earlier local/uncommitted notes describe pre-release state.
+
+
+## Smooth bee touchdown — 2026-10-30
+
+Removed the abrupt flight-facing to flower-aligned pose change at landing. Flight position now eases into/out of its curve with zero endpoint velocity; the final curve control point lies directly along the flower normal for a surface-directed approach. During the last 35% of flight, body orientation blends into the exact resting quaternion and wing flapping fades into the resting pose. Takeoff also blends out of the previous orientation. The path endpoint remains the same stored flower landing position plus body clearance; touchdown introduces no positional correction. Entry/bee cache queries advanced to 57.
+
+Validation: all 62 garden tests pass, with a new regression checking the last 90 Hz frame before arrival against the landed position, body orientation and wing matrices on upward-facing and two wall-facing flower normals. Position change is below 1 mm and orientation change below .01 radians in those fixtures; resting pose remains stable afterward. Whitespace checks pass. These are automated transition checks; visual headset verification remains pending. Local, uncommitted and unpushed.
+
+
+## Three-slot Save / Load panel — 2026-10-30
+
+Added `save-panel.mjs` on the left-hand side when facing the existing +Z settings panel: +X room wall, x=ROOM_SIZE/2-.075, centered along room Z, rotation -π/2 so it faces inward. Three rows show Slot 1–3 and Empty or a localized save timestamp, with separate Save and Load hit regions. Empty Load buttons are disabled. Feedback is on a separate footer below the rows. Uses shared ControlModel actions and the existing active-hand/desktop target resolver; no new controller listeners or raycasts. Board and controls are non-plantable.
+
+`garden-saves.mjs` stores three individually versioned JSON records under `secretGarden.save.v1.0`–`.2` in localStorage. Schema validation rejects malformed records individually, so other valid slots remain usable. Save timestamps strictly increase even if clock time repeats or moves backward. Most recently *saved* slot (not most recently loaded) restores at page initialization; entering/exiting XR on the same page preserves the current live garden. Failed storage writes preserve previous slot data and labels, including overwrites; blocked storage and load failures produce panel feedback. No background autosave, delete-slot action or cloud sync. Reset Garden does not erase saves. Storage is per origin/browser/device; preview and published URLs do not share it.
+
+`PlantManager.snapshot/restore` serialize seed, world position/yaw/scale, growth age, support wall ID and vine generation bounds/exclusions. Deterministic structures are regenerated before resetting the current garden; restored mature plants enter mature rendering batches and growing plants resume at their saved age. Runtime IDs, clone/delete/selection and bees reset on load; bees then rebuild only from mature blooms. Shadows and Bees density are saved/restored through the existing model. Viewer position stays unchanged during manual Load; fresh pages use the original starting pose. Seeds/bounds keep saves compact and depend on the current plant generator. Bump SAVE_VERSION for incompatible generator changes; mismatched saves are deleted rather than migrated. Entry/manager/save modules cache version 58; bee touchdown fix remains version 57.
+
+Validation: 66 garden tests pass, including persistent slot ordering, failed overwrites, corrupt/inaccessible slots, cloning/vine/growth round-trips and hidden/empty-panel input. Isolated Chrome context verified actual Save/Load clicks: saved 3 plants to Slot 3, then 4 to Slot 1, manually loaded Slot 3, reloaded page and automatically restored Slot 1’s 4 mature plants, Shadows off and Low bees. Slots remained [4, Empty, 3]; no page errors. Empty/filled panel screenshots reviewed and footer overlap corrected. Syntax and whitespace checks pass. Existing browser saves were untouched by browser testing. Quest legibility/controller validation remains pending. Local, uncommitted and unpushed; earlier push authorization does not cover these changes.
+
+
+## Right-wall VR Settings and independent preferences — 2026-10-30
+
+Added `vr-settings.mjs` on the right-hand wall when facing Settings (+Z): x=-ROOM_SIZE/2+.075, room-Z center, rotation +π/2, facing inward. Existing front-panel title is now Settings. Three numeric sliders use the same project-owned SettingsSlider adapter (generalized from BeeSlider) and shared sliderValue/ControlModel quantization, plus the existing active-hand/desktop drag routing. Height offset: 0–1 m, .05 m step, default 0. Movement speed: .25–3 m/s, .25 step, default 1. Turn speed: 15–120 degrees/s, 15 step, default 45. Model setters update shared Locomotion settings (turn converted to radians). Speeds affect its desktop and XR adapters consistently. Height offset sets rig.y only while XR is active and resets to zero outside XR, lifting headset and controllers together without mutating their tracked transforms. No shared runtime files changed.
+
+`preferences.mjs` owns the independent `secretGarden.settings.v1` localStorage record with only Shadows, Bees density, heightOffset, moveSpeed and turnSpeed plus version metadata. It validates ranges, falls back to defaults on malformed/unavailable storage and preserves prior stored values on failed writes. Both panels autosave with 250 ms debounce and pagehide flush. Feedback on the VR panel reports saved/pending/failure status. Garden saves now write schema version 2 under the existing slot keys and contain only version/savedAt/plants. Garden load/reset does not change any preferences. The existing temporary bee clear/rebuild on garden load preserves selected density.
+
+Legacy version-1 garden records remain readable. Their newest Shadows/Bees values seed the separate preferences record only if no valid separate save exists. Legacy slots are rewritten without duplicated preference fields only after the separate save succeeds; failures retain legacy disk data for retry. Slot ordering/timestamps and plant contents are preserved. No cloud synchronization or extra garden-slot copy of VR/general settings. Previous handoff statements about Shadows/Bees inside slots describe the superseded schema. Entry/settings/slider/preferences/VR/garden-save cache queries advanced to 59.
+
+Validation: 69 garden tests pass, including independent preferences, stripping/migrating legacy duplicate settings, failed writes/invalid storage, slider quantization, shared speed updates and VR-only rig height with unmodified tracked camera position. Isolated Chrome clicks set .50 m, 2 m/s and 90°/s, persisting all five preferences. Changed movement to 1.5 and Bees to High, loaded a garden and verified they remained unchanged; page reload restored the latest garden and independent preferences. Stored garden keys were exactly version/savedAt/plants. No page errors. VR panel screenshot reviewed; footer spacing refined. Syntax/whitespace checks pass. Quest seated height, comfort, slider interaction and sustained performance remain pending. All changes are local, uncommitted and unpushed.
+
+
+## Development save-version policy — 2026-10-30
+
+User explicitly requested no backwards compatibility. Removed all legacy slot/settings migration, extraction and rewrite logic. `SAVE_VERSION` (currently 2) is the sole accepted garden payload version. On read, any other/missing version deletes that slot key and leaves its in-memory entry null, so it displays Empty and cannot auto-load. Matching slots remain untouched. `SETTINGS_VERSION` (currently 1) similarly deletes incompatible preference records and starts with defaults. If storage deletion fails, the slot remains unavailable and existing error feedback reports the failure. Only the affected key is removed; no storage-wide clearing occurs.
+
+Keep storage keys stable when bumping payload versions so old records can be found and removed. Bump SAVE_VERSION whenever changed plant generation or serialization would make old garden saves incompatible. Retain only the current generator; do not add migrations or legacy generator implementations. This policy supersedes earlier migration notes above. Entry/garden-save/preferences cache version 60.
+
+Validation: all 71 garden tests pass, including deletion of both older/newer garden versions while retaining a matching slot, independent settings mismatch deletion/defaults, and unchanged persistence/error-handling tests. Whitespace checks pass. Changes remain local, uncommitted and unpushed.
+
+
+## Neutral-gated snap turning — 2026-10-30
+
+Added Snap turn checkbox above the turn slider on the right-wall VR Settings panel. Default is off. Enabling it hides Turn speed and shows Snap with labeled 15°/30°/45° stops (default 30°); disabling it restores the prior smooth speed. Only the visible slider is in the ray-target list; inactive definitions are disabled to reject stale drags. Panel board and rows were spaced for the added checkbox.
+
+Project-owned `snap-turn.mjs` reads shared movement axes and uses shared Locomotion.move for movement and exact headset-pivot rotations. Snap activation requires horizontal right-stick magnitude >=.65; another snap requires the entire thumbstick (including vertical axis) within radius .2. Holding or reversing direction does not repeat. New controller identity, tracking loss/resume, XR session changes, suspension and turn-setting changes disarm the latch until neutral. Smooth mode follows the existing navigation update; desktop arrows remain smooth. Turn speed is temporarily set only for the one shared pivot move and restored immediately. No shared runtime changes or extra controller listeners.
+
+Independent preferences now include snapTurn and snapAngle. SETTINGS_VERSION is bumped to 2 with no migration, per the development policy: old settings records are deleted and defaults used, while garden slots remain version 2 and are unaffected. Settings/slider/snap-turn/VR/preferences/entry cache version 61.
+
+Validation: 74 garden tests pass, including all three exact angles, stable world headset pivot, no held/reversed-stick repeat, full neutral requirement, tracking/reset suppression and smooth mode continuity. Checkbox/slider tests cover mode visibility, disabled old sliders and 30° default. Isolated Chrome real clicks enabled Snap, selected each angle and restored enabled/45° after reload with no page errors. Screenshot reviewed. Syntax and whitespace checks pass. Physical Quest interaction and comfort remain pending. Local, uncommitted and unpushed.
+
+
+## Right-stick teleport targeting — 2026-10-30
+
+Added project-owned `teleport.mjs`. After a neutral-seeded right stick deflects upward (Y<=-.65), the right controller temporarily supplies the single pointer even if the prior pointer hand was left or disabled. During teleport aiming normal planting/copy/delete/settings input is suppressed and existing edges continue sampling, so held controls cannot fire afterward. The prior ActiveController state is preserved. Aim uses the existing ControllerPointer against environmental geometry and panels, without plants; blockers therefore win nearest hit, but plants may be intersected. No extra controller raycasts are added.
+
+Target marker is a 16-sided cylinder, .18 m radius × 1.6 m tall, transparent opacity .5, depthWrite off, no shadows. Green marks a valid upward floor hit (surface Y near zero, normal Y>.9) inside the existing viewer containment rectangles/margin; red marks invalid surfaces. Missing targets hide it. Releasing upward Y back to >=-.2 recomputes the current ray target and teleports only if valid. Translation accounts for physical head offset and rig yaw so the tracked headset, not rig origin, ends above the target. Height offset and yaw are preserved. Marker/ray clear on release; the normal pointer returns next frame. Tracking loss, controller reconnect, XR session transitions and inactive frames cancel and absorb held-up input until neutral, never committing a stale destination.
+
+Smooth and snap turning stay enabled during aiming. `SnapTurn.update` now accepts a teleporting flag: while aiming, horizontal neutral (|X|<=.2) rearms the snap, allowing repeated deliberate turns while Y remains up. Outside teleport it retains full-stick radial neutral. Gate activation remains |X|>=.65. Left-stick walking remains available. No save-schema changes. Entry/teleport/snap-turn cache queries advanced to 62.
+
+Validation: all 78 garden tests pass. New tests cover gesture seeding, valid/invalid/missing targets, correct head-centered destination, height/yaw preservation, tracking cancellation and smooth/snap turning while aiming. Isolated Chrome WebGL checked real garden and room floor ray hits as valid, wall hit invalid, opacity .5 and no page errors; cylinder screenshot reviewed. Syntax/whitespace checks pass. Full physical Quest gesture/release/controller behavior and comfort remain pending. Local, uncommitted and unpushed.
+
+
+## Door teleport destination — 2026-10-30
+
+Door leaf, both handles and hinge stile now identify as door teleport targets. Aiming at any of them is valid even while closed and maps to the exact hallway midpoint (x=0, y=0, z=DOOR_Z); the cylinder is placed at that destination rather than the surface hit. Other environmental blockers retain their existing rules. Target loss/change clears the door action.
+
+On valid release, `Teleport.finish` opens the door fully before moving the headset to the midpoint. `room.openFully` latches wanted/open fraction=1, cancels any reversing/closing state, selects swing away from the pre-teleport approach side and updates the hinge world transform immediately. Proximity keeps it fully open while the user is at the midpoint; normal automatic closing resumes after departure. Door teleport invalidates the shadow map on that same frame when shadows are enabled. No save format changes. Entry/environment/room/teleport cache version 63.
+
+Validation: all 80 garden tests pass, including leaf/handle/stile targets, exact highlight/destination agreement, no opening before release, full opening from both sides, stable open state after arrival and cancellation after aiming away. Whitespace checks pass. Physical Quest appearance/controller testing remains pending. Local, uncommitted and unpushed.
+
+
+## Teleport movement-mode checkbox — 2026-10-30
+
+Added Teleport above Movement speed in VR Settings, default off. On gates right-stick teleport gestures and blocks all left-stick translation through the project SnapTurn wrapper in both smooth-turn and snap-turn modes; turning stays enabled. Off cancels any teleport gesture and restores smooth controller movement. Desktop WASD is unchanged. Movement speed is model-disabled and visually grayed while Teleport is on; its value is preserved and stale/held slider interactions cannot modify it. Shared SettingsSlider now dims disabled text, track and thumb and suppresses hover highlighting. Panel rows/board were spaced to include the new checkbox.
+
+Teleport preference autosaves independently of gardens. SETTINGS_VERSION bumped to 3 with no compatibility/migration code, so old settings reset per the project policy; garden SAVE_VERSION remains 2. Entry/settings/slider/VR/preferences/snap-turn cache version 64.
+
+Validation: all 82 garden tests pass, including translation suppression with continued smooth/snap rotation, restoring translation on mode off, disabled slider rejection and value preservation. Isolated Chrome click enabled Teleport, verified disabled Movement speed, and restored mode on reload without page errors; panel screenshot inspected. Whitespace/syntax checks pass. Physical Quest mode behavior and comfort remain pending. Local, uncommitted and unpushed.
+
+
+## VR checkbox proportions — 2026-10-30
+
+Teleport and Snap turn checkbox planes now preserve the shared widget canvas aspect ratio (1024:212), both at .18 m height and aligned with the left edge of the sliders. This removes horizontal stretching of their squares and lettering while retaining the existing panel spacing. Entry/VR panel cache version 65. Chrome screenshot inspected; actual checkbox activation, disabled speed state and preference reload verified with no page errors. Whitespace check passes. Local and unpushed.
+
+
+## VR Settings visual cleanup — 2026-10-30
+
+Added project-local `vr-control-style.mjs` to skin existing model-bound slider/checkbox widgets consistently without replacing input logic. All rows are 1.65 m wide, with canvas-to-plane aspect ratios matched exactly. Rounded green rows, gold values/slider fill, quieter hover, aligned type/insets and compact full-width checkbox rows with On/Off labels replace the mix of stretched sliders and short checkbox bars. Disabled Movement speed stays dim and explains its Teleport dependency. Header now includes Comfort & movement; save feedback is smaller and aligned to the same inset. Board is 1.9 × 2.1 m at y=1.4 with uniform row gaps and no overlap. Shared runtime and save schemas are unchanged. Entry/VR/skin cache version 66.
+
+Validation: six settings/model tests pass. Chrome reviewed both disabled Teleport mode and enabled Snap mode; actual checkbox clicks, 15°/30°/45° selection and reload persistence passed without page errors. Final screenshot reviewed with desktop overlays hidden to inspect the whole panel. Syntax/whitespace checks pass. Headset readability remains pending. Local, uncommitted and unpushed.
+
+
+## Pointer above transparent control rows — 2026-10-30
+
+Controller ray materials now join the transparent render queue with depthWrite=false, retaining the shared pointer’s depthTest=false and renderOrder=1000. This makes their high render order effective relative to the transparent rounded VR option backgrounds, which previously rendered after the opaque rays and covered them. Applies to both controller rays, including teleport mode, without changing shared runtime or targeting. Entry cache version 67. Syntax/whitespace checks pass. Local and unpushed.
+
+
+## Teleport moved to left thumbstick — 2026-10-30
+
+Teleport mode now reads upward input from the tracked left controller and aims using its pointer. Release/cancellation, cylinder/door targeting, prior-pointer restoration and the Teleport enable setting are unchanged. The right stick remains dedicated to smooth/snap turning. Removed the special horizontal-only snap rearm during teleport: with separate sticks, right-stick full neutral applies consistently in both modes. Earlier right-stick teleport notes are superseded. Entry/snap-turn cache version 68; save versions unchanged. Tests verify held left-stick teleport alongside independent repeated right-stick turns without translation. Local and unpushed.
+
+
+## Default VR movement preferences — 2026-10-30
+
+Fresh/default preferences now enable Teleport and Snap turn, with the existing 30° default snap angle. Smooth movement starts disabled and its speed slider gray; the turn slider starts in Snap mode. Valid saved preferences remain authoritative. Save schema is unchanged; no migration or compatibility code added. Entry/preferences cache version 69. Settings tests cover fresh defaults and preservation of explicitly saved off choices. Earlier default-off notes are superseded. Local and unpushed.
+
+
+## Either-hand teleport initiation — 2026-10-30
+
+Either neutral-seeded thumbstick may now start teleport; its controller supplies the single aiming ray and release commits only that hand’s target. Per-source readiness absorbs other-hand gestures during an active teleport, so held input cannot steal ownership or immediately start another gesture afterward. Simultaneous fresh upward presses deterministically prefer left, regardless of source order. Owner tracking loss cancels without teleport; reconnect/resume still require neutral. Right-stick turning remains available: when the right hand owns teleport, horizontal neutral rearms snap while holding up; left-owned teleport retains ordinary right-stick full-neutral gating. No save changes. Entry/teleport/snap-turn cache version 70.
+
+Validation: 11 teleport/snap tests pass, covering both owners, release, other-hand suppression, simultaneous ordering and tracking cancellation, plus existing destination/door/turning behavior. Syntax/whitespace checks pass. Local and unpushed.
+
+
+## Symmetric turning in Teleport mode — 2026-10-30
+
+With Teleport enabled, either tracked controller now provides smooth or snap turning from its horizontal thumbstick axis, while upward input initiates teleport on that hand. Snap readiness is tracked independently per input source; horizontal neutral rearms that source even while held up, so both hands behave identically. Tracking loss/reconnect/settings reset continue to absorb held snap input. Smooth turning uses the strongest horizontal input rather than summing speed; simultaneous equal opposing inputs cancel. Snap events are consumed per source and combine into at most one chosen-angle turn per frame, with opposing events cancelling. Teleport-disabled mode retains left-stick movement/right-stick turning and full-stick neutral for snaps. Shared Locomotion still owns head-pivot rotation; no shared runtime/save schema changes. Entry/snap-turn cache version 71.
+
+Validation: 13 snap/teleport tests pass, including identical left/right smooth and snap response while held upward, independent neutral rearming, no doubled simultaneous turns and opposing-input cancellation. Syntax/whitespace checks pass. Physical Quest symmetry/comfort verification remains pending. Local and unpushed.
+
+
+## Matching Settings and Save/Load styling — 2026-10-30
+
+Settings and Save/Load now match VR Settings: dark green boards/headers, rounded full-width rows, gold actions/values, muted secondary text, aligned 48 px headers/38 px control labels and subtle hover/disabled states. Settings reuses the existing project control skin for Shadows and Bees; Bees supplies labeled Off/Low/Medium/High stops through a generic stop formatter. Reset Garden uses a matching full-width rounded action. Settings board widened to the same 1.9 m as the side panels. Save slots use consistent rounded rows/buttons, Empty secondary labels and dim disabled Load actions. Canvas/plane ratios match for undistorted text. Current input hit regions, save semantics and pointer ordering remain intact. Entry/settings/save/VR/skin cache version 72; no save schema/shared runtime changes.
+
+Validation: 14 relevant settings/save/preferences tests pass. Isolated Chrome actual clicks verified Save, Load, Shadows and High bee density with no page errors. Both panel screenshots reviewed. Syntax/whitespace checks pass. Local and unpushed.
+
+
+## Release — controls, saves and matching panels, 2026-10-30
+
+User authorized pushing the accumulated smooth bee touchdown fix, three garden save slots with latest-save startup restore, independent general/VR preferences, current-version-only save policy and project AGENTS instructions, seated height/speed controls, either-controller teleport and smooth/snap turning, door teleport/opening, default Teleport/Snap enabled, pointer overlay correction and matching Settings/Save/VR panel styling. Final entry cache version 72; garden payload version 2 and settings payload version 3.
+
+Final scoped review and all 87 garden tests passed; `git diff --check` clean. Chrome interaction/rendering checks and pending Quest limitations remain recorded above. All runtime changes are confined to Secret Garden, with no shared runtime edits or build step required. Earlier local/unpushed notes are historical after this release.
