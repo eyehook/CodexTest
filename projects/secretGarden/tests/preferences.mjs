@@ -9,7 +9,7 @@ import {ROOM_SIZE} from '../garden-layout.mjs';
 const disk=()=>{const map=new Map();return {map,getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)};};
 test('preferences persist independently and old garden settings are discarded',()=>{
  const d=disk();d.setItem(SAVE_PREFIX+1,JSON.stringify({version:1,savedAt:2,plants:[],shadows:false,bees:1}));
- const gardens=new GardenSaves(d),prefs=new Preferences(d);assert.equal(gardens.slots[1],null);assert.equal(d.getItem(SAVE_PREFIX+1),null);assert.equal(prefs.value.bees,2);
+ const gardens=new GardenSaves(d),prefs=new Preferences(d);assert.equal(gardens.slots[1],null);assert.equal(d.getItem(SAVE_PREFIX+1),null);assert.equal(prefs.value.bees,3);
  prefs.save({...prefs.value,...{shadows:false,bees:1,heightOffset:.5,moveSpeed:2,turnSpeed:90}});
  gardens.save(0,{plants:[],shadows:true,bees:3});assert.deepEqual(Object.keys(JSON.parse(d.getItem(SAVE_PREFIX+0))).sort(),['plants','savedAt','version']);assert.equal(new Preferences(d).value.heightOffset,.5);assert.equal(new Preferences(d).value.bees,1);
  const before=d.getItem(SETTINGS_KEY);d.setItem=()=>{throw Error('quota');};assert.throws(()=>prefs.save({...prefs.value,bees:3}));assert.equal(d.getItem(SETTINGS_KEY),before);
@@ -31,7 +31,7 @@ test('right-wall sliders quantize, apply shared locomotion speeds, and offset on
 });
 
 test('mismatched settings versions are deleted and use defaults',()=>{
- for(const version of [0,1,2,4]){const d=disk();d.setItem(SETTINGS_KEY,JSON.stringify({version,...DEFAULT_SETTINGS,bees:1}));const prefs=new Preferences(d);assert.deepEqual(prefs.value,DEFAULT_SETTINGS);assert.equal(prefs.exists,false);assert.equal(prefs.error,false);assert.equal(d.getItem(SETTINGS_KEY),null);}
+ for(const version of [0,1,2,3,5]){const d=disk();d.setItem(SETTINGS_KEY,JSON.stringify({version,...DEFAULT_SETTINGS,bees:1}));const prefs=new Preferences(d);assert.deepEqual(prefs.value,DEFAULT_SETTINGS);assert.equal(prefs.exists,false);assert.equal(prefs.error,false);assert.equal(d.getItem(SETTINGS_KEY),null);}
 });
 
 test('snap checkbox swaps the turn slider and defaults to 30 degrees',()=>{

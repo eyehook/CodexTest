@@ -1,18 +1,18 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {VRCheckbox} from '../../shared/ui/checkbox.mjs';
-import {BeeSlider,BEE_LEVELS} from './bee-slider.mjs?v=64';
+import {SettingsSlider} from './bee-slider.mjs?v=73';
 import {styleVRControl} from './vr-control-style.mjs?v=72';
 import {ROOM_BACK} from './garden-layout.mjs?v=46';
 
-export function createShadowSettings(scene,renderer,{onReset=()=>{},bees={density:2,setDensity(value){this.density=value;}}}={}){
+export function createShadowSettings(scene,renderer,{onReset=()=>{},bees={count:3,setCount(value){this.count=value;}}}={}){
  let refresh=true;
  const model=new ControlModel([{id:'shadows',kind:'toggle',label:'Shadows',get:()=>renderer.shadowMap.enabled,set:enabled=>{
   renderer.shadowMap.enabled=enabled;refresh=enabled;
   // Three compiles different shader variants when global shadow support changes.
   const materials=new Set();scene.traverse(object=>{for(const material of Array.isArray(object.material)?object.material:[object.material])if(material)materials.add(material);});
   for(const material of materials)material.needsUpdate=true;
- }},{id:'bees',kind:'number',label:'Bees',stops:[0,1,2,3],stopFormat:value=>BEE_LEVELS[value],min:0,max:3,step:1,stepBase:0,get:()=>bees.density,set:level=>bees.setDensity(level),format:level=>BEE_LEVELS[level]},{id:'reset',kind:'action',label:'Reset Garden',run:onReset}]);
+ }},{id:'bees',kind:'number',label:'Bees',stops:[0,5,10],stopFormat:value=>String(value),min:0,max:10,step:1,stepBase:0,get:()=>bees.count,set:count=>bees.setCount(count),format:count=>String(count)},{id:'reset',kind:'action',label:'Reset Garden',run:onReset}]);
  return {model,beginFrame(changed){renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=renderer.shadowMap.enabled&&(refresh||changed);refresh=false;}};
 }
 export function createSettingsPanel(scene,renderer,options={}){
@@ -25,7 +25,7 @@ export function createSettingsPanel(scene,renderer,options={}){
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
  const title=new THREE.Mesh(new THREE.PlaneGeometry(1.65,1.65*160/1024),new THREE.MeshBasicMaterial({map:texture,transparent:true,toneMapped:false}));title.position.set(0,.46,.002);group.add(title);
  const checkbox=new VRCheckbox(settings.model,'shadows');styleVRControl(checkbox);checkbox.mesh.position.set(0,.15,.003);checkbox.mesh.userData.control=checkbox;group.add(checkbox.mesh);
- const beesSlider=new BeeSlider(settings.model);styleVRControl(beesSlider);beesSlider.mesh.position.set(0,-.16,.003);group.add(beesSlider.mesh);
+ const beesSlider=new SettingsSlider(settings.model,'bees');styleVRControl(beesSlider);beesSlider.mesh.position.set(0,-.16,.003);group.add(beesSlider.mesh);
  const buttonCanvas=document.createElement('canvas');buttonCanvas.width=1024;buttonCanvas.height=120;
  const buttonTexture=new THREE.CanvasTexture(buttonCanvas);buttonTexture.colorSpace=THREE.SRGBColorSpace;
  const buttonMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.65,1.65*120/1024),new THREE.MeshBasicMaterial({map:buttonTexture,transparent:true,toneMapped:false}));

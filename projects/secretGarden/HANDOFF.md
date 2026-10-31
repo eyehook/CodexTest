@@ -8,6 +8,10 @@ Implemented for desktop and Meta Quest 3. The garden starts empty. Three local-b
 
 Support current save versions only; this is an actively developed project. Do not preserve old generators, deserializers, migrations or compatibility branches for obsolete saves. Bump `SAVE_VERSION` for incompatible garden/generator changes and `SETTINGS_VERSION` for incompatible preferences. Keep keys stable; delete mismatched records, mark garden slots Empty, and use defaults for mismatched settings. Preserve unaffected records. See [project instructions](AGENTS.md) for the standing rules. These rules supersede historical migration notes below unless the user explicitly requests a policy change.
 
+## Current bee population
+
+Bees are an exact user-selected count from 0–10 (default 3), independent of bloom count. They prefer fully grown flowers and fall back to random inward-facing garden wall spots when no other flower is available. Reset/deletion preserves the count. Earlier Off/Low/Medium/High density notes are historical.
+
 ## Preview and controls
 
 Use the repository's `Start-VR.command` for USB Quest testing, or serve the repository with `python3 -m http.server 8080 --bind 127.0.0.1` and visit `/projects/secretGarden/`. No install or build step is required.
@@ -573,3 +577,19 @@ Validation: 14 relevant settings/save/preferences tests pass. Isolated Chrome ac
 User authorized pushing the accumulated smooth bee touchdown fix, three garden save slots with latest-save startup restore, independent general/VR preferences, current-version-only save policy and project AGENTS instructions, seated height/speed controls, either-controller teleport and smooth/snap turning, door teleport/opening, default Teleport/Snap enabled, pointer overlay correction and matching Settings/Save/VR panel styling. Final entry cache version 72; garden payload version 2 and settings payload version 3.
 
 Final scoped review and all 87 garden tests passed; `git diff --check` clean. Chrome interaction/rendering checks and pending Quest limitations remain recorded above. All runtime changes are confined to Secret Garden, with no shared runtime edits or build step required. Earlier local/unpushed notes are historical after this release.
+
+
+## Exact bee count and wall fallback — 2026-10-31
+
+Replaced the density control with an integer total-count selector 0–10, default 3, retaining the matching panel style. `Bees.count/setCount` replaces density/ratio logic; population is exact regardless of plant/flower count. Removed the obsolete BEE_LEVELS labels and BeeSlider specialization. The existing generic SettingsSlider handles the count with whole-number steps and 0/5/10 labels. Zero disables/clears live bees; reenabling restores the chosen count.
+
+Mature-only flower records remain cached. Bees choose a different mature flower when available; if none exists (including when the only flower is the one just visited), `wallLanding` selects a random point on one of the four interior garden walls with inward normal, corner/height margins and doorway exclusion. Wall destinations persist without pointless rerouting on unrelated plant revisions; newly mature blooms retarget wall visitors, and deleted flowers retarget to surviving flowers or walls. Deleting/resetting plants does not reduce the population. Existing curved flight, smooth surface-aligned touchdown, random rests, no shadows and two instanced draw calls remain unchanged. Garden-load bee rebuilding preserves count.
+
+Independent settings now interpret bees as count and default to 3; SETTINGS_VERSION bumped to 4, so older settings are deleted/reset without migration as required. Garden SAVE_VERSION remains 2. Entry/bee/selector/settings/preferences/VR cache versions advanced to 73 for affected imports.
+
+Validation: all 87 garden tests passed after the count conversion; focused tests additionally assert doorway avoidance. Coverage includes every count 0–10 with no flowers, maturity/deletion/reset transitions without count changes, wall normals/bounds and single-flower fallback, plus existing touchdown and preference/control behavior. Isolated Chrome verified default 3 wall-visiting bees in an empty garden, actual count selections 0/1/3/7/10 and restoration of 10 after reload, with no page errors. Panel screenshot reviewed; syntax/whitespace checks pass. Quest appearance/performance remains unverified for this change. Local, uncommitted and unpushed.
+
+
+## Bee-count release — 2026-10-31
+
+User authorized committing/pushing the exact 0–10 bee selector (default 3), random wall fallback when no other mature flower exists, obsolete density-code removal and independent settings version 4. Entry cache version 73. Final scoped diff reviewed, all 87 garden tests passed and whitespace checks clean. Chrome checks and Quest limitations remain recorded above. No shared runtime changes/build required. Earlier local/unpushed notes are historical after release.

@@ -2,7 +2,7 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {VRCheckbox} from '../../shared/ui/checkbox.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {styleVRControl} from './vr-control-style.mjs?v=72';
-import {SettingsSlider} from './bee-slider.mjs?v=64';
+import {SettingsSlider} from './bee-slider.mjs?v=73';
 import {ROOM_SIZE,ROOM_FRONT,ROOM_BACK} from './garden-layout.mjs?v=46';
 export function createVRSettings(scene,values,navigation){
  const definitions=[{id:'heightOffset',label:'Height offset',min:0,max:1,step:.05,unit:'m'}, {id:'moveSpeed',label:'Movement speed',min:.25,max:3,step:.25,unit:'m/s',disabled:()=>values.teleport}, {id:'turnSpeed',label:'Turn speed',min:15,max:120,step:15,unit:'°/s',disabled:()=>values.snapTurn}, {id:'snapAngle',label:'Snap',stops:[15,30,45],min:15,max:45,step:15,unit:'°',disabled:()=>!values.snapTurn}].map(d=>({...d,kind:'number',stepBase:d.min,get:()=>values[d.id],set:value=>{values[d.id]=value;apply();},format:value=>value.toFixed(['turnSpeed','snapAngle'].includes(d.id)?0:2)+' '+d.unit}));

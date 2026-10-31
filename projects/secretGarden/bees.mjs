@@ -1,5 +1,6 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {componentPose,GROWTH_SECONDS} from './generator.mjs?v=51';
+import {HALF_WIDTH,HALF_DEPTH,WALL_HEIGHT,DOOR_HEIGHT,doorwayPlantingBlocked} from './garden-layout.mjs?v=46';
 const up=new THREE.Vector3(0,1,0),forward=new THREE.Vector3(0,0,1);
 const smooth=value=>{const t=Math.max(0,Math.min(1,value));return t*t*(3-2*t);};
 // Called only after maturity. Positions and normals include clone scale and yaw.
@@ -15,7 +16,7 @@ export function flowerLandings(plant) {
 }
 export class Bees {
   constructor(scene,random=Math.random) {
-    this.scene=scene;this.random=random;this.density=2;this.landings=[];this.cache=new Map();this.bees=[];this.revision=-1;this.growing=-1;this.capacity=0;
+    this.scene=scene;this.random=random;this.count=3;this.landings=[];this.cache=new Map();this.bees=[];this.revision=-1;this.growing=-1;this.capacity=0;
     this.dummy=new THREE.Object3D();this.wing=new THREE.Object3D();this.direction=new THREE.Vector3();this.next=new THREE.Vector3();this.side=new THREE.Vector3();this.flightQuaternion=new THREE.Quaternion();
     this.bodyGeometry=new THREE.BoxGeometry(.065,.043,.105);
     // Yellow/dark vertex coloring needs no texture or extra draw calls.
@@ -26,10 +27,10 @@ export class Bees {
     this.bodyMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
     this.wingMaterial=new THREE.MeshBasicMaterial({color:0xd5e9ee,side:THREE.DoubleSide});
   }
-  get enabled(){return this.density>0;}
-  setDensity(level) {
-    if(!Number.isInteger(level)||level<0||level>3)return;
-    this.density=level;
+  get enabled(){return this.count>0;}
+  setCount(count) {
+    if(!Number.isInteger(count)||count<0||count>10)return;
+    this.count=count;
     for(const mesh of [this.bodies,this.wings])if(mesh)mesh.visible=this.enabled;
     if(!this.enabled){this.bees.length=0;this.resize(0);}
     this.revision=-1;
@@ -50,12 +51,23 @@ export class Bees {
     for(const [id,entry] of this.cache)if(plants.instances.get(id)!==entry.plant)this.cache.delete(id);
     for(const plant of plants.instances.values())if(plant.state==='mature'&&!this.cache.has(plant.id))this.cache.set(plant.id,{plant,points:flowerLandings(plant)});
     this.landings=[];for(const entry of this.cache.values())this.landings.push(...entry.points);
-    const count=Math.floor(this.landings.length/[Infinity,150,100,50][this.density]);this.resize(count);this.bees.length=Math.min(count,this.bees.length);
+    const count=this.count;this.resize(count);this.bees.length=Math.min(count,this.bees.length);
     const valid=new Set(this.landings);
-    for(const bee of this.bees)if(!valid.has(bee.target)){this.depart(bee,now);}
+    for(const bee of this.bees)if(bee.target.wall?this.landings.length>0:!valid.has(bee.target)){this.depart(bee,now);}
     while(this.bees.length<count){const target=this.pick();const bee={position:target.position.clone().addScaledVector(target.normal,.025),quaternion:new THREE.Quaternion(),target,until:now+2+this.random()*3,phase:this.random()*Math.PI*2,flying:false};this.bees.push(bee);}
   }
+  wallLanding(){
+    const wall=Math.floor(this.random()*4),along=this.random()*2-1,y=.3+this.random()*(WALL_HEIGHT-.6);
+    const position=new THREE.Vector3(),normal=new THREE.Vector3();
+    if(wall===0){position.set(along*(HALF_WIDTH-.15),y,HALF_DEPTH-.04);normal.set(0,0,-1);}
+    else if(wall===1){position.set(-HALF_WIDTH+.04,y,along*(HALF_DEPTH-.15));normal.set(1,0,0);}
+    else if(wall===2){position.set(along*(HALF_WIDTH-.15),y,-HALF_DEPTH+.04);normal.set(0,0,1);}
+    else {position.set(HALF_WIDTH-.04,y,along*(HALF_DEPTH-.15));normal.set(-1,0,0);}
+    if(doorwayPlantingBlocked(position))position.y=DOOR_HEIGHT+.35;
+    return {wall:true,position,normal};
+  }
   pick(previous) {
+    if(!this.landings.length||this.landings.length===1&&this.landings[0]===previous)return this.wallLanding();
     let index=Math.floor(this.random()*this.landings.length);
     if(this.landings[index]===previous&&this.landings.length>1)index=(index+1)%this.landings.length;
     return this.landings[index];

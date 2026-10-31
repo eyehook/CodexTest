@@ -21,7 +21,7 @@ test('panel faces into the room from the wall opposite the door and shares its m
   let resets=0;const scene=new Scene(),renderer={shadowMap:{enabled:true}},panel=createSettingsPanel(scene,renderer,{onReset:()=>resets++});
   assert.equal(panel.group.position.z,ROOM_BACK-.075);assert.equal(panel.group.rotation.y,Math.PI);
   assert.ok(panel.targets.includes(panel.checkbox.mesh));panel.checkbox.activate();assert.equal(renderer.shadowMap.enabled,false);
-  assert.ok(panel.targets.includes(panel.beesSlider.mesh));assert.equal(panel.model.value('bees'),2);panel.beesSlider.activate({uv:{x:0}});assert.equal(panel.model.value('bees'),0);panel.beesSlider.drag({uv:{x:1}});assert.equal(panel.model.value('bees'),3);panel.beesSlider.drag({uv:{x:(100+824/3)/1024}});assert.equal(panel.model.value('bees'),1);
+  assert.ok(panel.targets.includes(panel.beesSlider.mesh));assert.equal(panel.model.value('bees'),3);panel.beesSlider.activate({uv:{x:0}});assert.equal(panel.model.value('bees'),0);panel.beesSlider.drag({uv:{x:1}});assert.equal(panel.model.value('bees'),10);panel.beesSlider.drag({uv:{x:(100+824*.5)/1024}});assert.equal(panel.model.value('bees'),5);
   assert.ok(panel.targets.includes(panel.resetButton.mesh));panel.resetButton.activate();assert.equal(resets,1);assert.equal(renderer.shadowMap.enabled,false);
   panel.group.visible=false;assert.equal(panel.resetButton.activate(),false);assert.equal(resets,1);
   panel.checkbox.dispose();panel.beesSlider.dispose();panel.model.dispose();
