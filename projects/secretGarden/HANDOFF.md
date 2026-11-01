@@ -897,3 +897,27 @@ Reduced teleport column diameter to 2.5 ft (.762 m; .381 m radius). Height remai
 User authorized publication. Final behavior: dark muted-green (#69895b) grip capsules, 14 cm long / 6 cm diameter, with no shadows; debug menu lower edge one inch above the pill top; normal pointer depth testing with renderOrder 0, confirmed by user to work correctly with control panels. No outline-hand or capsule-pointer-clipping implementation is retained. Teleport column is 2.5 ft diameter and 6 ft tall, with linear opacity from 100% at base to fully transparent at top and unchanged valid/invalid colors. Geometry changes do not alter teleport clearance rules.
 
 Final entry/teleport cache version 113; hand-pill 109; debug-menu 106. Garden/settings versions remain 17/4. All 112 garden tests pass; whitespace checks clean. Previous local/unpushed and intermediate appearance notes are historical for this release. Foveation was discussed only: no explicit override or new setting was added; bundled Three.js retains its default request of 1.0, subject to runtime support. Lighting stays unchanged.
+
+## Editable Blender door source — 2026-11-01
+
+Created assets/secretGarden/door/secret-garden-door.blend with separate leaf, two cube handles, fixed round hinge stile and optional hidden entrance trim, matching current garden-room/layout dimensions. Leaf/handles parent to a hinge empty at the left jamb; Blender Z rotation swings the assembly. Coordinates use Blender Z-up, doorway midpoint at origin, mapped to runtime (0,0,7.7724). Door leaf dimensions 1.09×2.22×.055 m. Entrance trim preserves its actual facade offset (.9469 m in front of the hallway door), hidden initially. Includes preview camera/lights and embedded editing notes. Companion README and create-door.py document units, hierarchy and reproducible creation; rerunning the script overwrites its target and should not be used on edited files.
+
+Blender 5.2.2 LTS generated/saved the file and rendered a reviewed preview successfully. No runtime geometry, cache or save changes; the .blend is an editing source only, not yet loaded by the game. Local and unpushed.
+
+## Use edited Blender heart door — 2026-11-01
+
+Parented the user's Heart mesh to Door leaf in the Blender source, preserving world placement and making it follow the hinge. Saved the updated source after creating a one-time before-parenting backup. Asset-folder .gitignore excludes that backup and Blender .blend1/.blend2 files; do not publish backup copies. New export-door.py exports evaluated triangle positions/normals, material groups, colors/roughness/metalness/emission and the actual six-node door hierarchy into assets/secretGarden/door/door-model.mjs (204 triangles, ~31 KB). Coordinate conversion is X/Y/Z → X/Z/−Y. Exporter excludes presentation/context objects; save/export a closed door pose.
+
+Runtime door-model.mjs builds the exported Blender leaf, two handles, heart and fixed hinge stile; removed the replaced procedural door/handle/stile construction from garden-room.mjs. Existing entrance trim remains procedural. Heart is a child of leaf, leaf/handles follow the same double-action hinge; imported float data aligns to the exact simulation jamb X/Z. All five meshes cast/receive shadows and are environment/teleport-door targets. Automatic opening, hallway clearance, door teleport destination/openFully behavior and independent settings/saves remain unchanged. Entry/environment/room/asset import cache version 114; garden/settings versions unchanged at 17/4.
+
+All 113 garden tests pass, including imported cube-handle dimensions, unchanged opening/closed seams and heart parenting/world motion/ray targeting through both swings. Chrome isolated-session preview shows the heart door, confirms Heart parent Door leaf and five teleport-door targets, with no page errors; screenshot inspected. Blender source was saved successfully. Whitespace checks clean. Headset appearance remains for user review. Local and unpushed.
+
+## Light brown heart material — 2026-11-01
+
+Changed the heart's Blender material from pink to light brown #8A7058, a lighter warm brown complement to the door's #48392B. Updated the source .blend and re-exported the generated runtime module; geometry/hierarchy unchanged (204 triangles). Entry/environment/room/door-data cache chain version 115. All 113 garden tests pass; whitespace checks clean. Local and unpushed.
+
+## Blender heart-door release — 2026-11-01
+
+User authorized publication of the editable Blender door, connected heart and runtime integration. Final heart material is light brown #8A7058; source .blend, generated JavaScript mesh data, export/recreation scripts and editing README are included. Blender backups remain excluded. The existing procedural leaf/handles/stile are replaced by the exported six-node/204-triangle model; entrance trim remains procedural. Opening from both sides, ray targeting, shadows and door teleport behavior are preserved. User has no format preference when rendering performance is equivalent, so retain the generated mesh-data module; no GLB was created.
+
+Final entry/import cache chain 115; garden/settings versions remain 17/4. All 113 garden tests pass; whitespace checks clean. Browser inspection of the imported model and Blender save/export checks are recorded above. Earlier local/unpushed notes are historical for this release.

@@ -69,7 +69,7 @@ test('six foot hallway has centered door and inset surfaces to avoid coplanar se
  assert.equal(HALL_LENGTH,1.8288);assert.ok(Math.abs(ROOM_FRONT-GARDEN_FRONT-1.8288)<1e-9);
  assert.ok(Math.abs(DOOR_Z-GARDEN_FRONT-.9144)<1e-9);assert.ok(Math.abs(ROOM_FRONT-DOOR_Z-.9144)<1e-9);
  assert.ok(HALL_WIDTH<DOOR_WIDTH);assert.ok(HALL_HEIGHT<DOOR_HEIGHT);assert.ok(HALL_ENTRY_INSET>0);
- assert.equal(env.room.hinge.position.z,DOOR_Z);
+ assert.equal(env.room.hinge.getWorldPosition(new THREE.Vector3()).z,DOOR_Z);
  const hallwayWalls=env.room.targets.filter(mesh=>Math.abs(mesh.geometry.parameters?.depth-(HALL_LENGTH-HALL_ENTRY_INSET))<1e-9&&mesh.geometry.parameters?.width===.12);
  assert.equal(hallwayWalls.length,2);
  for(const wall of hallwayWalls){
@@ -82,7 +82,7 @@ test('double-action door opens away from approach, stays stable when crossed, an
  const scene=new THREE.Scene(),room=createEnvironment(scene,{shadowMap:{}}).room;
  const advance=(z,count=90)=>{for(let i=0;i<count;i++)room.update(1/90,new THREE.Vector3(0,1.6,z));};
  assert.equal(room.handles.length,2);assert.ok(room.handles[0].position.z<0&&room.handles[1].position.z>0);
- for(const handle of room.handles)assert.equal(handle.geometry.type,'BoxGeometry');
+ for(const handle of room.handles){const size=handle.geometry.boundingBox.getSize(new THREE.Vector3()).multiply(handle.scale);assert.ok(size.distanceTo(new THREE.Vector3(.05,.05,.05))<1e-6);}
  advance(DOOR_Z+.7);assert.ok(room.hinge.rotation.y>0);assert.equal(room.fraction,1);
  advance(DOOR_Z-.3);assert.ok(room.hinge.rotation.y>0);assert.equal(room.fraction,1);
  advance(DOOR_Z-3);assert.equal(room.fraction,0);
@@ -109,7 +109,7 @@ test('door fits the closed opening and its hinge seam stays fixed through both s
  const checkAxis=()=>{
   scene.updateMatrixWorld(true);
   assert.ok(new THREE.Vector3(0,HALL_HEIGHT/2,0).applyMatrix4(room.hinge.matrixWorld).distanceTo(axis)<1e-10);
-  assert.ok(room.hingeStile.getWorldPosition(new THREE.Vector3()).distanceTo(axis)<1e-10);
+  assert.ok(room.hingeStile.getWorldPosition(new THREE.Vector3()).distanceTo(axis)<1e-6);
  };
  const checkClosed=()=>{
   assert.equal(room.fraction,0);assert.equal(Math.abs(room.hinge.rotation.y),0);
@@ -127,5 +127,19 @@ test('door fits the closed opening and its hinge seam stays fixed through both s
   assert.equal(room.fraction,1);
   for(let i=0;i<60;i++){room.update(1/90,new THREE.Vector3(0,1.6,DOOR_Z+side*3));checkAxis();}
   checkClosed();
+ }
+});
+
+test('Blender heart is attached to the door and remains targetable through both swings',()=>{
+ const scene=new THREE.Scene(),room=createEnvironment(scene,{shadowMap:{}}).room;
+ assert.equal(room.heart.parent,room.leaf);assert.equal(room.leaf.parent,room.hinge);
+ scene.updateMatrixWorld(true);const local=room.heart.getWorldPosition(new THREE.Vector3()).applyMatrix4(room.hinge.matrixWorld.clone().invert());
+ for(const side of [-1,1]){
+  room.openFully(new THREE.Vector3(0,1.6,DOOR_Z+side));scene.updateMatrixWorld(true);
+  const center=room.heart.getWorldPosition(new THREE.Vector3()),expected=local.clone().applyMatrix4(room.hinge.matrixWorld);
+  assert.ok(center.distanceTo(expected)<1e-6);assert.equal(room.heart.userData.teleportDoor,true);
+  const box=new THREE.Box3().setFromObject(room.heart),target=box.getCenter(new THREE.Vector3());
+  const direction=new THREE.Vector3(0,0,-1).applyQuaternion(room.hinge.getWorldQuaternion(new THREE.Quaternion()));
+  const hit=new THREE.Raycaster(target.clone().addScaledVector(direction,1),direction.clone().negate()).intersectObject(room.heart)[0];assert.ok(hit);assert.equal(hit.object,room.heart);
  }
 });

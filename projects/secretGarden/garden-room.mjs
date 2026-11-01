@@ -1,3 +1,4 @@
+import {createDoorModel} from './door-model.mjs?v=115';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {mergeGeometries} from '../../shared/vendor/three-r180/addons/BufferGeometryUtils.js';
 import {ROOM_SIZE,ROOM_HEIGHT,DOOR_WIDTH,DOOR_HEIGHT,HALL_WIDTH,HALL_HEIGHT,HALL_ENTRY_INSET,GARDEN_FRONT,DOOR_Z,ROOM_FRONT,ROOM_BACK} from './garden-layout.mjs?v=46';
@@ -33,22 +34,11 @@ export function createGardenRoom(scene){
   const combined=new THREE.Mesh(mergeGeometries(pieces),material);pieces.forEach(piece=>piece.dispose());
   combined.castShadow=combined.receiveShadow=true;combined.userData.surface='environment';scene.add(combined);staticMeshes.push(combined);
  }
- // Fixed jamb axis: no lateral offset as either swing direction is selected.
- const hinge=new THREE.Group();hinge.position.set(-HALL_WIDTH/2,0,DOOR_Z);scene.add(hinge);
- const leaf=new THREE.Mesh(new THREE.BoxGeometry(HALL_WIDTH,HALL_HEIGHT,.055),new THREE.MeshStandardMaterial({color:0x48392b,roughness:.9}));
- leaf.position.set(HALL_WIDTH/2,HALL_HEIGHT/2,0);leaf.castShadow=leaf.receiveShadow=true;leaf.userData.surface='environment';leaf.userData.teleportDoor=true;hinge.add(leaf);targets.push(leaf);
- // A round hinge stile closes the pivot-side seam throughout the swing.
- const hingeStile=new THREE.Mesh(new THREE.CylinderGeometry(.032,.032,HALL_HEIGHT,12),leaf.material);
- hingeStile.position.set(hinge.position.x,HALL_HEIGHT/2,DOOR_Z);hingeStile.castShadow=hingeStile.receiveShadow=true;hingeStile.userData.surface='environment';hingeStile.userData.teleportDoor=true;scene.add(hingeStile);targets.push(hingeStile);
- const handles=[],handleGeometry=new THREE.BoxGeometry(.05,.05,.05),handleMaterial=new THREE.MeshStandardMaterial({color:0xb6a16c,roughness:.5});
- for(const side of [-1,1]){
-  const handle=new THREE.Mesh(handleGeometry,handleMaterial);handle.position.set(HALL_WIDTH-.17,1.02,side*.0525);
-  handle.castShadow=handle.receiveShadow=true;handle.userData.surface='environment';handle.userData.teleportDoor=true;hinge.add(handle);targets.push(handle);handles.push(handle);
- }
+ const {hinge,hingeStile,leaf,heart,handles,targets:doorTargets}=createDoorModel(scene);targets.push(...doorTargets);
  // Soft room illumination; no extra shadow-casting light.
  const lamp=new THREE.PointLight(0xffe8bd,3,4,2);lamp.position.set(0,ROOM_HEIGHT-.2,roomCenter);scene.add(lamp);
  let fraction=0,wanted=false,swing=1,reversing=false;
- return {targets,staticMeshes,hinge,hingeStile,leaf,handles,get fraction(){return fraction;},get passable(){return fraction>.9;},
+ return {targets,staticMeshes,hinge,hingeStile,leaf,heart,handles,get fraction(){return fraction;},get passable(){return fraction>.9;},
   openFully(viewer){
    swing=viewer.z>=DOOR_Z?1:-1;wanted=true;reversing=false;fraction=1;hinge.rotation.y=swing*Math.PI/2;hinge.updateWorldMatrix(true,true);
   },
