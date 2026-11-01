@@ -812,3 +812,30 @@ User requested restoring the sun shadow map to 1024×1024 after the comparison. 
 ## CPU optimization release — 2026-10-31
 
 User authorized publication of the five CPU optimizations. Retained 1024×1024 shadows following the user's visual comparison; further GPU optimizations are deferred. Final entry/environment cache version 99, CPU module versions 97; garden/settings versions remain 13/4. All 110 garden tests pass and whitespace checks are clean. Isolated Chrome smoke validation is recorded above; no measured Quest performance gain is claimed. Earlier local/unpushed notes are historical for this release.
+
+## Balanced standalone flower stalks — 2026-10-31
+
+Primary stalks now form a balanced radial arrangement: a single stalk leans at most 15° from vertical; two stalks point approximately 180° apart; three approximately 120° apart. The first stalk chooses the shared random heading and lean. Subsequent headings and leans vary by ±7.5° around their shared targets, keeping any pair's deviation from ideal radial separation and inclination difference within 15°. Multi-stalk inclination retains the previous .04–.42 rad range. Existing random draw count/order is retained; side-branch construction and bloom rules are unchanged. Tree/shrub/vine construction is unaffected.
+
+Garden SAVE_VERSION bumped to 14 for changed seeded flower geometry, under the current-only development policy; older garden records are deleted and shown Empty, with no migration. Settings remain version 4. Entry and affected import chains use cache version 100. All 111 garden tests pass, including a 3,000-seed sweep for all stalk counts, angle limits, radial balance and random heading coverage. Whitespace checks clean. Headset appearance remains for user review. Local and unpushed.
+
+## Revised flower lean limits — 2026-10-31
+
+Single-stalk flowers now lean at most 10° from vertical. Multi-stalk inclination jitter increases to ±10° around the shared lean, allowing up to 20° pairwise lean variation, still bounded to .04–.42 rad overall. Radial spacing variation remains within 15° of the opposite/120° arrangement. Side-branch rules remain unchanged. Garden SAVE_VERSION is now 15 for changed seeded appearance, with obsolete garden records cleared under the current-only policy; settings remain 4. Entry/affected dependency cache version 101. All 111 garden tests pass, including updated 3,000-seed stalk checks; whitespace checks clean. Local and unpushed.
+
+## Twenty-degree radial spacing variation — 2026-10-31
+
+Multi-stalk radial heading jitter is now ±10° around the opposite/120° arrangement, allowing up to 20° pairwise spacing deviation. Multi-stalk lean variation remains 20°; single-stalk lean remains at most 10° from vertical. Garden SAVE_VERSION bumped to 16 for changed seeded appearance; settings remain 4. Entry/affected dependency cache version 102. All 111 garden tests pass, including updated stalk-spacing regression; whitespace checks clean. Local and unpushed.
+
+## Zero-to-ten-degree single stalks — 2026-10-31
+
+Removed the inherited .04 rad minimum for standalone single-stalk flowers: their lean now samples 0–10° from vertical, allowing vertical stalks. Multi-stalk rules are unchanged. Garden SAVE_VERSION bumped to 17 for changed seeded appearance; settings remain 4. Entry/affected import cache version 103. All 111 garden tests pass; stalk regression verifies the 0–10° range and near-vertical examples below 1°. Whitespace checks clean. Local and unpushed.
+
+
+## Balanced flower release and current decisions — 2026-10-31
+
+User reports everything looks good and authorized publication. Final standalone flower rules: 1–3 primary stalks; a single stalk leans 0–10° from vertical; two stalks radiate roughly 180° apart and three roughly 120° apart, with up to 20° pairwise radial-spacing deviation and 20° pairwise lean variation. Multi-stalk lean remains clamped to .04–.42 rad. Whole-plant heading remains random. Side-branch generation and terminal bloom/cluster rules remain unchanged. Final garden SAVE_VERSION 17, independent settings version 4, entry/affected flower dependency cache version 103. Obsolete garden records are cleared without legacy generators or migrations.
+
+Lighting stays as-is: one shadow-casting directional sun (color #ffefcf, intensity 3.1, position −6/12/7), hemisphere sky #e7f1ff / ground #665039 at intensity 2.1, and a non-shadow-casting control-room point light. The sun retains its 1024×1024 shadow map, reused while static and refreshed for relevant geometry changes. User found 1024 visibly better than 512; further GPU optimizations are deferred. Previously released CPU optimizations remain enabled.
+
+Release validation: all 111 garden tests pass, including the 3,000-seed stalk-angle sweep; whitespace checks clean. User visual feedback is positive; no new quantified Quest performance benchmark is claimed. This release supersedes earlier intermediate angle/version and local/unpushed notes above.

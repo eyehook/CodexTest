@@ -160,7 +160,23 @@ export function generatePlant(seed) {
       }
     }
   }
-  for(let i=0;i<parameters.primaryStems;i++) stem([0,0,0],parameters.height*range(.78,1),form==='tree'?range(.015,.09):range(.04,.42),range(0,Math.PI*2),radius*parameters.height*range(.8,1.1),0);
+  let flowerHeading=0,flowerLean=0;
+  const halfSpacingVariation=Math.PI/18; // ±10° keeps radial spacing within 20°.
+  const halfLeanVariation=Math.PI/18; // ±10° keeps pairwise lean differences within 20°.
+  for(let i=0;i<parameters.primaryStems;i++) {
+    const length=parameters.height*range(.78,1);
+    let angle=form==='tree'?range(.015,.09):range(.04,.42);
+    let azimuth=range(0,Math.PI*2);
+    if(form==='flower') {
+      if(i===0){flowerHeading=azimuth;flowerLean=angle;}
+      if(parameters.primaryStems===1)angle=(angle-.04)/(.42-.04)*(Math.PI/18);
+      else {
+        angle=i===0?flowerLean:Math.max(.04,Math.min(.42,flowerLean+((angle-.04)/(.42-.04)*2-1)*halfLeanVariation));
+        azimuth=flowerHeading+i*Math.PI*2/parameters.primaryStems+(i===0?0:(azimuth/Math.PI-1)*halfSpacingVariation);
+      }
+    }
+    stem([0,0,0],length,angle,azimuth,radius*parameters.height*range(.8,1.1),0);
+  }
   if(form==='tree'&&parameters.flowers&&['rounded','umbrella'].includes(treeForm))placeCanopyFlowers(parts,rng);
   return {seed,parameters,parts};
 }
