@@ -839,3 +839,61 @@ User reports everything looks good and authorized publication. Final standalone 
 Lighting stays as-is: one shadow-casting directional sun (color #ffefcf, intensity 3.1, position −6/12/7), hemisphere sky #e7f1ff / ground #665039 at intensity 2.1, and a non-shadow-casting control-room point light. The sun retains its 1024×1024 shadow map, reused while static and refreshed for relevant geometry changes. User found 1024 visibly better than 512; further GPU optimizations are deferred. Previously released CPU optimizations remain enabled.
 
 Release validation: all 111 garden tests pass, including the 3,000-seed stalk-angle sweep; whitespace checks clean. User visual feedback is positive; no new quantified Quest performance benchmark is claimed. This release supersedes earlier intermediate angle/version and local/unpushed notes above.
+
+## Relaxed controller hand outlines — 2026-10-31
+
+Added local procedural `hand-outline.mjs` models attached to `renderer.xr.getControllerGrip(i)` under the existing rig. Outline-only wrist/palm/five-finger silhouettes have gently curled fingers and mirrored palm depth: left palm normal +X, right −X, fingers −Z, thumb +Y in grip space. Two perimeter curves with a few side connections are thin 1.1 mm-radius pentagonal tubes, merged into one unlit opaque draw per hand (680 triangles each). Pale neutral color, standard depth occlusion, no shadows, textures, external assets or per-frame geometry changes. This is a fixed relaxed controller-hand pose, not tracked finger articulation.
+
+Visibility requires a tracked grip and left/right xr-standard controller source; hides on tracking loss, inactive/session end and disconnect. Bare-hand sources are not rendered through this controller model. Pointer/menu/trigger behavior is unchanged. Diagnostic controllers are exposed through window.secretGarden for local inspection. Entry/new model cache version 104; garden/settings versions unchanged at 17/4.
+
+Validation: all 113 garden tests pass, including mirrored finite human-scale geometry and visibility/disposal lifecycle. Isolated Chrome preview inspected for both outlines, two draws/1360 triangles total, no page errors; whitespace checks clean. Actual Quest grip alignment, silhouette size and comfort remain for user review. Local and unpushed.
+
+
+## Pale green controller pills — 2026-11-01
+
+Replaced the unreleased hand outlines with simple pale green (#c4dfb2) capsules, per user request. Removed outline geometry/module/tests rather than retaining unused alternatives. `hand-pill.mjs` attaches a 14 cm long / 6 cm diameter low-poly capsule along the grip Z axis, centered at the grip origin, using a simple Lambert material. One draw per hand, no shadows; existing tracked-grip/session/disconnect visibility and pointer behavior are retained. Entry/model cache version 105; save versions unchanged. Validation: all 112 garden tests pass, including grip visibility/disposal coverage; whitespace checks clean. Quest appearance/alignment remains for user review. Local and unpushed.
+
+## Debug menu closer to hand — 2026-11-01
+
+Debug menu now anchors its lower edge 2.54 cm (one inch) above the hand pill's top (3 cm above grip), replacing the previous fixed 32 cm center offset. The panel still faces the headset; its center is offset along panel-local up from that lower-edge anchor so the panel does not overlap the hand. Palm-up visibility, right-ray selection and menu dimensions are unchanged. Entry/debug-menu cache version 106; save versions unchanged. All 112 garden tests pass; whitespace checks clean. Local and unpushed.
+
+
+## Darker hand pills — 2026-11-01
+
+Darkened controller pill color from pale green #c4dfb2 to muted green #69895b. Geometry, lighting material and tracking behavior unchanged. Entry/hand-pill cache version 107; save versions unchanged. Whitespace checks clean. Local and unpushed.
+
+## Clip pointer at hand-pill surface — 2026-11-01
+
+Pointer rays retain depth-disabled overlay rendering for control-panel readability, but their visible starting segment is now clipped past the owning pill surface. An analytic capsule intersection transforms the controller ray into grip/model space, finds its forward exit, and starts the line 1 mm beyond it. Controller/grip orientation differences are respected; hit tests and target endpoints are unchanged. No capsule intersection restores the normal start; hidden/untracked pills do not clip. Entry/hand-pill cache version 108; saves unchanged. All 113 garden tests pass, including forward/side exit, target endpoint preservation and hidden-pill reset; whitespace checks clean. Quest visual verification pending. Local and unpushed.
+
+## Revert pill-surface pointer clipping — 2026-11-01
+
+User requested backing out the recent pointer-line change. Removed the capsule intersection helper, clipPointer method/frame call and clipping-specific test. Pointer again begins at its original controller-ray origin with its existing depth-disabled overlay material. Darker hand pills and closer debug menu are retained. Entry/hand-pill cache version 109; saves unchanged. All 112 garden tests pass; whitespace checks clean. Supersedes the clipping entry above. Local and unpushed.
+
+
+## Pointer depth-testing comparison — 2026-11-01
+
+Enabled normal pointer-line depth testing and reset renderOrder to 0 for user testing, replacing the always-on-top overlay behavior. The existing transparent material/depthWrite=false remains; the pointer now respects opaque scene depth, including hand pills and panel surfaces. Pointer targeting and geometry are unchanged. Entry cache version 110. Whitespace checks clean. Local and unpushed.
+
+## Keep normal pointer depth testing — 2026-11-01
+
+User tested the pointer against the control panels and confirmed it interacts correctly with normal depth testing. Keep depthTest=true and renderOrder=0; the always-on-top overlay is no longer desired. Hand pills and opaque scene objects naturally occlude the line. No pill-surface clipping is retained. This supersedes historical pointer-overlay/experimental-comparison guidance above. Entry version remains 110; local and unpushed.
+
+## Full-size teleport column — 2026-11-01
+
+Teleport marker now has a 3 ft diameter (.9144 m; .4572 m radius) and 6 ft height (1.8288 m). Center is offset .9144 m above the destination to keep the base at floor level. Existing 50% opacity, colors and teleport validity rules are unchanged; this is a visual size change, not a new clearance/collision requirement. Entry/teleport cache version 111. All 112 garden tests pass with updated door marker height; whitespace checks clean. Local and unpushed.
+
+## Teleport column opacity gradient — 2026-11-01
+
+Teleport column now fades linearly from 100% opacity at its base to 0% at its top (50% midway). Uses standard MeshBasicMaterial RGBA vertex colors with white RGB, preserving valid/invalid green/red tint and avoiding custom shader hooks. Transparent blending and depthWrite=false remain; dimensions remain 3 ft diameter / 6 ft height. Entry/teleport cache version 112; saves unchanged. All 112 garden tests pass with updated base material opacity; whitespace checks clean. Local and unpushed.
+
+
+## Narrower teleport column — 2026-11-01
+
+Reduced teleport column diameter to 2.5 ft (.762 m; .381 m radius). Height remains 6 ft, with the 100%-to-0% opacity gradient unchanged. Entry/teleport cache version 113; saves unchanged. Whitespace checks clean. Local and unpushed.
+
+## Hand and teleport presentation release — 2026-11-01
+
+User authorized publication. Final behavior: dark muted-green (#69895b) grip capsules, 14 cm long / 6 cm diameter, with no shadows; debug menu lower edge one inch above the pill top; normal pointer depth testing with renderOrder 0, confirmed by user to work correctly with control panels. No outline-hand or capsule-pointer-clipping implementation is retained. Teleport column is 2.5 ft diameter and 6 ft tall, with linear opacity from 100% at base to fully transparent at top and unchanged valid/invalid colors. Geometry changes do not alter teleport clearance rules.
+
+Final entry/teleport cache version 113; hand-pill 109; debug-menu 106. Garden/settings versions remain 17/4. All 112 garden tests pass; whitespace checks clean. Previous local/unpushed and intermediate appearance notes are historical for this release. Foveation was discussed only: no explicit override or new setting was added; bundled Three.js retains its default request of 1.0, subject to runtime support. Lighting stays unchanged.

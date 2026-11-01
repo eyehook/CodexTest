@@ -19,8 +19,10 @@ export class DebugMenu {
   rig.updateMatrixWorld(true);rig.getWorldQuaternion(this.rigQuaternion);this.localQuaternion.copy(pose.transform.orientation);this.quaternion.copy(this.rigQuaternion).multiply(this.localQuaternion);
   if(!leftPalmUp(this.quaternion,wasOpen)){this.hide();return;}
   this.group.visible=true;this.justOpened=!wasOpen;
-  this.position.copy(pose.transform.position).applyMatrix4(rig.matrixWorld);this.position.y+=.32;this.group.position.copy(this.position);
-  this.head.copy(headPosition).applyMatrix4(rig.matrixWorld);this.group.lookAt(this.head);this.group.updateMatrixWorld(true);
+  this.position.copy(pose.transform.position).applyMatrix4(rig.matrixWorld);this.position.y+=.03+.0254;this.group.position.copy(this.position);
+  this.head.copy(headPosition).applyMatrix4(rig.matrixWorld);this.group.lookAt(this.head);
+  // Anchor the lower edge one inch above the 3 cm-radius hand pill.
+  this.position.set(0,this.height/2,0).applyQuaternion(this.group.quaternion);this.group.position.add(this.position);this.group.updateMatrixWorld(true);
  }
  rowAt(uv){if(!uv||!Number.isFinite(uv.x)||!Number.isFinite(uv.y)||uv.x<.025||uv.x>.975)return -1;const y=(1-uv.y)*this.canvas.height,row=Math.floor((y-8)/64);return row>=0&&row<DEBUG_PLANT_TYPES.length?row:-1;}
  setHover(uv){const row=this.visible?this.rowAt(uv):-1;this.highlight.visible=row>=0;if(row>=0)this.highlight.position.y=this.height/2-(8+row*64+32)*this.width/768;}

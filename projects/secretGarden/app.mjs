@@ -1,3 +1,4 @@
+import {HandPill} from './hand-pill.mjs?v=109';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {createSettingsPanel} from './settings-panel.mjs?v=84';
 import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
@@ -12,9 +13,9 @@ import {ActiveController} from './controller-actions.mjs?v=19';
 import {doorwayPlantingBlocked} from './garden-layout.mjs?v=46';
 import {Bees} from './bees.mjs?v=103';
 import {PlantManager} from './manager.mjs?v=103';
-import {DebugMenu} from './debug-menu.mjs?v=103';
+import {DebugMenu} from './debug-menu.mjs?v=106';
 import {GardenSaves} from './garden-saves.mjs?v=103';
-import {Teleport} from './teleport.mjs?v=70';
+import {Teleport} from './teleport.mjs?v=113';
 import {SnapTurn} from './snap-turn.mjs?v=71';
 import {Preferences} from './preferences.mjs?v=73';
 import {createVRSettings,applyHeightOffset} from './vr-settings.mjs?v=84';
@@ -28,7 +29,7 @@ const settings=createSettingsPanel(scene,renderer,{bees,onReset:()=>{plants.rese
 const navigation=new Locomotion(rig,{moveSpeed:1,turnSpeed:Math.PI/4}),edges=new ButtonEdges(),frameState=new XRFrameState();
 const snapTurn=new SnapTurn(),teleport=new Teleport(scene),debugMenu=new DebugMenu(scene,id=>plants.chooseType(id));
 const pointer=new ControllerPointer({far:25}),desktopRay=new THREE.Raycaster(),mouse=new THREE.Vector2(0,0),keys=new Set();
-const controllers=[0,1].map(i=>{const c=renderer.xr.getController(i);rig.add(c);const line=createPointerLine({color:0xd5e9ac,length:8});line.material.transparent=true;line.material.depthWrite=false;c.add(line);c.addEventListener('connected',e=>{c.userData.source=e.data;c.userData.fresh=true;});c.addEventListener('disconnected',()=>{edges.reset(c.userData.source);delete c.userData.source;});return {controller:c,line};});
+const controllers=[0,1].map(i=>{const c=renderer.xr.getController(i);rig.add(c);const grip=renderer.xr.getControllerGrip(i);rig.add(grip);const hand=new HandPill(grip);const line=createPointerLine({color:0xd5e9ac,length:8,depthTest:true,renderOrder:0});line.material.transparent=true;line.material.depthWrite=false;c.add(line);c.addEventListener('connected',e=>{c.userData.source=e.data;c.userData.fresh=true;});c.addEventListener('disconnected',()=>{edges.reset(c.userData.source);delete c.userData.source;hand.update(null,false);});return {controller:c,line,hand};});
 const marker=new THREE.Mesh(new THREE.RingGeometry(.055,.073,24),new THREE.MeshBasicMaterial({color:0xe0edb9,side:THREE.DoubleSide,depthTest:false}));marker.rotation.x=-Math.PI/2;marker.renderOrder=5;marker.visible=false;scene.add(marker);
 const selection=new THREE.Mesh(new THREE.RingGeometry(.13,.15,32),new THREE.MeshBasicMaterial({color:0xffe3a3,side:THREE.DoubleSide,depthTest:false}));selection.rotation.x=-Math.PI/2;selection.renderOrder=5;selection.visible=false;scene.add(selection);
 const deleteFill=new THREE.Mesh(new THREE.CircleGeometry(.13,64,0,-Math.PI*2),new THREE.MeshBasicMaterial({color:0xe43838,side:THREE.DoubleSide,depthTest:false}));deleteFill.rotation.x=-Math.PI/2;deleteFill.renderOrder=6;deleteFill.visible=false;scene.add(deleteFill);
@@ -98,12 +99,12 @@ window.addEventListener('keydown',e=>{if(e.target.closest('button'))return;keys.
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=null;desktopSlider=null;});
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 renderer.xr.addEventListener('sessionstart',()=>{document.body.classList.add('xr');edges.reset();debugMenu.hide();teleport.reset();snapTurn.reset();desktopSlider=vrSlider=null;activeController.hand='right';activeController.enabled=true;deleteHold.cancel();keys.clear();marker.visible=selection.visible=cloneIcon.visible=debugIcon.visible=false;});
-renderer.xr.addEventListener('sessionend',()=>{document.body.classList.remove('xr');edges.reset();debugMenu.hide();teleport.reset();snapTurn.reset();rig.position.y=0;vrSlider=null;deleteHold.cancel();deleteFill.visible=false;camera.position.set(0,1.6,0);camera.rotation.set(-.22,0,0);for(const c of controllers)c.line.visible=false;});
+renderer.xr.addEventListener('sessionend',()=>{document.body.classList.remove('xr');edges.reset();debugMenu.hide();teleport.reset();snapTurn.reset();rig.position.y=0;vrSlider=null;deleteHold.cancel();deleteFill.visible=false;camera.position.set(0,1.6,0);camera.rotation.set(-.22,0,0);for(const c of controllers){c.line.visible=false;c.hand.update(null,false);}});
 try{document.body.append(VRButton.createButton(renderer));}catch(error){status.textContent=`VR unavailable: ${error.message}`;}
 renderer.setAnimationLoop((time,frame)=>{
   const dt=last?Math.min((time-last)/1000,.05):0;last=time;now=time/1000;
   const session=renderer.xr.getSession(),state=frameState.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden);
-  if(!state.active){debugMenu.hide();teleport.reset();snapTurn.reset();vrSlider=null;desktopSlider=null;deleteHold.cancel();deleteFill.visible=false;for(const c of controllers)c.line.visible=false;marker.visible=selection.visible=cloneIcon.visible=debugIcon.visible=false;return;}
+  if(!state.active){debugMenu.hide();teleport.reset();snapTurn.reset();vrSlider=null;desktopSlider=null;deleteHold.cancel();deleteFill.visible=false;for(const c of controllers){c.line.visible=false;c.hand.update(null,false);}marker.visible=selection.visible=cloneIcon.visible=debugIcon.visible=false;return;}
   applyHeightOffset(rig,vrValues,!!session);
   if(session){
     const viewer=state.pose.transform;let palmPose=null;for(const source of session.inputSources)if(source.handedness==='left'&&source.gamepad?.mapping==='xr-standard'&&source.gripSpace)palmPose=frame.getPose(source.gripSpace,renderer.xr.getReferenceSpace());debugMenu.update(palmPose,rig,viewer.position);
@@ -120,10 +121,11 @@ renderer.setAnimationLoop((time,frame)=>{
     edges.retain(session.inputSources);
     if(state.resumed)deleteHold.cancel();
     const inputs=[];
-    for(const {controller:c,line} of controllers) {
+    for(const {controller:c,line,hand:handModel} of controllers) {
       line.visible=false;
       const source=c.userData.source;
       const hand=source?.handedness;
+      handModel.update(source,!!source?.gripSpace&&state.isTracked(source.gripSpace));
       const tracked=(hand==='left'||hand==='right')&&source?.gamepad?.mapping==='xr-standard'&&state.isTracked(source.targetRaySpace);
       if(!tracked){if(source)edges.reset(source);c.userData.fresh=true;continue;}
       const seed=state.resumed||c.userData.fresh;c.userData.fresh=false;
@@ -157,8 +159,8 @@ renderer.setAnimationLoop((time,frame)=>{
     if(removed!==null){plants.remove(removed);target=null;}
     deleteFill.visible=deleteHold.progress>0&&target?.kind==='plant';
     if(deleteFill.visible){const selected=plants.instances.get(target.id);placeIndicator(deleteFill,selected.position,selected.support?.normal??groundNormal,.014);deleteFill.geometry.setDrawRange(0,Math.floor(deleteHold.progress*64)*3);}
-  }else{deleteHold.cancel();deleteFill.visible=false;for(const c of controllers)c.line.visible=false;desktopRay.setFromCamera(mouse,camera);target=targetFrom(desktopRay);}
+  }else{deleteHold.cancel();deleteFill.visible=false;for(const c of controllers){c.line.visible=false;c.hand.update(null,false);}desktopRay.setFromCamera(mouse,camera);target=targetFrom(desktopRay);}
   settings.setHover(target?.kind==='control'?target.control:null);savePanel.setHover(target?.kind==='control'?target.control:null);vrSettings.setHover(target?.kind==='control'?target.control:null);showTarget(target);updateHUD();renderer.render(scene,camera);
 });
 // Read-only diagnostic access for local acceptance checks.
-window.secretGarden={scene,renderer,camera,rig,plants,environment,settings,bees,saves,savePanel,vrSettings,vrValues,preferences,teleport,debugMenu,debugIcon,cloneIcon};
+window.secretGarden={scene,renderer,camera,rig,plants,environment,settings,bees,saves,savePanel,vrSettings,vrValues,preferences,teleport,debugMenu,debugIcon,cloneIcon,controllers};

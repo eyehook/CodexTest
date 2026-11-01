@@ -2,7 +2,11 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {constrainPosition,DOOR_Z} from './garden-layout.mjs?v=46';
 export class Teleport {
  constructor(scene){
-  this.marker=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,1.6,16),new THREE.MeshBasicMaterial({color:0x83d59a,transparent:true,opacity:.5,depthWrite:false}));
+  const geometry=new THREE.CylinderGeometry(.381,.381,1.8288,16),positions=geometry.attributes.position,colors=[];
+  // RGBA vertex colors interpolate a linear height fade in the standard material.
+  for(let i=0;i<positions.count;i++)colors.push(1,1,1,THREE.MathUtils.clamp(.5-positions.getY(i)/1.8288,0,1));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,4));
+  this.marker=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color:0x83d59a,vertexColors:true,transparent:true,opacity:1,depthWrite:false}));
   this.marker.name='teleport-target';this.marker.castShadow=this.marker.receiveShadow=false;scene.add(this.marker);
   this.destination=new THREE.Vector3();this.normal=new THREE.Vector3();this.viewer=new THREE.Vector3();this.normalMatrix=new THREE.Matrix3();this.sticks=new Map();this.reset();
  }
@@ -34,7 +38,7 @@ export class Teleport {
   if(!hit)return;
   this.destination.copy(hit.point);
   if(room&&hit.object.userData.teleportDoor){this.destination.set(0,0,DOOR_Z);this.valid=true;this.doorRoom=room;}
-  this.marker.position.copy(this.destination);this.marker.position.y+=.8;
+  this.marker.position.copy(this.destination);this.marker.position.y+=.9144;
   if(!this.doorRoom&&hit.face){this.normalMatrix.getNormalMatrix(hit.object.matrixWorld);this.normal.copy(hit.face.normal).applyMatrix3(this.normalMatrix).normalize();
    const allowed=constrainPosition(hit.point.x,hit.point.z,doorOpen);
    this.valid=this.normal.y>.9&&Math.abs(hit.point.y)<.06&&Math.hypot(allowed.x-hit.point.x,allowed.z-hit.point.z)<1e-5;
