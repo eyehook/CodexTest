@@ -168,16 +168,20 @@ export function growthAmount(part, ageSeconds) {
   const t = Math.max(0,Math.min(1,(ageSeconds/GROWTH_SECONDS-part.begin)/part.duration));
   return t*t*(3-2*t);
 }
-export function componentPose(structure, ageSeconds) {
-  const endpoints=[], poses=[];
+export function componentPose(structure, ageSeconds, cache=null) {
+  const poses=cache??[];
   for(const part of structure.parts) {
     const parent=part.parent===null?null:structure.parts[part.parent];
-    const anchor=parent ? parent.start.map((v,i)=>mix(v,endpoints[parent.id][i],part.attachment)) : part.start;
+    let pose=poses[part.id];
+    if(pose?.complete){pose.changed=false;continue;}
+    if(!pose)pose=poses[part.id]={anchor:[0,0,0],end:part.kind==='stem'?[0,0,0]:undefined,growth:0};
     const growth=growthAmount(part,ageSeconds);
-    if(part.kind==='stem') {
-      const end=part.end.map((v,i)=>anchor[i]+(v-part.start[i])*growth);
-      endpoints[part.id]=end; poses.push({anchor,end,growth});
-    } else poses.push({anchor,growth});
+    for(let i=0;i<3;i++)pose.anchor[i]=parent?mix(parent.start[i],poses[parent.id].end[i],part.attachment):part.start[i];
+    pose.changed=pose.growth!==growth||!pose.initialized||!!(parent&&poses[parent.id].changed);
+    pose.growth=growth;pose.initialized=true;
+    if(part.kind==='stem')for(let i=0;i<3;i++)pose.end[i]=pose.anchor[i]+(part.end[i]-part.start[i])*growth;
+    pose.complete=growth===1&&(!parent||poses[parent.id].complete);
+
   }
   return poses;
 }

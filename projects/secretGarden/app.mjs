@@ -5,14 +5,14 @@ import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
 import {ControllerPointer,createPointerLine} from '../../shared/xr/pointer.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=95';
-import {PlantRenderer} from './renderer.mjs?v=96';
+import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=99';
+import {PlantRenderer} from './renderer.mjs?v=97';
 import {DeleteHold} from './delete-hold.mjs?v=13';
 import {ActiveController} from './controller-actions.mjs?v=19';
 import {doorwayPlantingBlocked} from './garden-layout.mjs?v=46';
-import {Bees} from './bees.mjs?v=96';
-import {PlantManager} from './manager.mjs?v=96';
-import {DebugMenu} from './debug-menu.mjs?v=96';
+import {Bees} from './bees.mjs?v=97';
+import {PlantManager} from './manager.mjs?v=97';
+import {DebugMenu} from './debug-menu.mjs?v=97';
 import {GardenSaves} from './garden-saves.mjs?v=96';
 import {Teleport} from './teleport.mjs?v=70';
 import {SnapTurn} from './snap-turn.mjs?v=71';
@@ -90,9 +90,9 @@ function updateHUD(){
   const text=`${plants.instances.size} plants · ${plants.growing.size} growing`;
   if(text!==hudText){hudText=text;document.querySelector('#stats').textContent=text;}
 }
-renderer.domElement.addEventListener('pointermove',e=>{mouse.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);if(desktopSlider){scene.updateMatrixWorld(true);desktopRay.setFromCamera(mouse,camera);const hit=targetFrom(desktopRay);if(hit?.control===desktopSlider)desktopSlider.drag({uv:hit.uv,source:'desktop'});return;}if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>2)dragged=true;rig.rotation.y-=dx*.004;camera.rotation.x=THREE.MathUtils.clamp(camera.rotation.x-dy*.003,-1.3,.9);drag={x:e.clientX,y:e.clientY};}});
-renderer.domElement.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(!renderer.xr.isPresenting){mouse.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);scene.updateMatrixWorld(true);desktopRay.setFromCamera(mouse,camera);const hit=targetFrom(desktopRay);if(hit?.control?.drag){desktopSlider=hit.control;desktopSlider.activate({uv:hit.uv,source:'desktop'});renderer.domElement.setPointerCapture(e.pointerId);return;}}drag={x:e.clientX,y:e.clientY};dragged=false;renderer.domElement.setPointerCapture(e.pointerId);});
-renderer.domElement.addEventListener('pointerup',e=>{if(desktopSlider){desktopSlider=null;return;}if(drag&&!dragged&&!renderer.xr.isPresenting){mouse.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);scene.updateMatrixWorld(true);desktopRay.setFromCamera(mouse,camera);perform('plant',targetFrom(desktopRay));}drag=null;});
+renderer.domElement.addEventListener('pointermove',e=>{mouse.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);if(desktopSlider){scene.updateMatrixWorld();desktopRay.setFromCamera(mouse,camera);const hit=targetFrom(desktopRay);if(hit?.control===desktopSlider)desktopSlider.drag({uv:hit.uv,source:'desktop'});return;}if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>2)dragged=true;rig.rotation.y-=dx*.004;camera.rotation.x=THREE.MathUtils.clamp(camera.rotation.x-dy*.003,-1.3,.9);drag={x:e.clientX,y:e.clientY};}});
+renderer.domElement.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(!renderer.xr.isPresenting){mouse.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);scene.updateMatrixWorld();desktopRay.setFromCamera(mouse,camera);const hit=targetFrom(desktopRay);if(hit?.control?.drag){desktopSlider=hit.control;desktopSlider.activate({uv:hit.uv,source:'desktop'});renderer.domElement.setPointerCapture(e.pointerId);return;}}drag={x:e.clientX,y:e.clientY};dragged=false;renderer.domElement.setPointerCapture(e.pointerId);});
+renderer.domElement.addEventListener('pointerup',e=>{if(desktopSlider){desktopSlider=null;return;}if(drag&&!dragged&&!renderer.xr.isPresenting){mouse.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);scene.updateMatrixWorld();desktopRay.setFromCamera(mouse,camera);perform('plant',targetFrom(desktopRay));}drag=null;});
 renderer.domElement.addEventListener('pointercancel',()=>{drag=null;desktopSlider=null;});
 window.addEventListener('keydown',e=>{if(e.target.closest('button'))return;keys.add(e.code);if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();if(!e.repeat&&!renderer.xr.isPresenting){if(e.code==='KeyB')perform('copy',target);if(e.code==='KeyX')perform('delete',target);if(e.code==='Space'){e.preventDefault();perform('plant',target);};}});
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=null;desktopSlider=null;});
@@ -115,7 +115,7 @@ renderer.setAnimationLoop((time,frame)=>{
   rig.updateMatrixWorld(true);viewerPosition.applyMatrix4(rig.matrixWorld);
   const doorChanged=environment.room.update(dt,viewerPosition);
   environment.clouds.update(dt);
-  settings.beginFrame(doorChanged||plants.hasGrowingShadows||shadowRevision!==plants.shadowRevision);shadowRevision=plants.shadowRevision;plants.update(now);bees.update(plants,now);scene.updateMatrixWorld(true);target=null;
+  settings.beginFrame(doorChanged||plants.hasGrowingShadows||shadowRevision!==plants.shadowRevision);shadowRevision=plants.shadowRevision;plants.update(now);bees.update(plants,now);scene.updateMatrixWorld();target=null;
   if(session){
     edges.retain(session.inputSources);
     if(state.resumed)deleteHold.cancel();
@@ -157,7 +157,7 @@ renderer.setAnimationLoop((time,frame)=>{
     if(removed!==null){plants.remove(removed);target=null;}
     deleteFill.visible=deleteHold.progress>0&&target?.kind==='plant';
     if(deleteFill.visible){const selected=plants.instances.get(target.id);placeIndicator(deleteFill,selected.position,selected.support?.normal??groundNormal,.014);deleteFill.geometry.setDrawRange(0,Math.floor(deleteHold.progress*64)*3);}
-  }else{deleteHold.cancel();deleteFill.visible=false;for(const c of controllers)c.line.visible=false;scene.updateMatrixWorld(true);desktopRay.setFromCamera(mouse,camera);target=targetFrom(desktopRay);}
+  }else{deleteHold.cancel();deleteFill.visible=false;for(const c of controllers)c.line.visible=false;desktopRay.setFromCamera(mouse,camera);target=targetFrom(desktopRay);}
   settings.setHover(target?.kind==='control'?target.control:null);savePanel.setHover(target?.kind==='control'?target.control:null);vrSettings.setHover(target?.kind==='control'?target.control:null);showTarget(target);updateHUD();renderer.render(scene,camera);
 });
 // Read-only diagnostic access for local acceptance checks.

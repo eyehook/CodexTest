@@ -38,7 +38,7 @@ test('maturity preserves exact geometry, colors, world placement and ray targeti
   manager.update(10);scene.updateMatrixWorld(true);
   compare(a,beforeA);compare(b,beforeB);
   assert.equal(a.visual.group.parent,null);assert.equal(b.visual.group.parent,null);
-  assert.equal(manager.targets.length,2);
+  assert.equal(manager.targets.length,1); // One garden-level spatial picker.
   assert.equal(renderer.matureBatches.pools.size,new Set(a.visual.batches.map(b=>b.key)).size);
   // Detached targeting data retains its mature world transforms and plant IDs.
   const mesh=a.visual.batches.find(b=>b.key==='crown'||b.key.startsWith('stem')).mesh,local=new THREE.Matrix4();mesh.getMatrixAt(0,local);

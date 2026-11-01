@@ -62,5 +62,6 @@ export function createEnvironment(scene,renderer,{viewDistance=250}={}) {
   scene.add(blocks);
   const clouds=new CloudSky(scene,{halfWidth:HALF_WIDTH,halfDepth:HALF_DEPTH,wallHeight:WALL_HEIGHT,viewDistance});
   const room=createGardenRoom(scene);
+  for(const object of [ground,...walls,blocks]){object.updateMatrix();object.matrixAutoUpdate=false;}
   return {ground,walls,clouds,room,targets:[ground,...walls,...room.targets]};
 }

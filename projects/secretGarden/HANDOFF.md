@@ -788,3 +788,27 @@ Added a 1,200-seed regression checking every standalone stem ends in a bloom or 
 ## Flower-tip release — 2026-10-31
 
 User confirmed the flower-tip change looks better and authorized publication. All 106 garden tests pass and whitespace checks are clean. Release includes terminal blooms on branched standalone stems, regression coverage, garden save version 13 and entry/import cache version 96. Earlier local/unpushed and pending visual-review notes are historical.
+
+## Five CPU optimizations — 2026-10-31
+
+Added `garden-picker.mjs`: a world-space bounding-volume hierarchy rejects whole plant groups before invoking existing exact component/grass pickers. PlantManager caches its target wrapper and rebuilds the hierarchy only on garden revision changes; conservative full-growth bounds cover growing plants, so maturity needs no rebuild. Exact nearest-hit behavior, overlapping plants and wrapped vines remain covered by targeting regressions. Empty gardens expose no targets.
+
+Growth now reuses pose/coordinate arrays, settles components once their own and ancestor growth finish, and writes instance matrices only for changed poses. Renderer invalidates pose caches when age moves backward. Fixed conservative origin-centered spheres cover full growth, including petal opening and leaf offsets, replacing per-frame instance bounding-sphere scans. Selection still uses exact current triangles for growing plants and frozen component hierarchies for mature plants; broad-phase bounds are conservative.
+
+Removed the redundant desktop scene update and replaced forced full updates with normal matrix propagation. Static plant roots/batch meshes, mature pools and garden ground/walls/brickwork freeze local matrix composition; animated rig/controllers/door remain dynamic. Mature pools incrementally union added instance geometry boxes and derive spheres from cached bounds. Deletion retains conservative bounds until a pool empties, avoiding full-pool rescans at completion/deletion; bounds can grow loose after extensive deletions.
+
+Entry/import cache version 97; no generator appearance, save payload or settings change, so garden/settings versions remain 13/4. All 110 garden tests pass, including cached-vs-fresh poses, actual geometry containment throughout growth (ground plants and wrapped vines), spatial candidate rejection/rebuild, and no full bounds scans on growth/maturity/deletion. Chrome isolated-session smoke check matured 25 plants into 15 pools with one garden picker and no page errors. Whitespace checks clean. User-visible behavior and sustained Quest CPU/frame-time gains need headset verification; no performance percentage is claimed. Local and unpushed.
+
+
+## 512-pixel shadow comparison — 2026-10-31
+
+Reduced the sun shadow map from 1024×1024 to 512×512 for user comparison. Coverage, filtering, bias and refresh rules are unchanged. This uses one quarter as many shadow-map texels; visual quality and actual Quest GPU benefit remain to be compared. Entry/environment cache version 98. No save/settings version change. All 110 garden tests pass and whitespace checks are clean. Local and unpushed, alongside the CPU optimizations above.
+
+
+## Restore 1024-pixel shadows — 2026-10-31
+
+User requested restoring the sun shadow map to 1024×1024 after the comparison. Coverage, filtering, bias and refresh rules remain unchanged. Entry/environment cache version 99. Supersedes the 512-pixel comparison above; CPU optimizations remain in place. Local and unpushed. Whitespace checks pass.
+
+## CPU optimization release — 2026-10-31
+
+User authorized publication of the five CPU optimizations. Retained 1024×1024 shadows following the user's visual comparison; further GPU optimizations are deferred. Final entry/environment cache version 99, CPU module versions 97; garden/settings versions remain 13/4. All 110 garden tests pass and whitespace checks are clean. Isolated Chrome smoke validation is recorded above; no measured Quest performance gain is claimed. Earlier local/unpushed notes are historical for this release.

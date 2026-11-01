@@ -1,8 +1,8 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {installPlantPicker} from './plant-picker.mjs?v=40';
 import {installGrassPicker} from './grass-picker.mjs?v=35';
-import {MatureBatches} from './mature-batches.mjs?v=48';
-import {componentPose,BLOOM_FORMS} from './generator.mjs?v=96';
+import {MatureBatches} from './mature-batches.mjs?v=97';
+import {componentPose,BLOOM_FORMS} from './generator.mjs?v=97';
 const up=new THREE.Vector3(0,1,0);
 function leafGeometry(shape,pointedBase=false) {
   const widths=[.48,.8,.24],w=widths[shape]*(pointedBase?.5:1),shoulder=pointedBase?.65:.45,ridge=pointedBase?.58:.42;
@@ -72,7 +72,7 @@ export class PlantRenderer {
     const batches=[];
     for(const [key,entries] of buckets) {
       const mesh=new THREE.InstancedMesh(this.geometries[key],this.material,entries.length);mesh.userData.plantId=id;
-      mesh.castShadow=!['grass','vine'].includes(structure.parameters.form);mesh.receiveShadow=structure.parameters.form!=='grass';mesh.frustumCulled=true;
+      mesh.castShadow=!['grass','vine'].includes(structure.parameters.form);mesh.receiveShadow=structure.parameters.form!=='grass';mesh.frustumCulled=true;mesh.matrixAutoUpdate=false;
       entries.forEach(({part:p},i)=>{const color=new THREE.Color();
         if(key.startsWith('stem'))color.set(structure.parameters.form==='tree'?0x6e5940:0x507044);
         else if(key==='center')color.set(p.shape===0?0x79512d:0xe6ba55);
@@ -87,17 +87,31 @@ export class PlantRenderer {
     }
     const picker=structure.parameters.form==='grass'?installGrassPicker(group,structure):null;
     const targeting=picker?null:installPlantPicker(group,batches);
+    // Origin-centered bounds cover every growth pose, including petal opening.
+    let radius=0;
+    for(const {mesh,entries} of batches){
+      mesh.geometry.computeBoundingSphere();const sphere=mesh.geometry.boundingSphere;
+      for(const {part:q} of entries){
+        const reach=Math.max(...[q.start,q.end,q.position,q.parent===null?null:structure.parts[q.parent]?.end].filter(Boolean).map(v=>Math.hypot(...v)));
+        const size=Math.max(q.size??0,q.height??0,q.width??0,...(q.scale??[0]),q.radius??0);
+        radius=Math.max(radius,reach+(sphere.center.length()+sphere.radius)*size*2+.1);
+      }
+    }
+    for(const {mesh} of batches)mesh.boundingSphere=new THREE.Sphere(new THREE.Vector3(),radius);
+    group.userData.pickRadius=radius;group.updateMatrix();group.matrixAutoUpdate=false;
     this.scene.add(group);return {group,batches,picker,targeting};
   }
   update(instance,age) {
-    const poses=componentPose(instance.structure,age),d=this.dummy;
+    if(age<instance.visual.lastAge)instance.visual.poses=null;instance.visual.lastAge=age;
+    const poses=componentPose(instance.structure,age,instance.visual.poses),d=this.dummy;instance.visual.poses=poses;
     if(instance.visual.picker){
       let height=0;instance.structure.parts.forEach((p,i)=>{height=Math.max(height,p.height*poses[i].growth);});
       const picker=instance.visual.picker;picker.height=height;picker.center.set(0,height*.15,0);picker.radii.y=Math.max(.0001,height*.95*.8);
     }
     for(const {key,mesh,entries} of instance.visual.batches) {
+      let dirty=false;
       entries.forEach(({part:p,petal},i)=>{
-        const pose=poses[p.id],g=pose.growth;
+        const pose=poses[p.id],g=pose.growth;if(!pose.changed)return;dirty=true;
         d.position.fromArray(pose.anchor);d.quaternion.identity();
         if(key.startsWith('stem')) {
           this.direction.fromArray(pose.end).sub(d.position); const length=this.direction.length();
@@ -131,7 +145,7 @@ export class PlantRenderer {
         // Zero scale cannot be inverted reliably during raycasting.
         if(g===0)d.scale.setScalar(1e-7);
         d.updateMatrix();mesh.setMatrixAt(i,d.matrix);
-      });mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();
+      });if(dirty)mesh.instanceMatrix.needsUpdate=true;
     }
     instance.visual.targeting?.refresh();
   }

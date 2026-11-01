@@ -8,7 +8,7 @@ export class MatureBatches {
   constructor(scene,geometries,material) {
     this.scene=scene;this.geometries=geometries;this.material=material;
     this.pools=new Map();this.dirty=new Set();
-    this.local=new THREE.Matrix4();this.world=new THREE.Matrix4();this.color=new THREE.Color();
+    this.bounds=new THREE.Box3();this.local=new THREE.Matrix4();this.world=new THREE.Matrix4();this.color=new THREE.Color();
   }
   reserve(key,needed,castShadow=key!=='leaf4',receiveShadow=key!=='leaf4') {
     const poolId=poolKey(key,castShadow,receiveShadow);
@@ -17,7 +17,7 @@ export class MatureBatches {
     let capacity=pool?.capacity??64;
     while(capacity<needed)capacity*=2;
     const mesh=new THREE.InstancedMesh(this.geometries[key],this.material,capacity);
-    mesh.name=`mature-${poolId}`;mesh.count=pool?.mesh.count??0;
+    mesh.matrixAutoUpdate=false;mesh.name=`mature-${poolId}`;mesh.count=pool?.mesh.count??0;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(capacity*3),3).setUsage(THREE.DynamicDrawUsage);
     mesh.castShadow=castShadow;mesh.receiveShadow=receiveShadow;
@@ -26,7 +26,7 @@ export class MatureBatches {
       mesh.instanceColor.array.set(pool.mesh.instanceColor.array);
       this.scene.remove(pool.mesh);pool.mesh.dispose();pool.mesh=mesh;pool.capacity=capacity;
     } else {
-      pool={key,id:poolId,mesh,capacity,slots:[]};this.pools.set(poolId,pool);
+      pool={key,id:poolId,mesh,capacity,slots:[],bounds:new THREE.Box3()};this.pools.set(poolId,pool);
     }
     this.scene.add(mesh);this.dirty.add(pool);return pool;
   }
@@ -42,6 +42,8 @@ export class MatureBatches {
         source.getMatrixAt(i,this.local);
         this.world.multiplyMatrices(source.matrixWorld,this.local);
         pool.mesh.setMatrixAt(index,this.world);
+        if(!source.geometry.boundingBox)source.geometry.computeBoundingBox();
+        pool.bounds.union(this.bounds.copy(source.geometry.boundingBox).applyMatrix4(this.world));
         source.getColorAt(i,this.color);pool.mesh.setColorAt(index,this.color);
         const handle={pool,index};pool.slots.push(handle);visual.matureSlots.push(handle);
       }
@@ -71,7 +73,7 @@ export class MatureBatches {
   flush() {
     for(const pool of this.dirty) {
       pool.mesh.instanceMatrix.needsUpdate=true;pool.mesh.instanceColor.needsUpdate=true;
-      pool.mesh.computeBoundingSphere();
+      if(!pool.mesh.boundingSphere)pool.mesh.boundingSphere=new THREE.Sphere();pool.bounds.getBoundingSphere(pool.mesh.boundingSphere);
     }
     this.dirty.clear();
   }

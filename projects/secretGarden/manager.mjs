@@ -1,11 +1,12 @@
+import {GardenPicker} from './garden-picker.mjs?v=97';
 import {Vector3} from '../../shared/vendor/three-r180/three.module.js';
-import {selectPlantSeed,DEBUG_PLANT_TYPES} from './debug-plant-types.mjs?v=96';
-import {generatePlant,GROWTH_SECONDS} from './generator.mjs?v=96';
-import {generateVine} from './vine-generator.mjs?v=96';
+import {selectPlantSeed,DEBUG_PLANT_TYPES} from './debug-plant-types.mjs?v=97';
+import {generatePlant,GROWTH_SECONDS} from './generator.mjs?v=97';
+import {generateVine} from './vine-generator.mjs?v=97';
 import {doorwayPlantingBlocked,gardenGroundContains,vineDoorExclusion} from './garden-layout.mjs?v=46';
 export class PlantManager {
   constructor(renderer,randomSeed=()=>crypto.getRandomValues(new Uint32Array(1))[0],randomRotation=()=>Math.random()*Math.PI*2,randomScale=()=>.8+Math.random()*.4) {
-    this.renderer=renderer;this.randomSeed=randomSeed;this.randomRotation=randomRotation;this.randomScale=randomScale;this.instances=new Map();this.growing=new Set();this.clonedSeed=null;this.clonedSurface=null;this.debugType=null;this.lastDebugSeed=null;this.nextId=1;this.revision=0;this.shadowRevision=0;
+    this.gardenPicker=new GardenPicker();this.targetRevision=-1;this.targetList=[this.gardenPicker.group];this.renderer=renderer;this.randomSeed=randomSeed;this.randomRotation=randomRotation;this.randomScale=randomScale;this.instances=new Map();this.growing=new Set();this.clonedSeed=null;this.clonedSurface=null;this.debugType=null;this.lastDebugSeed=null;this.nextId=1;this.revision=0;this.shadowRevision=0;
   }
   chooseType(id){if(id!=='random'&&!DEBUG_PLANT_TYPES.some(type=>type.id===id))throw new Error('Unknown plant type');this.copy(null);this.debugType=id==='random'?null:id;}
   canDebug(surface='ground'){return this.debugType!==null&&(this.debugType==='vine'?'wall':'ground')===surface;}
@@ -60,5 +61,5 @@ export class PlantManager {
   update(now) {for(const p of this.growing){const age=Math.max(0,now-p.born);this.renderer.update(p,Math.min(age,GROWTH_SECONDS));if(age>=GROWTH_SECONDS){p.state='mature';this.renderer.mature?.(p);this.growing.delete(p);}}this.renderer.flush?.();}
   get hasGrowingShadows(){for(const p of this.growing)if(!['grass','vine'].includes(p.structure.parameters.form))return true;return false;}
   get label(){if(this.debugType!==null)return 'DEBUG: '+this.debugType;return this.clonedSeed===null?'RANDOM':`CLONE: ${this.clonedSeed}`;}
-  get targets(){return [...this.instances.values()].map(p=>p.visual.group);}
+  get targets(){if(this.targetRevision!==this.revision){this.gardenPicker.rebuild(this.instances.values());this.targetRevision=this.revision;}return this.instances.size?this.targetList:[];}
 }
