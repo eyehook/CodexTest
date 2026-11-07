@@ -12,7 +12,7 @@ export function generateShrub(parameters,bloom,random){
  const add=part=>{part.id=parts.length;parts.push(part);return part;};
  const count=integer(1,5),radius=range(.48,.72),vertical=range(.28,.43),angles=shrubBranchAngles(count-1,random);
  parameters.canopyCount=count;parameters.height=vertical*2;parameters.primaryStems=1;
- const root=add({kind:'stem',parent:null,attachment:1,start:[0,0,0],end:[0,vertical*.9,0],radius:.025,taper:.58,begin:0,duration:.25});
+ const root=add({kind:'stem',parent:null,attachment:1,start:[0,0,0],end:[0,range(.0508,.1524),0],radius:.025,taper:.58,begin:0,duration:.25});
  let baseCanopy=null;
  for(let i=0;i<count;i++){
   const angle=i===0?0:angles[i-1],elevation=i===0?0:range(0,Math.PI/6),height=vertical*range(.85,1.1);

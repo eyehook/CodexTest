@@ -11,7 +11,7 @@ test('boundary constraint accounts for physical head offset and rig yaw',()=>{
   assert.ok(Math.abs(world.x)<=HALF_WIDTH-.18+1e-8);assert.ok(Math.abs(world.z)<=HALF_DEPTH-.18+1e-8);assert.equal(rig.position.y,0);
 });
 test('rendered plant batches resolve ray hits to instance IDs and clones have identical matrices and colors',()=>{
-  const scene=new THREE.Scene(),renderer=new PlantRenderer(scene),structure=generatePlant(29);
+  const scene=new THREE.Scene(),renderer=new PlantRenderer(scene),structure=Array.from({length:100},(_,seed)=>generatePlant(seed)).find(p=>p.parameters.form==='flower');
   const first={structure,visual:renderer.create(structure,new THREE.Vector3(),11)};
   const second={structure,visual:renderer.create(structure,new THREE.Vector3(1,0,0),12,1.2,.8)};
   assert.equal(second.visual.group.rotation.y,1.2);

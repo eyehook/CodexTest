@@ -17,7 +17,7 @@ test('seed sweep is bounded, finite, connected and fully mature at ten seconds',
       if(part.kind==='stem'){part.end.forEach((v,i)=>assert.ok(Math.abs(mature[part.id].end[i]-v)<1e-10));}
     }
   }
-  assert.deepEqual([...forms].sort(),['bush','flower','grass','tree']);
+  assert.deepEqual([...forms].sort(),['bush','fern','flower','grass','tree']);
 });
 test('growth poses depend on age, not intermediate frame sequence',()=>{
   const p=generatePlant(88),expected=componentPose(p,4.125);
@@ -54,7 +54,7 @@ test('blooms vary in silhouette, depth, orientation and clustered arrangement',(
 
 test('trees retain a full branched crown without exhausting the component budget',()=>{
   let trees=0;
-  for(let seed=0;seed<600;seed++){
+  for(let seed=0;seed<1200;seed++){
     const p=generatePlant(seed);if(p.parameters.form!=='tree'||p.parameters.treeForm!=='open')continue;trees++;
     const stems=p.parts.filter(x=>x.kind==='stem'),leaves=p.parts.filter(x=>x.kind==='leaf');
     const root=stems.find(x=>x.parent===null);
@@ -113,7 +113,7 @@ test('all five active tree families have bounded foliage and distinct crown prop
 
 test('cypress starts with spherical foliage then stacks narrower taller ellipsoids',()=>{
   let count=0;
-  for(let seed=0;seed<1000;seed++){
+  for(let seed=0;seed<1500;seed++){
     const p=generatePlant(seed);if(p.parameters.treeForm!=='columnar')continue;count++;
     const tiers=p.parts.filter(x=>x.kind==='foliage');assert.ok(tiers.length>=5&&tiers.length<=7);
     assert.equal(tiers[0].scale[0],tiers[0].scale[1]);assert.equal(tiers[0].scale[1],tiers[0].scale[2]);

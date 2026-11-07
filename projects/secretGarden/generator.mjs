@@ -1,5 +1,5 @@
 import {flowerHue} from './flower-colors.mjs?v=82';
-import {generateShrub} from './shrub-generator.mjs?v=83';
+import {generateShrub} from './shrub-generator.mjs?v=116';
 import {placeCanopyFlowers} from './canopy-flowers.mjs?v=75';
 // Pure plant data: meters, local coordinates, explicit attachments, normalized time.
 export const GROWTH_SECONDS = 10;
@@ -24,7 +24,18 @@ const mix = (a,b,t) => a+(b-a)*t;
 export function generatePlant(seed) {
   seed >>>= 0;
   const rng = randomFor(seed), range = (a,b) => mix(a,b,rng()), integer = (a,b) => Math.floor(range(a,b+1));
-  const form = ['flower','bush','tree','grass'][integer(0,3)];
+  const form = ['flower','bush','tree','grass','fern'][integer(0,4)];
+  if(form==='fern') {
+    const parameters={form,height:range(.4,.8),count:integer(7,11),flowers:false,hue:range(.25,.35),light:range(.25,.36)};
+    const phase=range(0,Math.PI*2),parts=[];
+    for(let i=0;i<parameters.count;i++) {
+      const yaw=phase+i*2.399963+range(-.12,.12);
+      parts.push({id:i,kind:'leaf',shape:5,parent:null,start:[0,.015,0],position:[0,.015,0],
+        height:parameters.height*range(.7,1.1),width:range(.15,.25),spread:range(.65,1.1),
+        orientation:[range(-.12,.25),yaw,0],hue:parameters.hue+range(-.015,.015),light:parameters.light+range(-.035,.035),begin:i/parameters.count*.22,duration:.7});
+    }
+    return {seed,parameters,parts};
+  }
   if(form==='grass') {
     const parameters={form,radius:range(.35,.7),stretch:range(.85,1.2),height:range(.24,.45),flowers:false,
       count:integer(320,460),hue:range(.22,.35),light:range(.25,.38),phaseA:range(0,Math.PI*2),phaseB:range(0,Math.PI*2)};

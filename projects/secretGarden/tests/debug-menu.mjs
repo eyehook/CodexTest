@@ -27,4 +27,4 @@ test('debug mode rejects incompatible surfaces without clearing selection or acq
  let calls=0;const manager=new PlantManager({},()=>{calls++;return 1;});manager.chooseType('vine');assert.equal(calls,0);assert.equal(manager.plant(new THREE.Vector3(),0),null);assert.equal(manager.debugType,'vine');assert.equal(calls,0);manager.chooseType('random');assert.equal(manager.debugType,null);
 });
 
-test('debug menu includes only specific plant types and tree forms',()=>{assert.deepEqual(DEBUG_PLANT_TYPES.map(type=>type.id),['flower','bush','grass','vine','rounded','open','pine','columnar','umbrella']);});
+test('debug menu includes only specific plant types and tree forms',()=>{assert.deepEqual(DEBUG_PLANT_TYPES.map(type=>type.id),['flower','bush','grass','fern','vine','rounded','open','pine','columnar','umbrella']);});

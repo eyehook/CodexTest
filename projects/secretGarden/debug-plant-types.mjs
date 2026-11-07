@@ -1,7 +1,7 @@
-import {generatePlant} from './generator.mjs?v=103';
+import {generatePlant} from './generator.mjs?v=117';
 export const DEBUG_PLANT_TYPES=[
  {id:'flower',label:'Flowers',form:'flower'}, {id:'bush',label:'Shrubs',form:'bush'},
- {id:'grass',label:'Grass',form:'grass'}, {id:'vine',label:'Ivy',surface:'wall'},
+ {id:'grass',label:'Grass',form:'grass'}, {id:'fern',label:'Ferns',form:'fern'}, {id:'vine',label:'Ivy',surface:'wall'},
  ...[['rounded','Rounded'],['open','Open leaf'],['pine','Pine'],['columnar','Cypress'],['umbrella','Umbrella']].map(([treeForm,label])=>({id:treeForm,label:'Tree · '+label,form:'tree',treeForm}))
 ];
 export function selectPlantSeed(id,randomSeed,exclude=null){

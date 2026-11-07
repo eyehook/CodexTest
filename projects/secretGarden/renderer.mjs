@@ -2,7 +2,7 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {installPlantPicker} from './plant-picker.mjs?v=40';
 import {installGrassPicker} from './grass-picker.mjs?v=35';
 import {MatureBatches} from './mature-batches.mjs?v=97';
-import {componentPose,BLOOM_FORMS} from './generator.mjs?v=103';
+import {componentPose,BLOOM_FORMS} from './generator.mjs?v=117';
 const up=new THREE.Vector3(0,1,0);
 function leafGeometry(shape,pointedBase=false) {
   const widths=[.48,.8,.24],w=widths[shape]*(pointedBase?.5:1),shoulder=pointedBase?.65:.45,ridge=pointedBase?.58:.42;
@@ -19,6 +19,25 @@ function grassGeometry() {
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute([-.5,0,0,.5,0,0,-.35,.45,.04,.35,.45,.04,-.18,.8,.14,.18,.8,.14,.1,1,.3],3));
   g.setIndex([0,1,2,1,3,2,2,3,4,3,5,4,4,5,6]);g.computeVertexNormals();return g;
+}
+// One mesh per frond: a narrow rachis with paired, folded pinnae.
+function fernGeometry() {
+  const positions=[],indices=[];
+  const point=(x,t,fold=0)=>[x,Math.sin(t*Math.PI*.72),t*t*.9+fold];
+  const triangle=(a,b,c)=>{const i=positions.length/3;positions.push(...a,...b,...c);indices.push(i,i+1,i+2);};
+  const sections=24,pairs=12,lastPair=.14+(pairs-1)*.065,stalkEnd=lastPair+.045;
+  for(let i=0;i<sections;i++) {
+    const a=i/sections*stalkEnd,b=(i+1)/sections*stalkEnd,w=.014*(1-a)+.002,v=.014*(1-b)+.002;
+    triangle(point(-w,a),point(w,a),point(-v,b));triangle(point(w,a),point(v,b),point(-v,b));
+  }
+  for(let i=0;i<pairs;i++) {
+    const t=.14+i*.065,length=Math.pow(Math.sin(Math.PI*(t-.08)/.94),.8)*(1-.45*t);
+    for(const side of [-1,1]) {
+      const base=point(0,t-.022),tip=point(side*length,t+.105,.025),ridge=point(side*length*.45,t+.035,.04),end=point(0,t+.045);
+      triangle(base,tip,ridge);triangle(tip,end,ridge);triangle(end,base,ridge);
+    }
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return g;
 }
 function hydrangeaGeometry() {
   const geometry=new THREE.IcosahedronGeometry(1,1).translate(0,0,.65);
@@ -44,7 +63,7 @@ const bloomAxis=new THREE.Vector3(0,0,1),petalHinge=new THREE.Vector3(1,0,0);
 export class PlantRenderer {
   constructor(scene,{batchMature=true}={}) {
     this.scene=scene;this.dummy=new THREE.Object3D();this.direction=new THREE.Vector3();this.bloomQuaternion=new THREE.Quaternion();this.petalQuaternion=new THREE.Quaternion();this.openQuaternion=new THREE.Quaternion();
-    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf3:ivyGeometry(),leaf4:grassGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),hydrangea:hydrangeaGeometry(),center:new THREE.IcosahedronGeometry(1,0)};
+    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf3:ivyGeometry(),leaf4:grassGeometry(),leaf5:fernGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),hydrangea:hydrangeaGeometry(),center:new THREE.IcosahedronGeometry(1,0)};
     this.geometries.crown.computeVertexNormals();
     this.geometries.spire=this.geometries.crown.clone();
     const spirePositions=this.geometries.spire.attributes.position;
@@ -122,7 +141,7 @@ export class PlantRenderer {
           d.rotation.set(p.tilt,p.yaw,p.tilt*.6);d.scale.fromArray(p.scale).multiplyScalar(g);
         } else if(key.startsWith('leaf')) {
           if(p.direction)d.quaternion.setFromUnitVectors(up,this.direction.fromArray(p.direction).normalize());else if(p.orientation)d.rotation.fromArray(p.orientation);else d.rotation.set(.5+p.tilt,p.yaw,.7);
-          if(p.offset)d.position.set(d.position.x+p.offset[0],d.position.y+p.offset[1],d.position.z+p.offset[2]);if(p.shape===4)d.scale.set(p.width*g,p.height*g,p.height*g);else d.scale.setScalar(p.size*g);
+          if(p.offset)d.position.set(d.position.x+p.offset[0],d.position.y+p.offset[1],d.position.z+p.offset[2]);if(p.shape===5){d.scale.set(p.width*g,p.height*g,p.height*p.spread*g);}else if(p.shape===4)d.scale.set(p.width*g,p.height*g,p.height*g);else d.scale.setScalar(p.size*g);
         } else {
           this.direction.fromArray(p.normal).normalize();
           this.bloomQuaternion.setFromUnitVectors(bloomAxis,this.direction);

@@ -921,3 +921,27 @@ Changed the heart's Blender material from pink to light brown #8A7058, a lighter
 User authorized publication of the editable Blender door, connected heart and runtime integration. Final heart material is light brown #8A7058; source .blend, generated JavaScript mesh data, export/recreation scripts and editing README are included. Blender backups remain excluded. The existing procedural leaf/handles/stile are replaced by the exported six-node/204-triangle model; entrance trim remains procedural. Opening from both sides, ray targeting, shadows and door teleport behavior are preserved. User has no format preference when rendering performance is equivalent, so retain the generated mesh-data module; no GLB was created.
 
 Final entry/import cache chain 115; garden/settings versions remain 17/4. All 113 garden tests pass; whitespace checks clean. Browser inspection of the imported model and Blender save/export checks are recorded above. Earlier local/unpushed notes are historical for this release.
+
+## Lower shrub base — 2026-11-07
+
+Initial bush stalk height now varies uniformly from 2–6 inches (.0508–.1524 m), independently of canopy size. The first ellipsoid remains centered on its tip and may intersect the ground. Secondary branches retain their existing placement relative to that tip. Garden save version is 18 under the current-version-only policy; obsolete garden slots are deleted, while settings remain version 4. Affected module cache chains advanced to 116. Local and unpushed.
+
+## Single-mesh ferns — 2026-11-07
+
+Added ferns as a fifth random ground-plant family (equal 20% family probability) and a Ferns entry in the existing palm debug menu. Each deterministic seed generates 7–11 radial arching fronds with varied height, spread, orientation and green shades; no flowers. Each frond uses one shared 120-triangle mesh containing a narrow rachis and twelve pairs of folded pointed leaflets. Growing fronds scale up and spread from a more upright pose, completing within ten seconds; this is a simple opening animation, not a curled fiddlehead simulation. Fronds share one instanced geometry batch per growing fern and use existing mature pooling, exact triangle picking, cloning, deletion and save serialization. Typical fern geometry is 840–1320 triangles. Shadows remain enabled.
+
+User explicitly authorized the garden save reset. SAVE_VERSION is 19, settings remain version 4, and affected entry/import queries are 117. Current-version-only storage behavior is retained. The previous lower-shrub change is also still local.
+
+Validation: all 115 garden tests pass, including new deterministic fern/growth/debug selection, clone matrix/color equality, geometry finiteness and exact selection before/after mature batching. Existing save mismatch/current-version tests pass. Seed-dependent coverage now uses broader tree samples and selects a flower by its form instead of an obsolete fixed seed. Chrome rendered three mature ferns with no page errors; screenshot visually reviewed. git diff --check passed. Quest appearance, debug-menu reach/readability and sustained frame rate remain for user review. Local and unpushed.
+
+## Fixed fern growth orientation — 2026-11-07
+
+Removed the growth-dependent frond X rotation. Ferns now scale up from their crown in their final upright/arching orientation from the start, without pitching upward during growth. Mature shape and seeded variation are unchanged. Renderer/entry cache version 118; saves remain 19/4. Supersedes the opening-pose description above. Local and unpushed.
+
+## Trim fern tips — 2026-11-07
+
+Shortened each frond's central stalk to the upper attachment of its final leaf pair, eliminating the bare line beyond the leaves. Leaf positions, fixed growth orientation and triangle count are unchanged. Renderer/entry cache version 119; saves remain 19/4. Local and unpushed.
+
+## Fern and lower-shrub release — 2026-11-07
+
+User approved the fern appearance and authorized committing/pushing this release. Final behavior includes 2–6 inch initial shrub stalks and ferns in random planting and the debug menu. Ferns retain a fixed upright/arching orientation throughout growth and their central stalks end at the last pair of leaflets. Garden/settings versions are 19/4; user authorized the garden save reset. Final entry/renderer cache version is 119. All 116 garden tests and git diff --check pass. Chrome preview and user appearance feedback are recorded above; no sustained Quest performance benchmark was taken. Earlier local/unpushed notes above are historical for this release.
