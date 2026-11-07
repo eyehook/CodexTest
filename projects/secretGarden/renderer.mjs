@@ -1,8 +1,9 @@
+import {mushroomCapGeometry,mushroomSpotGeometry} from './mushroom-geometry.mjs?v=122';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {installPlantPicker} from './plant-picker.mjs?v=40';
 import {installGrassPicker} from './grass-picker.mjs?v=35';
 import {MatureBatches} from './mature-batches.mjs?v=97';
-import {componentPose,BLOOM_FORMS} from './generator.mjs?v=117';
+import {componentPose,BLOOM_FORMS} from './generator.mjs?v=124';
 const up=new THREE.Vector3(0,1,0);
 function leafGeometry(shape,pointedBase=false) {
   const widths=[.48,.8,.24],w=widths[shape]*(pointedBase?.5:1),shoulder=pointedBase?.65:.45,ridge=pointedBase?.58:.42;
@@ -39,6 +40,17 @@ function fernGeometry() {
   }
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return g;
 }
+// One reusable mesh for each compact oat-like seed spike.
+function seedHeadGeometry() {
+  const positions=[],indices=[];
+  for(let tier=0;tier<6;tier++)for(let side=0;side<2;side++) {
+    const angle=tier*2.4+side*Math.PI,x=Math.cos(angle),z=Math.sin(angle),y=.12+tier*.14;
+    const points=[[0,y-.08,0],[x*.8,y,z*.8],[x,y+.11,z],[x*.5,y+.17,z*.5],[x*.45-z*.3,y+.04,z*.45+x*.3],[x*.45+z*.3,y+.04,z*.45-x*.3]];
+    const offset=positions.length/3;positions.push(...points.flat());
+    for(const [a,b,c] of [[0,1,4],[1,2,4],[2,3,4],[3,0,4],[1,0,5],[2,1,5],[3,2,5],[0,3,5]])indices.push(offset+a,offset+b,offset+c);
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return g;
+}
 function hydrangeaGeometry() {
   const geometry=new THREE.IcosahedronGeometry(1,1).translate(0,0,.65);
   geometry.computeVertexNormals();return geometry;
@@ -63,7 +75,9 @@ const bloomAxis=new THREE.Vector3(0,0,1),petalHinge=new THREE.Vector3(1,0,0);
 export class PlantRenderer {
   constructor(scene,{batchMature=true}={}) {
     this.scene=scene;this.dummy=new THREE.Object3D();this.direction=new THREE.Vector3();this.bloomQuaternion=new THREE.Quaternion();this.petalQuaternion=new THREE.Quaternion();this.openQuaternion=new THREE.Quaternion();
-    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf3:ivyGeometry(),leaf4:grassGeometry(),leaf5:fernGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),hydrangea:hydrangeaGeometry(),center:new THREE.IcosahedronGeometry(1,0)};
+    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf3:ivyGeometry(),leaf4:grassGeometry(),leaf5:fernGeometry(),seedHead:seedHeadGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),hydrangea:hydrangeaGeometry(),center:new THREE.IcosahedronGeometry(1,0)};
+    for(const form of ['bolete','fly-agaric','chanterelle'])this.geometries['mushroom-'+form]=mushroomCapGeometry(form);
+    this.geometries['mushroom-spots']=mushroomSpotGeometry();
     this.geometries.crown.computeVertexNormals();
     this.geometries.spire=this.geometries.crown.clone();
     const spirePositions=this.geometries.spire.attributes.position;
@@ -93,14 +107,15 @@ export class PlantRenderer {
       const mesh=new THREE.InstancedMesh(this.geometries[key],this.material,entries.length);mesh.userData.plantId=id;
       mesh.castShadow=!['grass','vine'].includes(structure.parameters.form);mesh.receiveShadow=structure.parameters.form!=='grass';mesh.frustumCulled=true;mesh.matrixAutoUpdate=false;
       entries.forEach(({part:p},i)=>{const color=new THREE.Color();
-        if(key.startsWith('stem'))color.set(structure.parameters.form==='tree'?0x6e5940:0x507044);
+        if(key.startsWith('stem')&&p.hue!==undefined)color.setHSL(p.hue,.2,p.light);
+        else if(key.startsWith('stem'))color.set(structure.parameters.form==='tree'?0x6e5940:0x507044);
         else if(key==='center')color.set(p.shape===0?0x79512d:0xe6ba55);
-        else if(key.startsWith('petal')||key==='hydrangea') {
+        else if(key.startsWith('petal')||key==='hydrangea'||p.brightness!==undefined) {
           // Seeded HSV brightness, converted to HSL in display (sRGB) space.
           const light=p.brightness*(1-p.saturation/2);
           const saturation=light===0||light===1?0:(p.brightness-light)/Math.min(light,1-light);
           color.setHSL(p.hue,saturation,light,THREE.SRGBColorSpace);
-        } else color.setHSL(p.hue,.38,p.light);
+        } else color.setHSL(p.hue,p.saturation??.38,p.light);
         mesh.setColorAt(i,color);
       });group.add(mesh);batches.push({key,mesh,entries});
     }
@@ -124,8 +139,8 @@ export class PlantRenderer {
     if(age<instance.visual.lastAge)instance.visual.poses=null;instance.visual.lastAge=age;
     const poses=componentPose(instance.structure,age,instance.visual.poses),d=this.dummy;instance.visual.poses=poses;
     if(instance.visual.picker){
-      let height=0;instance.structure.parts.forEach((p,i)=>{height=Math.max(height,p.height*poses[i].growth);});
-      const picker=instance.visual.picker;picker.height=height;picker.center.set(0,height*.15,0);picker.radii.y=Math.max(.0001,height*.95*.8);
+      let height=0;instance.structure.parts.forEach((p,i)=>{height=Math.max(height,p.kind==='stem'?poses[i].end[1]:p.kind==='foliage'?poses[i].anchor[1]+p.scale[1]*poses[i].growth:p.height*poses[i].growth);});
+      const picker=instance.visual.picker;picker.height=height;picker.center.set(0,height*(instance.structure.parameters.seedHeads?.5:.15),0);picker.radii.y=Math.max(.0001,height*(instance.structure.parameters.seedHeads?.52:.95*.8));
     }
     for(const {key,mesh,entries} of instance.visual.batches) {
       let dirty=false;
@@ -137,7 +152,9 @@ export class PlantRenderer {
           d.position.addScaledVector(this.direction,.5);d.quaternion.setFromUnitVectors(up,this.direction.normalize());
           // Three shared taper profiles keep stem batches compact.
           d.scale.set(p.radius*g,length,p.radius*g);
-        } else if(key==='crown'||key==='pine'||key==='spire') {
+        } else if(key.startsWith('mushroom-')) {
+          d.quaternion.setFromUnitVectors(up,this.direction.fromArray(p.direction).normalize());d.rotateY(p.yaw);d.scale.fromArray(p.scale).multiplyScalar(g);
+        } else if(key==='crown'||key==='pine'||key==='spire'||key==='seedHead') {
           d.rotation.set(p.tilt,p.yaw,p.tilt*.6);d.scale.fromArray(p.scale).multiplyScalar(g);
         } else if(key.startsWith('leaf')) {
           if(p.direction)d.quaternion.setFromUnitVectors(up,this.direction.fromArray(p.direction).normalize());else if(p.orientation)d.rotation.fromArray(p.orientation);else d.rotation.set(.5+p.tilt,p.yaw,.7);

@@ -6,20 +6,20 @@ import {PlantRenderer} from '../renderer.mjs';
 import {PlantManager} from '../manager.mjs';
 test('seeded grass patches have rounded irregular outlines and shorter edge blades',()=>{
  let patches=0;
- for(let seed=0;seed<500;seed++){
+ for(let seed=0;seed<800;seed++){
   const p=generatePlant(seed);if(p.parameters.form!=='grass')continue;patches++;
   assert.deepEqual(p,generatePlant(seed));assert.ok(p.parts.length<MAX_COMPONENTS);
-  const center=p.parts.filter(b=>b.radial<.4),edge=p.parts.filter(b=>b.radial>.85);
+  const blades=p.parts.filter(b=>b.kind==='leaf'),center=blades.filter(b=>b.radial<.4),edge=blades.filter(b=>b.radial>.85);
   const average=blades=>blades.reduce((n,b)=>n+b.height,0)/blades.length;
   assert.ok(average(center)>average(edge)*2);
-  for(const b of p.parts){assert.equal(b.kind,'leaf');assert.equal(b.shape,4);assert.equal(b.start[1],0);assert.equal(b.parent,null);assert.ok(b.height>0&&b.width>0);assert.equal(growthAmount(b,0),0);assert.equal(growthAmount(b,10),1);}
+  for(const b of blades){assert.equal(b.kind,'leaf');assert.equal(b.shape,4);assert.equal(b.start[1],0);assert.equal(b.parent,null);assert.ok(b.height>0&&b.width>0);assert.equal(growthAmount(b,0),0);assert.equal(growthAmount(b,10),1);}
   const outline=t=>1+.12*Math.sin(t*3+p.parameters.phaseA)+.07*Math.sin(t*5+p.parameters.phaseB);
   const radii=Array.from({length:24},(_,i)=>outline(i/24*Math.PI*2));assert.ok(Math.max(...radii)-Math.min(...radii)>.15);
  }
  assert.ok(patches>90);
 });
 test('grass clones grow, batch and remain selectable/deletable as whole patches',()=>{
- let seed=0;while(generatePlant(seed).parameters.form!=='grass')seed++;
+ let seed=0;while(generatePlant(seed).parameters.form!=='grass'||generatePlant(seed).parameters.seedHeads)seed++;
  const scene=new THREE.Scene(),r=new PlantRenderer(scene),m=new PlantManager(r,()=>seed,()=>.7,()=>.85);
  const p=m.plant(new THREE.Vector3(),0);m.copy(p.id);const clone=m.plant(new THREE.Vector3(1,0,0),0);
  assert.deepEqual(p.structure,clone.structure);assert.equal(clone.scale,.85);m.update(10);
@@ -33,7 +33,7 @@ test('grass clones grow, batch and remain selectable/deletable as whole patches'
 });
 
 test('grass targeting uses one ellipsoid and never traverses individual blades',()=>{
- let seed=0;while(generatePlant(seed).parameters.form!=='grass')seed++;
+ let seed=0;while(generatePlant(seed).parameters.form!=='grass'||generatePlant(seed).parameters.seedHeads)seed++;
  const scene=new THREE.Scene(),r=new PlantRenderer(scene),m=new PlantManager(r,()=>seed,()=>.6,()=>1.2);
  const p=m.plant(new THREE.Vector3(1,0,-1),0);m.update(5);scene.updateMatrixWorld(true);
  p.visual.batches[0].mesh.raycast=()=>{throw new Error('Blade raycasting must be skipped');};
@@ -54,4 +54,27 @@ test('grass never casts/receives shadows or invalidates cached shadow maps',()=>
  m.remove(p.id);assert.equal(m.shadowRevision,0);
  m.randomSeed=()=>treeSeed;const tree=m.plant(new THREE.Vector3(),20);assert.equal(m.shadowRevision,1);assert.equal(m.hasGrowingShadows,true);
  m.remove(tree.id);assert.equal(m.shadowRevision,2);r.dispose();
+});
+
+test('seed-head grass keeps its blade patch and adds deterministic taller connected stalks',()=>{
+ let seeded=0,plain=0;
+ for(let seed=0;seed<1200;seed++){
+  const p=generatePlant(seed);if(p.parameters.form!=='grass')continue;
+  const stalks=p.parts.filter(p=>p.kind==='stem'),heads=p.parts.filter(p=>p.shape==='seedHead');
+  if(!p.parameters.seedHeads){plain++;assert.equal(stalks.length,0);continue;}
+  seeded++;assert.deepEqual(p,generatePlant(seed));assert.ok(stalks.length>=6&&stalks.length<=12);assert.equal(heads.length,stalks.length);assert.ok(p.parts.length<MAX_COMPONENTS);
+  for(const head of heads){const stalk=p.parts[head.parent];assert.equal(stalk.kind,'stem');assert.ok(stalk.end[1]>=.65&&stalk.end[1]<=1.05);assert.ok(stalk.end[1]>p.parameters.height);assert.equal(head.attachment,1);assert.equal(growthAmount(head,10),1);}
+ }
+ assert.ok(seeded>70&&plain>70);
+});
+test('seed-head grass spawn selection, growing targets, cloning and save restore retain whole patches',()=>{
+ const r=new PlantRenderer(new THREE.Scene()),m=new PlantManager(r,()=>42,()=>0,()=>1);
+ m.chooseType('seed-grass');const p=m.plant(new THREE.Vector3(),0);assert.equal(p.structure.parameters.seedHeads,true);
+ m.copy(p.id);const clone=m.plant(new THREE.Vector3(2,0,0),0);assert.deepEqual(p.structure,clone.structure);
+ for(const age of [1,4,7,10]){m.update(age);assert.ok(Number.isFinite(p.visual.picker.height));assert.ok(p.visual.picker.radii.toArray().every(Number.isFinite));}
+ assert.ok(p.visual.picker.height>.65);
+ for(const {mesh} of p.visual.batches){assert.equal(mesh.castShadow,false);assert.equal(mesh.receiveShadow,false);assert.ok([...mesh.instanceMatrix.array].every(Number.isFinite));}
+ const before=p.structure,records=m.snapshot(10);m.restore(records,20);assert.deepEqual([...m.instances.values()][0].structure,before);
+ const ray=new THREE.Raycaster(new THREE.Vector3(0,2,0),new THREE.Vector3(0,-1,0));assert.ok(ray.intersectObjects(m.targets,true).length>0);
+ m.reset();assert.equal(r.matureBatches.pools.size,0);r.dispose();
 });

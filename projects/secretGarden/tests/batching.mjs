@@ -1,3 +1,4 @@
+import {generatePlant} from '../generator.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
@@ -92,6 +93,7 @@ test('vines receive but never cast shadows, including pooled growth and mixed gr
  manager.update(20);
  assert.equal(manager.shadowRevision,0);assert.equal(manager.hasGrowingShadows,false);
  for(const pool of renderer.matureBatches.pools.values()){assert.equal(pool.mesh.castShadow,false);assert.equal(pool.mesh.receiveShadow,true);}
+ manager.randomSeed=()=>{let seed=0;while(generatePlant(seed).parameters.form!=='flower')seed++;return seed;};
  const ground=manager.plant(new THREE.Vector3(),20);manager.update(30);
  const sharedKeys=new Set(vine.visual.batches.map(b=>b.key));
  assert.ok(ground.visual.batches.some(b=>sharedKeys.has(b.key)));

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
 import {generatePlant,componentPose} from '../generator.mjs';
 import {PlantRenderer} from '../renderer.mjs';
-import {selectPlantSeed,DEBUG_PLANT_TYPES} from '../debug-plant-types.mjs';
+import {selectPlantSeed,SPAWN_PLANT_TYPES} from '../spawn-plant-types.mjs';
 test('ferns are deterministic ground plants with bounded radial fronds and ten-second growth',()=>{
  let count=0;
  for(let seed=0;seed<1200;seed++){
@@ -13,7 +13,7 @@ test('ferns are deterministic ground plants with bounded radial fronds and ten-s
   for(const part of p.parts){assert.equal(part.kind,'leaf');assert.equal(part.shape,5);assert.equal(part.parent,null);assert.equal(part.start[1],.015);assert.ok(part.width>0&&part.height>0);}
   assert.ok(componentPose(p,0).every(p=>p.growth===0));assert.ok(componentPose(p,10).every(p=>p.growth===1));
  }
- assert.ok(count>150);assert.ok(DEBUG_PLANT_TYPES.some(t=>t.id==='fern'&&t.label==='Ferns'));
+ assert.ok(count>150);assert.ok(SPAWN_PLANT_TYPES.some(t=>t.id==='fern'&&t.label==='Ferns'));
  assert.equal(generatePlant(selectPlantSeed('fern',()=>42).seed).parameters.form,'fern');
 });
 test('single-mesh fronds clone exactly, support triangle picking and retain IDs after mature batching',()=>{

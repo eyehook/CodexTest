@@ -13,3 +13,5 @@ This project is actively in development. Support only the current garden-save an
 - Keep regression coverage for mismatch deletion and current-version loading. Do not add legacy fixtures that require compatibility implementations.
 
 This policy supersedes historical migration/backwards-compatibility notes in the handoff. Add compatibility support only if the user explicitly changes this policy.
+
+The user authorizes required save-version bumps and deletion of obsolete save records without additional approval during development. This authorization remains in effect until the user explicitly says to begin tracking/preserving save-file compatibility. Continue incrementing the current payload version for incompatible changes under the rules above.

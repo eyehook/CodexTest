@@ -1,3 +1,4 @@
+import {generateMushrooms} from './mushroom-generator.mjs?v=124';
 import {flowerHue} from './flower-colors.mjs?v=82';
 import {generateShrub} from './shrub-generator.mjs?v=116';
 import {placeCanopyFlowers} from './canopy-flowers.mjs?v=75';
@@ -24,7 +25,8 @@ const mix = (a,b,t) => a+(b-a)*t;
 export function generatePlant(seed) {
   seed >>>= 0;
   const rng = randomFor(seed), range = (a,b) => mix(a,b,rng()), integer = (a,b) => Math.floor(range(a,b+1));
-  const form = ['flower','bush','tree','grass','fern'][integer(0,4)];
+  const form = ['flower','bush','tree','grass','fern','mushroom'][integer(0,5)];
+  if(form==='mushroom')return {seed,...generateMushrooms(rng)};
   if(form==='fern') {
     const parameters={form,height:range(.4,.8),count:integer(7,11),flowers:false,hue:range(.25,.35),light:range(.25,.36)};
     const phase=range(0,Math.PI*2),parts=[];
@@ -49,6 +51,17 @@ export function generatePlant(seed) {
         height:parameters.height*edgeFactor*range(.9,1.1),width:range(.012,.025),
         orientation:[range(-.1,.2),range(0,Math.PI*2),range(-.2,.2)],hue:parameters.hue+range(-.015,.015),light:parameters.light+range(-.04,.06),
         begin:radial*.28+range(0,.16),duration:.5});
+    }
+    parameters.seedHeads=rng()<.5;
+    if(parameters.seedHeads) {
+      parameters.seedStalks=integer(6,12);
+      for(let i=0;i<parameters.seedStalks;i++) {
+        const angle=range(0,Math.PI*2),distance=parameters.radius*Math.sqrt(rng())*.65;
+        const start=[Math.cos(angle)*distance,0,Math.sin(angle)*distance*parameters.stretch];
+        const height=range(.65,1.05),lean=range(.025,.09),end=[start[0]+Math.cos(angle)*lean,height,start[2]+Math.sin(angle)*lean];
+        const stalk={id:parts.length,kind:'stem',parent:null,attachment:1,start,end,radius:range(.0025,.004),taper:.58,begin:range(.12,.24),duration:.48};parts.push(stalk);
+        parts.push({id:parts.length,kind:'foliage',shape:'seedHead',parent:stalk.id,attachment:1,scale:[range(.018,.026),range(.10,.16),range(.018,.026)],yaw:angle,tilt:range(-.1,.1),hue:range(.10,.14),light:range(.40,.55),begin:stalk.begin+stalk.duration,duration:.22});
+      }
     }
     return {seed,parameters,parts};
   }

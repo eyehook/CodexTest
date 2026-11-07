@@ -945,3 +945,53 @@ Shortened each frond's central stalk to the upper attachment of its final leaf p
 ## Fern and lower-shrub release — 2026-11-07
 
 User approved the fern appearance and authorized committing/pushing this release. Final behavior includes 2–6 inch initial shrub stalks and ferns in random planting and the debug menu. Ferns retain a fixed upright/arching orientation throughout growth and their central stalks end at the last pair of leaflets. Garden/settings versions are 19/4; user authorized the garden save reset. Final entry/renderer cache version is 119. All 116 garden tests and git diff --check pass. Chrome preview and user appearance feedback are recorded above; no sustained Quest performance benchmark was taken. Earlier local/unpushed notes above are historical for this release.
+
+## Seed-head grass variation — 2026-11-07
+
+Grass seeds now choose plain or seed-head patches with equal probability, retaining grass as one of the five random plant families. Existing low blades remain, with the new variation adding 6–12 slender stalks .65–1.05 m tall and tan oat-like heads .10–.16 m long. Each head uses one shared 96-triangle mesh containing twelve grains. Stalks grow before their attached heads; all finish within ten seconds. Parts stay below the 600-component cap. All grass components remain free of cast/received shadows and reuse mature batches.
+
+Debug Grass selects plain patches; the new Grass · Seed heads row selects the variation. Grass picking still uses one analytic ellipsoid per patch; seeded patches use taller centered bounds covering their stalk/head height. Cloning and current-version snapshot/restore retain the variant through its seed. SAVE_VERSION is 20, settings remain 4, affected cache chains are 120. The user explicitly granted standing approval for required development save-version bumps and obsolete-record deletion until they request save compatibility tracking; this is recorded in AGENTS.md.
+
+Validation: all 118 garden tests pass, including deterministic bounded stalk/head generation, ten-second growth, debug selection, clone equality, finite picker bounds/transforms, shadow flags, mature pooling, current-save restoration and deletion. Chrome preview rendered three seed-head patches with no page errors; screenshot visually reviewed. git diff --check passed. Quest appearance, debug-menu readability and performance remain for user testing. Local and unpushed.
+
+## Spawn menu and generic submenus — 2026-11-07
+
+Renamed the palm debug menu and placement mode to spawn menu/mode throughout runtime code, diagnostic fields, modules, tests and current README controls. Runtime files are now spawn-menu.mjs and spawn-plant-types.mjs; window.secretGarden exposes spawnMenu/spawnIcon, and PlantManager uses spawnType/canSpawn. Historical debug-menu notes above describe earlier releases.
+
+The root menu retains Flowers, Shrubs, Grass, Grass · Seed heads, Ferns and Ivy, with Trees > opening Rounded, Open leaf, Pine, Cypress and Umbrella. Every submenu inserts < Back as its first row. SPAWN_MENU_ITEMS is a nested children schema; flattenSpawnItems derives selectable plant types for seed selection and manager validation. SpawnMenu accepts a custom items array and navigates arbitrary nesting with a parent stack. Navigation does not change the selected spawn type. Canvas texture and panel geometry resize per page, disposing superseded resources and preserving the lower hand anchor. Hover clears on navigation, and the submenu survives temporary hiding. Existing palm gating, right trigger interaction, clone switching and locomotion suppression are retained.
+
+Cache chains for menu/manager/entry are 121; garden/settings versions remain 20/4. All 120 garden tests pass, including tree selection/back, nested generic navigation, no spawning on navigation and fixed lower-edge resizing. Chrome smoke check loaded renamed modules without page errors and selected Pine through Trees then returned to root. git diff --check passes. Quest interaction/readability remains for user testing. Local and unpushed, alongside the seed-head grass change above.
+
+## First-pass mushrooms — 2026-11-07
+
+Added mushrooms as the sixth equally likely random ground family. Mushroom seeds choose bolete, fly agaric or chanterelle, with either one specimen (45%) or a coherent 3–7 specimen cluster (55%). Each planting shares its family/palette, with per-specimen scale, slight lean and color variation. Nominal stalk height is .10–.30 m before .7–1.2 specimen variation and occasional larger specimens. Stalks are pale, bolete stalks thicker, and caps use seeded warm or occasional unusual hues. Fly agaric has pale raised spots; chanterelles have a shallow wavy funnel profile. No morels, oysters or puffballs in this pass.
+
+New pure mushroom-generator.mjs emits ordinary stems plus attached foliage cap/spot parts. mushroom-geometry.mjs provides reusable closed faceted caps and one shared fly-agaric spot assembly. Stalks rise before caps expand, with all parts mature by ten seconds. Existing parent attachment, instancing, mature pooling, picking, clone transforms, save/restore and deletion apply to the entire planting. Mushrooms are not flowers and do not attract bees. Stems support optional seeded pale coloring; foliage supports optional saturation and mushroom meshes follow their stalk axis.
+
+Mushrooms > uses the generic spawn submenu with Bolete, Fly agaric, Chanterelle and < Back only; no Random option was added. Garden/settings versions are 21/4 under the standing save-reset authorization. Affected runtime cache chain is 122. Existing seed-specific tests now select their required form explicitly; broad plant/grass sweeps increased to retain sample coverage with six families.
+
+Validation: all 122 garden tests pass, including deterministic mushroom distributions/families/colors, finite bounded parts, parent connectivity, complete growth, subtype selection, clone matrix/color equality, exact mature ray picking, current snapshot restoration and cleanup. Chrome rendered all three families without page errors; screenshot reviewed. git diff --check passes. Quest appearance and performance remain for user testing. Local and unpushed, alongside seed-head grass and spawn-menu changes above.
+
+## Full-range mushroom HSB palettes — 2026-11-07
+
+Mushroom cluster base hue, saturation and brightness are now sampled independently and uniformly across [0,1]. Removed the warm-hue bias and restricted lightness/saturation ranges. Each specimen varies from its cluster base by at most .018 hue (wrapped), .04 saturation and .05 brightness. Saturation/brightness reflect at range boundaries to avoid clamped endpoint pileups; cluster members stay similar without being identical. Caps use the existing display-space HSV-to-HSL renderer path used by flower petals. Pale stems and fly-agaric spots remain contrasting accents. This supersedes the earlier warm-palette description.
+
+Garden/settings versions are 22/4, affected cache chains 123. All 123 garden tests pass, including an 18,000-seed sweep checking broad uniform HSB distribution, finite in-range colors and bounded nonidentical cluster variation. git diff --check passes. Local and unpushed.
+
+## Stronger mushroom cluster color variation — 2026-11-07
+
+Widened per-specimen cap variation around the shared cluster HSB base to ±.07 hue (±25.2 degrees), ±.18 saturation and ±.20 brightness. Full-range uniformly sampled base palettes and reflected saturation/brightness boundaries remain. This supersedes the subtle variation limits above and makes neighboring specimens visibly different while retaining a related palette. Garden/settings versions are 23/4; affected import/entry cache chain 124. Local and unpushed.
+
+## Grass spawn submenu — 2026-11-07
+
+Moved plain and seed-head grass into Grass > using the existing generic submenu schema. Child labels are Grass and Seeded grass, with automatic < Back navigation. Plant IDs, generator behavior and save versions (23/4) are unchanged. Affected menu/manager/entry cache chain is 125. Local and unpushed.
+
+## Back at bottom of spawn submenus — 2026-11-07
+
+The generic spawn menu now appends < Back after all child items, including nested submenus. Parent-stack capture excludes that final navigation row. This supersedes previous first-row Back descriptions. Entry/menu cache version 126; save versions unchanged at 23/4. Menu navigation checks cover selection, bottom Back, nested navigation and lower-edge anchoring. Local and unpushed.
+
+## Seeded grass, spawn menu and mushroom release — 2026-11-07
+
+User authorized committing and pushing the accumulated changes: seed-head grass; renamed spawn menu with generic nested Trees, Mushrooms and Grass submenus; < Back at the bottom of every submenu; and single/cluster bolete, fly agaric and chanterelle mushrooms. Final cap palettes use uniform full-range HSB bases with wider related-color variation within each cluster. No Random entry appears in the spawn menu.
+
+Final garden/settings versions are 23/4, with standing authorization for development save resets recorded in AGENTS.md. Entry/spawn-menu cache version is 126, generator/mushroom/save chains 124 and spawn-type/manager chains 125. All 123 garden tests pass and git diff --check is clean. Prior Chrome preview checks are recorded above; no sustained Quest performance benchmark was taken. Earlier local/unpushed notes above are historical for this release.

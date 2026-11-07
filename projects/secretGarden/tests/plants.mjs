@@ -7,7 +7,7 @@ test('seed output is independent of call order and unrelated randomness',()=>{
 });
 test('seed sweep is bounded, finite, connected and fully mature at ten seconds',()=>{
   const forms=new Set();
-  for(let seed=0;seed<1200;seed++){
+  for(let seed=0;seed<1600;seed++){
     const p=generatePlant(seed);forms.add(p.parameters.form);assert.ok(p.parts.length<=MAX_COMPONENTS);
     const mature=componentPose(p,10);
     for(const part of p.parts){
@@ -17,7 +17,7 @@ test('seed sweep is bounded, finite, connected and fully mature at ten seconds',
       if(part.kind==='stem'){part.end.forEach((v,i)=>assert.ok(Math.abs(mature[part.id].end[i]-v)<1e-10));}
     }
   }
-  assert.deepEqual([...forms].sort(),['bush','fern','flower','grass','tree']);
+  assert.deepEqual([...forms].sort(),['bush','fern','flower','grass','mushroom','tree']);
 });
 test('growth poses depend on age, not intermediate frame sequence',()=>{
   const p=generatePlant(88),expected=componentPose(p,4.125);
@@ -54,7 +54,7 @@ test('blooms vary in silhouette, depth, orientation and clustered arrangement',(
 
 test('trees retain a full branched crown without exhausting the component budget',()=>{
   let trees=0;
-  for(let seed=0;seed<1200;seed++){
+  for(let seed=0;seed<1600;seed++){
     const p=generatePlant(seed);if(p.parameters.form!=='tree'||p.parameters.treeForm!=='open')continue;trees++;
     const stems=p.parts.filter(x=>x.kind==='stem'),leaves=p.parts.filter(x=>x.kind==='leaf');
     const root=stems.find(x=>x.parent===null);
@@ -129,6 +129,6 @@ test('cypress starts with spherical foliage then stacks narrower taller ellipsoi
 
 test('flower leaves have the reduced final maximum and a minimum half that maximum',()=>{
  const maximum=.1995*.75,minimum=maximum/2;let flowers=0;
- for(let seed=0;seed<1200;seed++){const plant=generatePlant(seed);if(plant.parameters.form!=='flower')continue;flowers++;assert.ok(plant.parameters.leafSize>=minimum&&plant.parameters.leafSize<=maximum);for(const leaf of plant.parts.filter(p=>p.kind==='leaf'))assert.ok(leaf.size>=minimum&&leaf.size<=maximum);}
+ for(let seed=0;seed<1600;seed++){const plant=generatePlant(seed);if(plant.parameters.form!=='flower')continue;flowers++;assert.ok(plant.parameters.leafSize>=minimum&&plant.parameters.leafSize<=maximum);for(const leaf of plant.parts.filter(p=>p.kind==='leaf'))assert.ok(leaf.size>=minimum&&leaf.size<=maximum);}
  assert.ok(flowers>200);
 });
