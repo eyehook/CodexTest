@@ -1,1065 +1,217 @@
-# The Secret Garden — Milestone 1
-
-## Status and scope
-
-Implemented for desktop and Meta Quest 3. The garden starts empty. Three local-browser save slots are implemented. Wind, maintenance, collision between plants and placement spacing are not implemented. The user has tested on Quest and reports mature batching helped. A live USB-debugging capture was taken with 74–75 plants before batching; later changes have not received a complete headset acceptance pass. The user authorized committing and pushing this release on 2026-10-30.
-
-## Standing save compatibility policy
-
-Support current save versions only; this is an actively developed project. Do not preserve old generators, deserializers, migrations or compatibility branches for obsolete saves. Bump `SAVE_VERSION` for incompatible garden/generator changes and `SETTINGS_VERSION` for incompatible preferences. Keep keys stable; delete mismatched records, mark garden slots Empty, and use defaults for mismatched settings. Preserve unaffected records. See [project instructions](AGENTS.md) for the standing rules. These rules supersede historical migration notes below unless the user explicitly requests a policy change.
-
-## Current bee population
-
-Bees are an exact user-selected count from 0–10 (default 3), independent of bloom count. They prefer fully grown flowers and fall back to random inward-facing garden wall spots when no other flower is available. Reset/deletion preserves the count. Earlier Off/Low/Medium/High density notes are historical.
-
-## Current shrub structure
-
-Shrubs (`bush`) use 1–5 overlapping ellipsoid canopies with visible trunks, branches and flower stalks. Individual leaves are not generated. Flowers, when present, sit on the exposed canopy union. Older branching-shrub descriptions below are historical.
-
-## Preview and controls
-
-Use the repository's `Start-VR.command` for USB Quest testing, or serve the repository with `python3 -m http.server 8080 --bind 127.0.0.1` and visit `/projects/secretGarden/`. No install or build step is required.
-
-- Quest: left stick moves head-relative at 1 m/s; right stick turns at 45°/s. Right controller starts active. Only the active controller displays a ray and handles planting/face-button actions. Active trigger plants; A (right) / X (left) copies the targeted seed or returns to random mode elsewhere; B (right) / Y (left) returns to random mode and deletes after a continuous one-second hold on the same plant. A red fill shows progress; release before another deletion. Inactive trigger transfers control without planting, including when both controllers press in the same frame; release and press again to plant. Inactive face buttons do nothing. xr-standard indices: 0 trigger, 1 grip pointer toggle, 4 copy, 5 delete. Held inputs are absorbed on entry, reconnect and tracking resume.
-- Active-hand grip toggles its ray/target off/on. When off, controller raycasting stops; either trigger reactivates its hand without planting. Clone mode persists after planting and clone size varies independently from 80–120%.
-- Desktop: point/click or Space plants; B copies/returns to random; X removes. WASD walks, left/right arrows turn, pointer drag looks. A is exclusively desktop strafing, not planting.
-- A ring on dirt shows placement; a gold ring at a plant's base identifies selection. All visible plant components raycast to their instance; the nearest surface wins. Only the active hand’s ray and selection are shown; inactive trigger transfers selection to that hand. Ray color indicates plant hits.
-- Two overlapping rectangles inside the ground/plant target circle indicate clone mode. Random mode uses the plain circle. The wrist status label and desktop mode readout are removed.
-
-## Architecture
-
-- `generator.mjs`: pure seeded PRNG, correlated form parameters, shared recursive branching, attachment-based stems/leaves/flowers, explicit normalized growth timing. Numerical seeds are uint32; generation never calls unseeded randomness. Parameter profiles select recognizable flower/bush/tree proportions while sharing the same construction code. `parts` is an ordered structural graph with parent IDs, attachment fractions and timings; future growth forms can emit this representation without a new rendering framework.
-- `renderer.mjs`: shared five-sided taper profiles, three reusable folded leaf shapes and six curved, faceted petal profiles, shared matte material, per-instance colors. Growing plants use per-plant instanced batches; mature plants share geometry-type batches through `mature-batches.mjs`. Detached per-plant CPU geometry retains exact plant IDs for picking. Clones produce equal instance matrices and colors. Deletion releases growing GPU instance data or compacts mature batch slots while retaining common geometry/materials for reuse.
-- `manager.mjs`: unique instance IDs separate from seeds, world positions, structures, growth state and birth times. Random seed acquisition uses browser crypto outside generation. Overlap is unrestricted. Growing plants update from elapsed seconds and leave the update set at ten seconds.
-- `environment.mjs`: 9.144 × 13.716 m (30 × 45 ft) dirt interior, four 3.048 m stone walls, one instanced masonry batch, daylight hemisphere and directional light, 1024 shadow map. Viewer-aware boundary correction includes physical head offsets and rig yaw. This is virtual containment, not a physical safety boundary.
-- `app.mjs`: setup, shared XR locomotion/button edges/pointers/session gating, desktop adapter, action targeting, selection and clone target icon. Shadow maps update during growth and on changes, then remain cached when the garden is static.
-- `tests/`: deterministic data, timing, instance lifecycle, boundary and render/raycast regressions.
-
-Parts are capped at 600 per plant, recursion depth at three, petals at thirteen per ring and three rings at most. There is no hard plant population cap, so scene submission and raycasting costs increase with population. The initial browser sample with fifteen mature plants plus one growing plant used 57 draw calls and approximately 19k triangles (camera and shadow visibility affect counts); this is not a Quest benchmark. Mature batching is now implemented; see its validation record below.
-
-## Validation — 2026-10-29
-
-Run `node --test projects/secretGarden/tests/*.mjs` from the repository root. Six tests passed, including a 1,200-seed sweep, identical generation independent of call order, finite attachments and bounded components, complete growth at ten seconds, frame-rate-independent poses, clone equality, overlapping instances, deletion, mature-update removal, physical-head-offset containment and rendered geometry raycasting. All 31 shared helper tests also passed; shared runtime files were not changed.
-
-Chrome WebGL checks covered empty startup and dimensions, direct mouse planting, rendering a varied mature garden, and removal back to an empty scene. Visual screenshots were reviewed and tree proportions refined. Final Chrome end-to-end checks passed: click planting, real ten-second growth, geometry targeting, B copy, Space clone planting, matching structures, X deletion, B return to random, zero growth updates after maturity, and a 390 px mobile layout without horizontal overflow. No page errors occurred. `git diff --check` passed. Headset validation remains pending.
-
-## Quest acceptance still required
-
-Verify Enter VR, stereo appearance and scale, trigger handoff and A/B/X/Y button mappings on hardware, per-hand targeting, clone target icon readability, tracking-loss recovery, comfort and boundary behavior. Test a crowded garden with simultaneous growth and mature plants and measure sustained frame cadence; desktop draw counts do not establish Quest performance. Confirm clone appearance and ten-second development in headset. Commit/push only when requested after user testing.
-
-
-## Flower variety refinement — 2026-10-29
-
-Six seeded bloom forms now vary in geometry and arrangement: daisy, buttercup, lily, nodding bell, layered rosette and pointed star. Petals use curved polygon strips with form-specific width and cup depth rather than flat leaf geometry. Each bloom has a deterministic axis based on its stem heading and a varied tilt; bells face downward. Opening animates from folded petals into the mature cupped form. Central structures follow the same bloom axis.
-
-About 32% of seeds choose clusters of four to eight smaller blooms at each flowering tip. Short child stems support the cluster, bloom sizes vary within a bounded range, and emergence is slightly staggered. All finish by ten seconds. Terminal stems also flower when branching probability ends recursion early. Seed output has changed with the expanded generator; clones remain identical within this version. Runtime query versions advanced to 2 for flower variety; the entry module is now version 3 for trigger planting.
-
-Seven project tests passed, including a seed sweep checking all six bloom forms, single/cluster distributions, normalized nonvertical axes, downward blooms and complete timing. Chrome rendered all twelve single/cluster combinations without page errors; the resulting screenshot was visually reviewed. Quest appearance and performance need retesting.
-
-
-## Trigger planting — 2026-10-29
-
-Planting moved from right A to the rising edge of either xr-standard trigger (index 0). Each trigger uses its own tracked controller ray and the existing ground-only placement rule. Holding a trigger does not repeatedly plant; entry/resume suppression applies. B copy/reset and X delete remain unchanged. Desktop click/Space remains available. Project tests and JavaScript syntax checks passed; physical Quest trigger verification remains pending.
-
-
-## Random planting orientation — 2026-10-29
-
-Every planting operation, including clone placement, samples an independent uniform yaw in [0, 2π). The instance stores `rotationY`; the renderer applies it to the plant root group, preserving the planting point and growth attachments. Orientation randomness lives outside the seeded generator: clone structures, local geometry and colors remain identical while world orientation varies. Lifecycle tests verify independently assigned rotations, and renderer tests verify the root transform while retaining clone matrix/color equality. Seven project tests passed. Entry and changed module queries advanced to version 4.
-
-
-## Fuller tree canopies — 2026-10-29
-
-Tree profiles now guarantee four or five main limbs and three children per limb at each of the next two levels, giving 53–66 woody segments before optional flower stalks. Main limbs attach at staggered heights; outward limbs spread the crown and upright continuations fill its top. Outer branches retain more length and support dense leaves, with smaller foliage counts on interior branches. Flowers and bushes retain their existing branching rules.
-
-The same shared recursive system and three-level depth remain in use. Tree flowers have a 30-bloom budget so clustered blossoms cannot crowd out the remaining crown. All components still fit below the 600-part cap without truncation. Seed output for trees changes, while cloning and independent placement rotation remain intact. Eight project tests pass, including a tree sweep checking scaffold coverage, at least 53 woody segments and 252 leaves, and no budget exhaustion. The existing 1,200-seed test checks ten-second maturity and connected geometry. Three mature trees were reviewed in Chrome (315–375 leaves, no page errors). Quest performance needs retesting with denser crowns. Runtime queries advanced to version 5.
-
-
-## Clone scale variation — 2026-10-29
-
-Clone placements now independently sample a uniform scale between 0.8 and 1.2, applied uniformly to their root group alongside random yaw. Random-seed placements remain at scale 1. Instance `scale` is separate from seed/structure; copying a scaled clone copies only its seed, so scale never compounds across generations. Growth timing remains ten seconds, with the planting point fixed. Nine project tests pass, including both scale endpoints, independent resampling, default-scale random mode and identical clone structure/local geometry. Runtime entry and manager/renderer queries advanced to version 6.
-
-
-## Rectangular garden resize — 2026-10-29
-
-Interior expanded to 30 ft wide × 45 ft deep (9.144 × 13.716 m); walls remain 10 ft tall. Separate half-width and half-depth drive ground, wall lengths/positions, consistent masonry spacing, planting limits and headset-aware containment. Sun/shadow coverage expanded for the larger footprint and controller targeting range increased to 25 m. Entry/environment query versions advanced to 7. Ten project tests passed, including rectangular ground/wall dimensions and containment at all four corners.
-
-
-## Staggered brickwork — 2026-10-29
-
-Wall masonry now uses running bond: alternating rows shift by half a brick, with clipped half-bricks at both ends. Brick spacing and mortar gaps remain consistent on each wall, and all masonry stays in one instanced batch. Entry/environment query versions advanced to 8. Existing project tests and whitespace checks passed.
-
-
-## Expanded flower colors — 2026-10-29
-
-Flower seeds now independently choose the full hue circle, 0–100% saturation, and 25–100% HSV brightness/value. Petal colors convert from HSV into sRGB before Three.js lighting, replacing the fixed 65% saturation / 69% linear HSL lightness that made blooms consistently pale. Colors remain shared within a plant and deterministic for cloning; central pollen colors remain contrasting. Lighting and shadows still affect perceived brightness. Ten project tests passed, including color range checks and clone color equality. Entry and affected module cache queries advanced to 9.
-
-
-## Active-controller interaction — 2026-10-30
-
-`controller-actions.mjs` routes sampled button edges through a single active hand, right by default each session. Inactive trigger transfers ownership and consumes all actions for that frame, avoiding order-dependent planting. Only the active tracked controller ray is cast/displayed; there is no automatic fallback when tracking is lost. Face-button edges on both controllers are always sampled so a held inactive button cannot fire when control transfers. A/X copies (or resets random mode elsewhere); B/Y deletes. Desktop controls are unchanged. Runtime entry and action-router queries advanced to 10.
-
-Thirteen project tests passed, including active-hand mappings, transfers in both directions, simultaneous-input order independence, held-trigger suppression and inactive face-button holds. Syntax and whitespace checks passed. Physical Quest interaction retesting remains required.
-
-
-## Squat shrubs — 2026-10-30
-
-Shrubs use shorter 0.45–0.85 m primary stems, four to six stems distributed around the base, and wider length ratios. Basal stems lean outward 49–69° from vertical; secondary limbs spread 63–86° from vertical, producing low horizontal crowns rather than upright miniature trees. The shared generator, growth timing and component bound remain unchanged. A shrub seed sweep checks that basal spread exceeds rise and crowns are at least 1.5 times wider than their woody height. Runtime entry and affected imports advanced to version 11.
-
-
-## Single-use cloning — 2026-10-30
-
-A copied seed is consumed by one successful planting. PlantManager clears it after creating and initializing that instance, returning the mode indicator to RANDOM. Invalid planting targets never call planting, so they do not consume the copied seed. Clone scale and orientation still vary independently. The next successful planting obtains a fresh random seed at normal scale. Fourteen project tests passed, including automatic mode clearing and a different random seed on the next planting. Entry and manager query versions advanced to 12.
-
-
-## Persistent cloning and held deletion — 2026-10-30
-
-Supersedes single-use cloning: copied seeds remain active after planting. Active-hand B/Y immediately returns to random mode, regardless of target. Holding that press on one plant for one second fills its base selection circle with a red sector, then removes it. The hold locks to the initial plant and hand; release, target change/miss, tracking loss, session change or handoff cancels it. After completion or cancellation, a new press is required; continued holding never starts deletion on another plant. Desktop B copy/reset and X immediate deletion are unchanged. Entry/manager and deletion-helper query versions advanced to 13.
-
-Seventeen project tests passed, including persistent clone reuse, exact one-second deletion, no repeat while held, early release, target changes, misses, handoff and explicit cancellation. JavaScript syntax and whitespace checks passed. Physical Quest timing and progress-display verification remain pending.
-
-
-## Five tree families — 2026-10-30
-
-Tree seeds now choose rounded broadleaf, open broadleaf, layered pine, columnar or umbrella with equal probability. All use the existing recursive stem/attachment representation with family-specific branch lengths, angles, crown depth and foliage distributions.
-
-- Rounded broadleaf: spreading branches and overlapping faceted ellipsoids at terminal twigs, varied in size, rotation and related green shades.
-- Open broadleaf: the dense individual-leaf crown from the previous tree implementation.
-- Pine: five to seven tapered, offset-by-trunk foliage tiers using shared seven-sided cone geometry, with short supporting branches and no blossoms.
-- Columnar: short upright branches supporting vertically elongated ellipsoids around the trunk.
-- Umbrella: branches concentrated near the top, spreading outward into shallow horizontal ellipsoids above a relatively bare trunk.
-
-New `foliage` parts store parent attachments, scale, orientation, color and growth timing. Clusters expand after their supporting branches; pine tiers emerge progressively up the trunk. Both new geometry types are shared/instanced and selectable by ray. Mature-update removal, persistent cloning, per-instance yaw/clone scale and hold deletion apply unchanged. Flowers and shrubs retain their existing profiles. Tree outputs change for a given seed in this generator version.
-
-Nineteen project tests passed: all five families sampled across 1,500 seeds, finite and bounded components, distinct foliage proportions, tapered pine tiers, ten-second maturity, clone matrix/color equality, volume raycasting and existing interaction regressions. Chrome rendered all five families without page errors and the screenshot was visually reviewed. The five sampled trees used 13–389 structural parts each. This is not a sustained Quest benchmark; headset scale, appearance and crowded-garden performance need testing. Entry and affected module queries advanced to version 14.
-
-
-## Clockwise deletion meter — 2026-10-30
-
-The red deletion sector now sweeps clockwise, using a negative angular span from the same starting point. One-second timing and deletion behavior are unchanged. Entry query version advanced to 15; JavaScript syntax and whitespace checks passed.
-
-
-## Dark soil — 2026-10-30
-
-Ground material changed to rich dark brown (`#352015`), retaining the matte dirt finish. Entry/environment query versions advanced to 16. Syntax and whitespace checks passed.
-
-
-## Mature-plant batching — 2026-10-30
-
-At ten seconds, plants migrate from separate rendering groups into shared instanced pools keyed by the existing geometry type (up to fifteen mature plant draw calls per render pass, plus environment/UI and any growing plants). Growth remains per plant and static plants receive no growth updates. Geometry, local colors, yaw, clone scale and planting positions are preserved by baking the original world transforms into pooled instance matrices. Shadows use the same pooled meshes.
-
-`mature-batches.mjs` grows pool capacity geometrically, copies existing instances on expansion and updates GPU buffers/bounds only when membership changes. Manager flushes changed pools once after growth updates. Deleting a mature plant removes its slots by moving the last occupied slot into each hole and updating that slot's handle. Empty pools dispose their GPU buffers. Deleting one plant never rebuilds the whole garden or regenerates survivors.
-
-Original mature geometry/matrices remain in detached CPU-side groups for exact raycasting, with GPU instance buffers disposed during migration. These groups retain their fixed world transforms and plant IDs, so nearest-part selection, seed copying, overlap and timed deletion use the same targets as before. Mature proxies are not traversed or rendered with the scene. Shared render batches are not added to the picking target list, preventing duplicate hits.
-
-There is a culling tradeoff: one pool covers all plants of that geometry type, so more off-screen instances can be submitted. Shared geometry/materials and opaque rendering remain unchanged. Spatial batch subdivision may be useful if headset GPU measurements show this tradeoff matters. The constructor's `batchMature:false` option is a developer comparison hook, not an exposed product control.
-
-Validation: 22 project tests passed, including migration exactly at maturity, preserved world matrices and colors with clone scaling/yaw, frozen proxy picking, capacity growth, swap-compaction correctness for survivors, deletion to an empty garden and repopulation. Chrome compared the same 80 planted seeds and placements: 266 → 21 total draw calls, 349,924 → 350,952 submitted triangles, and 0.8 → 0.3 ms median CPU render duration on this Mac. Batch migration of all 80 plants in one test update took 14.4 ms including final growth; normal plants migrate individually. Screenshots were visually reviewed; mean absolute image difference was below 0.004 per 8-bit channel. No page errors occurred. These are local Chrome measurements, not Quest timings. The existing Quest garden was not reloaded or altered by this work.
-
-Entry and manager/renderer/new pool module query versions advanced to 17. Quest regression/performance capture with the new version remains pending. No commit or push was requested.
-
-
-## Clone target icon — 2026-10-30
-
-Removed the controller-mounted RANDOM/CLONE status box and desktop mode readout/reset button. Clone mode is now indicated by two overlapping rectangle outlines inside the visible target circle, scaled to fit either the small dirt marker or larger plant selection ring. Random mode uses the plain circle. The icon hides on misses, tracking loss and handoff without a valid target; B/Y clearing clone mode also hides it before deletion progress. Icon geometry is created once with no canvas texture or per-frame geometry rebuilding. Entry query advanced to 18.
-
-Chrome checks passed for removed status elements, hidden icon in random mode, visible icon in clone mode (including seed zero), persistent icon after clone planting and clearing on return to random. No page errors occurred. Syntax and whitespace checks passed; Quest icon readability remains to be checked. The user reports mature batching helped on Quest; this is user feedback rather than a new timed benchmark.
-
-
-## Grip pointer toggle — 2026-10-30
-
-Active-hand grip (xr-standard index 1, rising edge) toggles its pointer enabled state. Disabled state gates the controller cast entirely, hiding its ray, ground/plant target, clone icon and deletion fill; pending deletion cancels. Locomotion and plant growth continue. Grip on the retained hand can toggle it back on. Either trigger can also reactivate its own hand without planting, requiring release/another press to plant. Other inactive-hand grip presses have no effect. Right hand starts enabled on session entry. Entry/router queries advanced to 19.
-
-
-## Drifting low-poly clouds — 2026-10-30
-
-Five opaque clouds drift across the sky at 0.22–0.32 m/s, 12–15 m above the garden. Each uses a shared faceted cluster of ellipsoidal lobes; all five render in one instanced batch. Clouds wrap at ±52 m, beyond the camera’s 35 m far plane even from the garden edge, so recycling occurs out of view. Motion uses elapsed active seconds and stops while hidden/untracked. Clouds are decorative, excluded from interaction targets and shadow casting; movement does not invalidate the cached garden shadow map. Entry/environment/cloud module queries advanced to 20.
-
-Cloud facets use baked cool white/gray vertex shading with an opaque unlit material, avoiding brown ground-light tint and additional lighting/shadow cost. All 24 existing project tests passed. Chrome checked five opaque instances, expected drift over ten seconds, bounded positions after a long wrap interval and error-free rendering; the sky screenshot was visually reviewed.
-
-
-## Taller cypress-style trees — 2026-10-30
-
-Columnar trees now receive a seeded vertical multiplier of 1.5–2 while crown width stays narrow and gradually decreases toward the top. A new shared faceted `spire` geometry tapers individual foliage volumes upward, replacing the round-ended ellipsoids for this family. Parent attachments are recomputed after shaping so branches remain connected during growth. Other tree families retain their profiles. Mature batching supports the additional geometry key automatically. All 24 project tests passed, including the 1,200-seed connectivity/maturity sweep, cypress proportions and foliage raycasting. Chrome rendered the family comparison without page errors; the silhouette was reviewed and adjusted to retain canopy volume. Entry and affected imports advanced to version 21.
-
-
-## Darker sky — 2026-10-30
-
-Sky background darkened to muted blue-gray (`#788f9c`). Daylight illumination remains unchanged. Entry/environment query versions advanced to 22. Syntax and whitespace checks passed.
-
-
-## Cypress trees disabled — 2026-10-30
-
-Removed columnar/cypress from the active seeded tree family list. New generation now selects rounded broadleaf, open broadleaf, pine or umbrella. The dormant columnar shaping/geometry code is retained for possible future revision but is unreachable through generation. Existing in-memory plants are not automatically removed; the new generator applies after page reload. Seed-to-family mappings change with the four-family list. Updated family-coverage and foliage-ray tests passed with the full 24-test project suite. Entry and affected imports advanced to 23.
-
-
-## Release review — 2026-10-30
-
-User authorized push to GitHub after the cypress family was disabled. Release includes the full Secret Garden project, tests, project-directory card, root routing and shared-helper consumer documentation. Active tree families are rounded/open broadleaf, pine and umbrella. The final local entry query is version 23. Only project files and their directory/documentation entries are included; no shared runtime or dependency changes are part of this release. Final project/shared tests, module/documentation links, Chrome startup and whitespace checks are recorded with release execution. Prior user Quest feedback is preserved above; the newest visual/interaction changes are not claimed as a complete headset benchmark.
-
-Final release validation: all 24 Secret Garden and 31 shared-helper tests passed (55 total). Chrome startup/clone-indicator smoke checks, local module imports, documentation links and whitespace checks passed.
-
-
-## Wall-clinging ivy — 2026-10-30
-
-Interior wall faces now accept planting, producing seeded vines instead of ground plants. `vine-generator.mjs` uses the existing pure PRNG and stem/leaf/flower graph, emitting three meandering shoots, side branches, lobed ivy leaves and occasional small outward-facing blossoms. Ten-second timing, mature batching, exact picking, active-hand controls and one-second deletion apply to vines too.
-
-Vine generation depends on seed plus support-relative bounds. Shoots redirect downward/sideways at the top, upward at the floor and inward at wall ends. Thus identical seeds and bounds produce identical structures, while the same copied seed at a different height/wall extent can take a different path. Vines stay on the selected face rather than wrapping corners or spilling onto the ground. Wall top/edge faces are not planting targets. Inner masonry clearance prevents the geometry being hidden by the brickwork.
-
-PlantManager remembers copied surface type separately from seed. `canClone(surface)` decides whether to use that seed: copied vines clone only on walls; copied ground plants clone only on dirt. Incompatible targets use a fresh random seed without clearing the remembered copy. The clone icon temporarily disappears and returns when aiming at a compatible surface, including appropriate plant targets. B/Y explicitly clears both remembered seed and surface. Vine clones use 80–120% scale with inversely scaled local bounds, keeping their stems on the wall. Vine orientation follows the wall, rather than random world yaw; ground rotation/scale rules are unchanged.
-
-Target rings, clone icons and deletion fill now align with wall normals for wall planting/selection. Detached mature vine proxies preserve these support-relative poses and instance IDs.
-
-Validation: 29 project tests passed, including 500 vine seeds, complete timing and valid parent attachments, top/floor/end response, remembered clone state through incompatible planting in both directions, all four walls with scaled clones near top and bottom, mature ivy batching, picking and deletion. Chrome verified actual wall-click planting, hidden clone icon on dirt and restoration on wall, and error-free rendering of mature vines at different heights. The resulting ivy wall screenshot was reviewed. Physical Quest testing remains pending. Entry and changed runtime modules use query version 24. This work remains local and is not covered by the previous release's push authorization.
-
-
-## Ivy wrapping around corners — 2026-10-30
-
-Supersedes reflecting at wall ends: garden wall supports now include adjacent wall dimensions. Vines grow in an unfolded perimeter coordinate and fold onto the four inset interior faces. Crossing a corner splits the stem at the exact seam so no segment cuts diagonally through the garden. Leaves use the adjoining face orientation/offset and blossoms face outward from their current wall. Top/floor redirection stays unchanged. The single vine retains its original instance ID, copied seed, support root, growth timeline and mature-batch lifecycle across wall transitions.
-
-Clone scale is included in the perimeter dimensions, preserving physical support clearance. Identical seed/support geometry remains deterministic. Generic supports without perimeter metadata retain bounded-wall behavior; all four garden walls supply wrapping metadata. Existing rooted selection/deletion indicators stay at the vine's planting point.
-
-All 30 project tests passed, including 150 repeated corner seeds, left/right and opposite-wall traversal, exact attachment/maturity checks, no diagonal corner shortcuts, and scaled clones on all four walls. Chrome wall planting/mode-switch checks passed; a mature corner-spanning vine screenshot was visually reviewed with no page errors. Entry/environment/manager/vine imports advanced to 25. Quest retesting remains pending. Changes remain local and unpushed.
-
-
-## Incompatible planting clears clone — 2026-10-30
-
-A successful random planting on an incompatible surface now clears both the remembered seed and surface. Merely pointing at the other surface still preserves them, so aiming back restores clone eligibility until a random plant is actually placed. Compatible clone planting remains persistent. Clearing occurs after successful creation; rejected wall placements leave clone state intact. All 30 project tests and whitespace checks passed. Entry/manager query versions advanced to 26.
-
-
-## Vine flower clearance — 2026-10-30
-
-Vine flowers now develop on seeded 12–18 cm stalks projecting outward from their current wall face. Stalks extend before blossoms open, keeping the bloom ahead of the ivy foliage while preserving ten-second maturity, corner orientation, batching and selection. Clone scaling also scales the stalk naturally. Stalks are explicitly tagged so support-boundary tests distinguish intentional outward growth from wall-clinging stems. All 31 project tests passed, including outward direction, length, attachment and maturity checks. Entry/manager/vine query versions advanced to 27.
-
-
-## Shorter vine flower stalks — 2026-10-30
-
-Reduced outward flower stalk length to 6–9 cm (from 12–18 cm). Growth and face alignment are unchanged. Length/direction assertions updated; all 31 project tests passed. Entry/manager/vine query versions advanced to 28.
-
-
-## Rounded-tier cypress redesign — 2026-10-30
-
-Cypress/columnar trees are active again with a new silhouette: one tall trunk supporting five to seven overlapping rounded foliage tiers. The lowest tier is a sphere. Each successive tier is narrower horizontally and taller vertically, forming a rounded taper resembling the pine's stacked construction. Foliage now attaches directly along the trunk rather than to many short branches; the previous post-generation spire stretching is removed. Existing taller 1.5–2× seeded height variation remains. Cypress has no blossoms, and shares the existing faceted crown geometry and mature batches, adding no new foliage geometry type.
-
-All 32 project tests passed, including spherical base proportions, strictly decreasing widths/increasing vertical radii, ascending attachment/emergence times, all five family coverage and unchanged vine/batching/interaction regressions. Chrome rendered all five families without errors and the redesigned silhouette was visually reviewed. The sampled cypress used one trunk and five foliage volumes. Entry/generator/renderer/manager/vine helper imports advanced to 29. Quest appearance remains to be checked; changes are local and unpushed.
-
-
-## Pointed conifer trunks — 2026-10-30
-
-Pine and cypress primary trunks now specify zero tip radius and render with a shared five-sided cone segment, tapering continuously from the base to a point. Other stems keep their existing taper profiles. The pointed trunk geometry participates in mature batching and exact picking like other stems. All 32 project tests passed, including family-specific trunk metadata and actual zero-radius rendered geometry. Entry and affected module queries advanced to 30.
-
-
-## Remove hidden pine branches — 2026-10-30
-
-Pine branching depth is now zero. Its foliage tiers already attach directly to the primary trunk, so hidden lateral stems served no structural or animation purpose. Pines now contain only one tapered trunk plus five to seven foliage volumes. All 32 project tests passed, including the single-trunk assertion and existing growth/picking/batching coverage. Entry and affected imports advanced to 31.
-
-
-## Large arcing clouds — 2026-10-30
-
-Cloud instance dimensions are now eight times their original sizes. Their base heights are raised to 36–45 m so the larger volumes remain overhead rather than intersecting the garden; spacing is widened. A smooth gentle rise and lateral bend carries each cloud over the garden, centered on the garden footprint. Drift speeds remain slow and cloud geometry/instance count stays unchanged.
-
-The camera far range is now 250 m. At startup, cloud geometry bounds, maximum instance scale, actual garden half-width/depth and a conservative full-frustum visibility radius determine recycling distance. Both the outgoing and incoming cloud are fully beyond that radius for every garden position before wrapping. The bound includes the cloud's entire extent, rather than testing only its center. Arc span is calculated separately from recycling distance, so the gentle curve stays centered over the garden even with conservative distant recycling. Clouds remain one opaque unlit batch with no shadow-map invalidation.
-
-All 35 project tests passed, including eightfold scales, overhead curved motion, frame-rate-independent updates, large elapsed-time wrapping, and complete endpoint clearance from every corner for two different garden sizes. Chrome startup, drift/recycling and opaque rendering checks passed; the enlarged sky view was reviewed. Quest appearance remains pending. Entry/environment/cloud queries advanced to 32. Changes remain local and unpushed.
-
-
-## Grass patches — 2026-10-30
-
-Grass is now a fourth ground generation form, alongside flowers, bushes and trees. Each seed defines an irregular rounded footprint using low-amplitude three/five-lobed radial variation and mild axis stretch. 320–460 blades cover the footprint with a golden-angle distribution. Blade height falls smoothly from the center to 18% near the outline, with small per-blade variation; the outer region is consistently shorter. Patch radius, height, blade width, bend orientation and related green shades vary by seed.
-
-Grass emits root-attached leaf components in the shared structure graph, with one reusable curved low-poly blade geometry (`leaf4`). Blades emerge in overlapping stages and reach maturity within ten seconds. Entire patches are selectable, cloneable, scalable, removable and migrate into one shared mature grass batch. Wall compatibility rules apply exactly as for other ground plants. No wind or maintenance is simulated. The fourth random category changes seed-to-form mappings in this generator version.
-
-All 37 project tests passed. Grass checks cover deterministic output, irregular outline variation, center/edge height ratios, component bounds and timing, whole-patch raycasting, clone structure/scale, batching and deletion. Chrome rendered four mature seed variants without errors; their outline and height gradients were visually reviewed. Quest appearance/performance remains pending. Entry and affected module queries advanced to 33. Changes remain local and unpushed.
-
-
-## Grass targeting and shadow optimization — 2026-10-30
-
-`grass-picker.mjs` installs an analytic ray/ellipsoid test on each grass root group. Rays transform into a unit sphere, intersect once and return the world-space hit and patch instance ID. Returning false from the group's raycast suppresses recursive blade tests on both hits and misses. The ellipsoid follows the patch's seeded footprint, height during growth, world position, yaw and clone scale. Tiny/invisible shoots do not select until they have height; mature detached proxies retain their final matrices. This deliberately selects the approximate whole patch volume, including spaces between blades, rather than exact leaf triangles. Other plant targeting remains unchanged.
-
-Grass growing and mature meshes neither cast nor receive shadows. Mature `leaf4` pools preserve those flags. PlantManager separately tracks shadow-affecting revisions and growing plants; grass planting, growth, maturity or removal no longer invalidates the cached shadow map. Other plants retain their existing shadows. Grass remains normally lit by daylight, but no longer receives shadows from walls or other plants.
-
-All 39 project tests passed, including ellipsoid hits/misses and range filtering with blade raycasts set to throw, mature picking/deletion, shadow flags before/after batching and independent shadow invalidation. Chrome grass rendering smoke checks passed without page errors. Quest performance improvement has not been measured yet. Entry/manager/renderer/new picker/mature batch module queries advanced to 34. Changes remain local and unpushed.
-
-
-## Smaller grass selection volume — 2026-10-30
-
-Grass selection ellipsoid radii reduced to 80% on all three axes, retaining its center and growth/clone transforms. Visible grass geometry is unchanged. All 39 project tests passed. Entry/renderer/picker query versions advanced to 35.
-
-
-## Clone icon only on planting targets — 2026-10-30
-
-The clone icon now requires a compatible ground/wall planting marker. Selecting an existing plant hides it, since trigger planting does nothing on plants. Selection rings and remembered clone state remain unchanged. Entry query advanced to 36. JavaScript syntax and whitespace checks passed.
-
-
-## Hydrangea-style bloom volumes — 2026-10-30
-
-Added a seventh seeded bloom form, hydrangea: rounded heads assembled from twelve small faceted spheres around a central filler sphere. The entire head is a single shared geometry (260 triangles), instanced per flower and merged into mature `hydrangea` pools. No individual sphere scene objects or extra per-sphere draw calls are created. This volume form replaces petals/central pollen geometry for the selected seed and appears on flower plants or other flowering ground forms.
-
-Heads inherit the full seeded HSV color range, tilt, scale and parent growth timing, expanding into a sphere cluster as they mature. Existing single/multiple-bloom arrangements still apply. Seeded structure and instance colors remain identical for clones; placement rotation and clone scale remain independent. Other petal flower forms remain available.
-
-All 40 project tests passed, including seven-form coverage, ten-second growth, hydrangea geometry bounds, clone matrices/colors, exact volume picking, mature batching and deletion. Chrome rendered four color/structure variants without page errors and the resulting screenshot was visually reviewed. Entry and affected generator/renderer/manager/vine imports advanced to 37. Quest appearance/performance remains pending. Changes remain local and unpushed.
-
-
-## Single-sphere hydrangea heads — 2026-10-30
-
-Replaced each hydrangea head’s cluster of small spheres with one larger faceted sphere, preserving its overall head size, bloom anchor, color and growth. Shared head geometry is now 80 triangles instead of 260. Multiple-head plant arrangements remain possible; each head itself is one sphere. All 40 project tests passed with the new geometry budget. Entry/renderer query versions advanced to 38.
-
-
-## Sphere blooms on vines — 2026-10-30
-
-Flowering vine seeds now select one of four bloom styles: daisy, buttercup, lily or the shared hydrangea single sphere. A vine keeps one style throughout its flowers. Spheres use the same seeded HSV palette, outward-facing 6–9 cm stalks, growth timing, mature batching and selection as other vine blooms. All 41 project tests passed, including sampled vine sphere/petal coverage and stalk/maturity checks. Entry/manager/vine queries advanced to 39.
-
-
-## Release review — vine and ground-cover update, 2026-10-30
-
-User approved the current appearance and authorized pushing this update. Release includes corner-wrapping wall vines, surface-aware cloning with incompatible planting clearing the copy, short outward flower stalks, rounded-tier cypress and tapered conifer trunks, branch-free pines, larger arcing clouds, grass patches with analytic ellipsoid targeting and no shadows, planting-only clone icons, and single-sphere hydrangea blooms on ground plants and flowering vines. Final entry query is 39.
-
-All 41 project tests passed. Local module imports, project whitespace and final Chrome wall-planting/clone-indicator checks passed. Changes are confined to Secret Garden; shared runtime/dependencies are unchanged. Prior user feedback and test limits remain in the feature records above. No new comprehensive Quest benchmark is claimed. As requested, do not check GitHub Pages deployment after this push.
-
-
-## Targeting hierarchy optimization — 2026-10-30
-
-Non-grass plants now install `plant-picker.mjs`. A per-plant local box rejects complete misses during growth. At maturity, a static hierarchy of per-component geometry bounds is built once, then cached alongside the detached picking group. Rays visit only intersected nodes/components, and original Three.js triangle tests run through a reusable probe mesh for those candidates. Returned hits retain the source plant ID, component instance index, world point and distance. This preserves exact geometry selection, gaps, overlap ordering and near/far clipping rather than making foliage gaps solid.
-
-Grass's existing 80% ellipsoid remains unchanged. Growing plants use their original exact mesh tests only after whole-plant bounds pass. No shadows, rendering resolution, foveation or visual geometry settings were changed. Hierarchies are static after maturity; new/deleted plants keep independent lifecycles and the existing mature render pools.
-
-All 43 project tests passed. New coverage compares nearest IDs/distances against original targeting for 250 rays across mixed, overlapping plants and a corner-wrapping vine, checks near/far ranges, and proves misses/grown hierarchy hits skip whole instanced-mesh traversal. Chrome wall planting and clone-mode target feedback checks passed without page errors.
-
-A local Node comparison with 100 mature plants and 600 identical rays measured median 157.45 ms before and 50.06 ms after (3.15× faster), with the same 560 hit rays. This is a Mac CPU microbenchmark, not a Quest frame-rate result. Building final growth, render batches and hierarchies for all 100 plants at once took 49.2 ms in that artificial setup; normal planting staggers maturity. Quest capture with the new version remains pending. Entry/renderer/new picker queries advanced to 40. Changes are local and unpushed.
-
-
-## Targeting release and profiling hooks — 2026-10-30
-
-The user reports simplified targeting is working well and authorized updating the handoff and pushing this change. The release contains `plant-picker.mjs`, renderer integration, exact-hit equivalence tests and entry query version 40. Grass's reduced ellipsoid targeting is unchanged. All 43 project tests passed again before release; module paths and whitespace checks passed. Prior Chrome wall-planting/clone-indicator smoke checks passed. No shared runtime/dependency changes are included.
-
-No permanent profiling HUD, checkbox, recording loop or timing instrumentation has been added. `window.secretGarden` exposes references to existing runtime objects for inspection. `batchMature:false` is an optional constructor comparison setting; normal batching stays enabled. The targeting helper's `enabled` field supports comparison tests; acceleration stays enabled normally. These hooks do not start background profiling. Temporary CPU wrappers and sampling are stopped/restored after each external capture; profiler scripts and reports remain outside the repository.
-
-Native Quest GPU profiling was successfully tested over ADB using `ovrgpuprofiler --realtime`, without detailed driver mode or browser restart. In a pre-targeting-optimization capture with 93 plants, GPU utilization averaged 61.9% and reported fragment/vertex shading shares averaged 90.7%/9.3%; the app was near its 90 Hz target. CPU rendering submission averaged 0.74 ms/frame and instanced plant raycasts 1.12 ms/frame. Native counters cover headset-wide GPU activity, and no exact per-app GPU milliseconds were measured. This does not constitute a new benchmark of the targeting optimization; the user's positive feedback is separate from the earlier trace.
-
-As requested, do not check GitHub Pages deployment after pushing.
-
-
-## Recessed automatic door and settings room — 2026-10-30
-
-Added a doorway centered on the far (-Z, wall ID 2) garden wall, a 0.44 m recessed passage and a room beyond it with exactly 6 × 6 ft (1.8288 × 1.8288 m) interior floor dimensions. Room ceiling height is 2.6 m. The doorway is 1.15 m wide and 2.25 m tall; its wooden door sits 0.32 m behind the garden wall face and swings inward. An inset stone surround and warm, non-shadow-casting light make the space readable. No control panel is implemented; that remains a future milestone.
-
-`garden-layout.mjs` holds shared dimensions, doorway planting exclusions and collision rectangles. `garden-room.mjs` constructs the room, recess, hinged leaf/handle and proximity state. Door opening begins within 1.35 m of the door from either side; closing begins beyond 1.75 m, preventing threshold chatter. Opening/closing takes about 0.65 seconds. Moving door frames invalidate the cached shadow map; a stationary door does not. Static room/recess/frame geometry is merged into two material batches, with frozen CPU boxes retained for environmental ray hits.
-
-Viewer containment projects tracked head position into the connected garden/passage/room footprint, including physical head offsets and rig yaw. Closed doors block passage until the leaf is sufficiently open. Garden walls and room side/back walls remain impassable. Ground planting is explicitly restricted to the garden footprint. All room/recess floors, walls, ceiling, frame and door report environment-only surfaces, never planting surfaces.
-
-Vine supports carry a deterministic expanded doorway exclusion rectangle in unfolded perimeter coordinates. Shoots that would cross it redirect upward along its sides or away above it; this also applies to vines arriving from adjacent walls or on scaled clones. Clearance includes room for leaves and flowers, keeping the doorway free of foliage. Direct vine planting in the exclusion area is rejected, with no clone-state loss; compatible target markers are hidden there.
-
-All 47 project tests passed: room interior dimensions and ceiling, closed/open doorway ray hits, opening from both sides and closing away, movement into/out of the room and around solid walls, room planting rejection, doorway seed rejection and 160 near-door/adjacent-wall vine cases. Existing fixtures were moved to valid garden positions to match the strengthened planting checks. Chrome keyboard walkthrough verified automatic opening, entering the room, back-wall containment, closing inside, no planting on room surfaces and exiting again. Door/recess, room and doorway-clear vine screenshots were reviewed without page errors. Final merged-room walkthrough passed. Physical Quest collision/door comfort and performance still need user testing. Entry and affected modules advanced to query version 41. Changes remain local, uncommitted and unpushed.
-
-
-## Six-foot hallway and larger control room — 2026-10-30
-
-Hallway length is now exactly 6 ft (1.8288 m) from the garden opening to the room. The door is centered at 3 ft (0.9144 m) along it. Control-room interior floor dimensions are now 12 × 12 ft (3.6576 × 3.6576 m); ceiling remains 2.6 m high. Existing automatic opening/closing, non-plantable interior surfaces, doorway vine exclusions and batched static geometry remain.
-
-Hallway clear width is 1.09 m versus the garden opening's 1.15 m, with a 2.22 m ceiling versus the opening's 2.25 m height. Side/ceiling faces are inset by 3 cm and their front ends set 1.5 cm behind the facade. Garden trim sits fully in front of the facade, and room-entry reveals are offset from hallway faces. These changes remove coplanar joins responsible for z-fighting rather than relying on render-order tricks. Viewer constraints and door leaf dimensions follow the narrower hallway. The hinge opens to 90° with a small side clearance so the leaf rests along the hall rather than swinging through its side wall.
-
-All 48 project tests passed, including exact hallway/door/room dimensions, inset geometry, automatic operation, room planting rejection and movement bounds. A prior garden-only boundary test fixture was moved near the garden corners so it does not intentionally teleport closer to the enlarged room. Chrome walkthrough verified walking to the room's far end, closing the door when away, reopening from inside, returning to the garden and no room planting. Hallway and larger-room screenshots were visually reviewed with no page errors. Final hinge adjustment also passed the room tests. Physical Quest flicker/comfort retesting remains pending. Entry and affected modules advanced to 42. Changes are local, uncommitted and unpushed.
-
-
-## Larger, shallower door surround — 2026-10-30
-
-Garden doorway trim widened from 12 to 14 cm, with legs extended 12 cm below floor level and a low sill covering the floor join. Its depth and outward position were both halved: the front now protrudes 6.25 cm instead of 12.5 cm, retaining a small noncoplanar clearance from the garden wall. Header and posts meet without overlapping front faces; the sill has a small vertical/depth offset to avoid floor z-fighting. Door/hallway clear dimensions are unchanged. All 48 project tests passed. Entry/environment/room queries advanced to 43.
-
-
-## Threshold floor-gap coverage — 2026-10-30
-
-Doubled threshold depth from 6 to 12 cm along the hallway direction, keeping its center so its back now extends into the hall and overlaps the floor join. The raised top remains noncoplanar with the floor. Room tests and whitespace checks passed. Entry/environment/room queries advanced to 44.
-
-
-## Double-action door and two-sided handles — 2026-10-30
-
-Door swing direction is selected from the approaching side when closed: garden approach opens toward the room, room approach opens toward the garden. Direction stays latched while the user crosses an open door. An opposite-side approach while it is closing first finishes closing, then opens away, avoiding a sudden direction flip. Both faces now have small cube handles sharing geometry/material. Existing proximity thresholds and collision gating remain. Entry/environment/room queries advanced to 45.
-
-All 49 project tests passed, including swing direction, crossing stability, smooth reversal after partial closing and two-sided cube handle geometry. Chrome verified opening away from both approaches and closing between them without page errors. Physical Quest testing remains pending; changes are local and unpushed.
-
-
-## Door complex moved behind the player — 2026-10-30
-
-Moved the garden opening to wall ID 0 (+Z), behind the initial camera's -Z view. The initial player pose is unchanged. The previous -Z opening is filled by the original solid wall/brick pattern. Hallway, midpoint double-action door, handles, trim, threshold, ceilinged 12 × 12 ft room and its light now extend outward from the rear wall.
-
-Layout coordinates, collision rectangle ordering, environmental target geometry, doorway planting blocks and unfolded vine exclusions are updated for the rear side. Door direction still follows the approaching side. Six-foot hallway, three-foot door midpoint, frame depth, threshold coverage, anti-flicker offsets and non-plantable room rules remain unchanged.
-
-All 50 project tests passed, including an explicit forward-solid-wall/rear-door test, navigation, auto-door operation and rear/adjacent-wall vine exclusion checks. Vine fixtures were moved off the relocated doorway to remain valid planting tests. Chrome verified walking through the rear doorway and back with no page errors. Physical Quest retesting remains pending. Entry and changed imports advanced to 46. Changes are local and unpushed.
-
-The room’s wall opposite the doorway has a Garden Settings panel. Aim and pull the active trigger (desktop: click) on the Shadows checkbox to globally toggle shadows. Shadows default on; reenabling refreshes the cached map. The shared `VRCheckbox` uses the existing control model and the project’s single pointer; no extra raycasts or controller listeners.
-
-Settings panel validation: Secret Garden 52/52 tests; full root suite passed (including 32 shared tests); browser ray/click toggles global shadows off/on with no planting or page errors, panel screenshot inspected; `git diff --check` passed. Quest appearance/controller validation remains pending. Entry module cache version 47. Changes remain local.
-
-Vines no longer cast shadows, but still receive them. Growing meshes and mature pools preserve this policy; vine pools are separated from casting ground plants that share stem/flower geometry. Vine planting, growth and deletion no longer invalidate the cached shadow map. Grass retains its existing no-cast/no-receive policy. Entry/renderer/manager/batch cache queries advanced to 48.
-
-Vine shadow validation: all 53 Secret Garden tests passed, including growing/mature shadow flags, mixed vine/ground pools, pool expansion/deletion, and shadow-cache invalidation. `git diff --check` passed. No new headset performance measurement; changes remain local and unpushed.
-
-Door hinge fit correction: removed the 3 cm hinge inset and undersized leaf (which left a hinge-side and top/bottom gap). The pivot now sits exactly on the hallway jamb, and the leaf fills the clear width/height when closed. A fixed round hinge stile covers the pivot seam during either swing. Only rotation changes during animation; pivot and stile remain stationary. Cache queries advanced to 49.
-
-Door fit validation: all 54 garden tests passed, including stationary hinge/stile checks throughout both swings and closed-opening edge coverage. Chrome confirmed opening away from either side and closing between approaches without page errors; whitespace check passed. Physical Quest appearance remains to be checked. Local changes only.
-
-Reset Garden action added below Shadows on the room panel. Active trigger / desktop click empties growing and mature plants (including vines/grass), releases pooled instance buffers, clears clone/delete/selection state, resets plant IDs and invalidates the cached shadow map. Removal flushes once for the entire garden. Player location, door and shadow preference are preserved. The action uses the existing ControlModel and single active ray. Entry/settings/manager/renderer cache queries advanced to 50.
-
-Reset validation: 55/55 garden tests passed; Chrome real click cleared mature and growing ground plants/vines, emptying pools and clone state while preserving Shadows. Fresh planting starts at ID 1. No page errors, panel screenshot inspected, `git diff --check` passed. Quest interaction remains to be checked. Local, unpushed changes.
-
-Umbrella trees (broad ellipsoid crowns) now have 25% taller trunks, vertically fuller ellipsoids (vertical radius 50–65% of depth rather than 34%), staggered branch origins and more upward-growing limbs, including a raised continuation. Crown radius and branch width compensate for the height multiplier to retain their broad canopy footprint. Other tree families are unchanged. Cache queries advanced to 51.
-
-Umbrella adjustment validation: all 55 garden tests passed, including deterministic generation, crown proportions, growth, cloning, batching and targeting. `git diff --check` passed. Visual review on Quest remains pending; changes are local and unpushed.
-
-## Release — 2026-10-30
-
-User authorized publishing the accumulated rear doorway/hallway/12-foot control room, fixed double-action hinge and two-sided handles, vine doorway exclusion, Shadows checkbox and reusable shared VRCheckbox, Reset Garden, non-shadow-casting vines and taller/full umbrella crowns. Final entry query is 51. Validation: 55 garden tests passed; full root suite passed after adding the shared checkbox (32 shared tests); later changes are project-only and passed the garden suite. Chrome checked room traversal, both door approaches, settings and populated-garden reset; screenshot reviews and whitespace checks passed. Quest appearance/performance limits remain recorded above. Publish this release to main; do not check GitHub Pages, per user request. Earlier local/unpushed notes are historical.
-
-
-## Bees on mature flowers — 2026-10-30
-
-Added `bees.mjs`, integrated after plant growth updates in `app.mjs`; entry cache version 52. `flowerLandings` creates points only for mature plants, using completed component anchors plus bloom surface depth, world yaw/scale/translation and transformed surface normals. Each individual bloom counts once, including hydrangea volumes and blooms on shrubs/trees/ivy. Growing plants create no landing records. A cached registry rebuilds only on plant revision or growth-set size changes; no per-frame plant/flower scans or collision/raycast work are added.
-
-Population follows the Bees slider: Off (zero), Low (floor(mature blooms / 150)), Medium (floor(mature blooms / 100), default), High (floor(mature blooms / 50)). Bees start on random blooms, rest 2–5 seconds and choose another bloom. Flight uses distance-based durations, cubic curves and endpoint-tapered sideways/vertical oscillations. Bodies face along flights and align their up axis with flower normals at rest. Cuboid yellow/dark bodies and two diamond wings share two dynamic instanced meshes (two draw calls total, 16 triangles per bee), with geometric capacity growth. Both batches disable shadow casting/receiving and remain outside interaction targets; animated bees do not invalidate the cached shadow map. Objects may be intersected. Deletion drops invalid cached points and retargets affected survivors; reset clears the registry/counts on the next animation update, including when IDs are reused. Empty buffers are retained for reuse until disposal. No population cap is imposed; update/upload cost scales with bees, and stored landing data scales with mature blooms.
-
-Validation: all 58 garden tests pass, including three new bee tests covering maturity exclusion, transformed petal/volume landing points, population thresholds, deletion/reset/ID reuse, finite curved paths, exact arrivals, random-rest bounds and shadow flags. Chrome WebGL check: 35 generated plants / 392 mature blooms / 15 bees, zero landing points before maturity, exactly two additional draw calls, reset to zero bees/points and no page errors. Garden and close-up bee screenshots inspected. `git diff --check` passed. These are desktop correctness/rendering checks, not a Quest timing benchmark; headset appearance, flight feel and sustained performance still need user testing. Changes are local and uncommitted.
-
-
-## Bees settings checkbox — 2026-10-30
-
-Added a default-on Bees checkbox between Shadows and Reset Garden using the shared VRCheckbox and existing single-pointer activation path. Enlarged the board and spaced the controls vertically. `Bees.setEnabled` immediately hides/shows both batches; disabled updates return before registry scans, animation and instance uploads. Reenabling forces a registry refresh to account for plants matured/deleted/reset while disabled. Reset Garden preserves the checkbox preference. Cached data remains dormant while off and is reconciled on reenable. Entry/settings/bee module cache queries advanced to 53.
-
-Validation: 59/59 garden tests pass, including toggle visibility, skipped updates and reenable synchronization; actual Chrome clicks toggled populated bee batches off/on with no page errors. Panel screenshot inspected; `git diff --check` passed. Quest interaction remains unverified. Local and uncommitted.
-
-
-## Bee density — 2026-10-30
-
-Reduced density to one bee per 50 fully grown blooms (floor division); growing plants still provide no landing points. Updated population fixtures and checked boundaries at 49/50/99/100 blooms. Entry/bee cache queries advanced to 54. All 60 garden tests and `git diff --check` pass. Earlier 392-bloom/15-bee browser capture describes the former 1:25 ratio. Changes remain local, uncommitted and unpushed.
-
-
-## Bee density reduced again — 2026-10-30
-
-Current density is one bee per 100 fully grown blooms (floor division), superseding the earlier 1:50 setting. Growing plants still provide no landing points. Updated population fixtures and boundary coverage at 99/100/199/200 blooms. Entry/bee cache queries advanced to 55. All 60 garden tests and `git diff --check` pass. Changes remain local, uncommitted and unpushed.
-
-
-## Four-position bee density slider — 2026-10-30
-
-Replaced the Bees checkbox with a snapping Off / Low / Medium / High slider. Ratios are zero / 1:150 / 1:100 / 1:50 fully grown blooms, rounded down, with Medium as the startup default. `Bees.setDensity` invalidates the population cache on density changes; Off immediately hides both batches and clears bee/count data while skipping subsequent updates. Reenabling rebuilds the current mature registry; Reset Garden preserves density. Earlier checkbox and fixed-density records are historical.
-
-Project-owned `bee-slider.mjs` draws the single canvas widget and reuses shared `sliderValue` mapping and `ControlModel` integer quantization (0–3, step 1, base 0). Hit UVs flow through the existing control-target resolver. Desktop pointer capture routes slider gestures independently of look dragging; active-hand trigger dragging uses the same existing ray and locks to that slider/hand until release, target loss, tracking loss, handoff or suspension. The widget adds no controller listeners or raycasts. The room panel layout accommodates the slider labels. Entry/settings/bees/slider cache version 56.
-
-Validation: all 61 garden tests pass, including every density’s population on unchanged plants, Off/resume, slider endpoints and intermediate snapping, plus existing plant lifecycle coverage. Real Chrome clicks on all four positions with 417 mature blooms yielded 0/2/4/8 bees. High-to-Low mouse dragging selected Low without camera yaw changes or planting; no page errors. Panel screenshot inspected. Syntax and whitespace checks passed. Shared runtime files were not modified; the shared README consumer list records the new mapping consumer. Physical Quest slider interaction still needs testing. Local, uncommitted and unpushed.
-
-
-## Bee release — 2026-10-30
-
-User authorized committing and pushing the mature-flower bees and four-position Off / Low (1:150) / Medium (1:100, default) / High (1:50) slider. Final cache version 56. Reviewed the complete scoped change; all 61 garden tests and whitespace checks pass. Chrome rendering and slider checks are recorded above. Shared runtime files are unchanged. Quest appearance, drag interaction and sustained performance remain pending user testing. Earlier local/uncommitted notes describe pre-release state.
-
-
-## Smooth bee touchdown — 2026-10-30
-
-Removed the abrupt flight-facing to flower-aligned pose change at landing. Flight position now eases into/out of its curve with zero endpoint velocity; the final curve control point lies directly along the flower normal for a surface-directed approach. During the last 35% of flight, body orientation blends into the exact resting quaternion and wing flapping fades into the resting pose. Takeoff also blends out of the previous orientation. The path endpoint remains the same stored flower landing position plus body clearance; touchdown introduces no positional correction. Entry/bee cache queries advanced to 57.
-
-Validation: all 62 garden tests pass, with a new regression checking the last 90 Hz frame before arrival against the landed position, body orientation and wing matrices on upward-facing and two wall-facing flower normals. Position change is below 1 mm and orientation change below .01 radians in those fixtures; resting pose remains stable afterward. Whitespace checks pass. These are automated transition checks; visual headset verification remains pending. Local, uncommitted and unpushed.
-
-
-## Three-slot Save / Load panel — 2026-10-30
-
-Added `save-panel.mjs` on the left-hand side when facing the existing +Z settings panel: +X room wall, x=ROOM_SIZE/2-.075, centered along room Z, rotation -π/2 so it faces inward. Three rows show Slot 1–3 and Empty or a localized save timestamp, with separate Save and Load hit regions. Empty Load buttons are disabled. Feedback is on a separate footer below the rows. Uses shared ControlModel actions and the existing active-hand/desktop target resolver; no new controller listeners or raycasts. Board and controls are non-plantable.
-
-`garden-saves.mjs` stores three individually versioned JSON records under `secretGarden.save.v1.0`–`.2` in localStorage. Schema validation rejects malformed records individually, so other valid slots remain usable. Save timestamps strictly increase even if clock time repeats or moves backward. Most recently *saved* slot (not most recently loaded) restores at page initialization; entering/exiting XR on the same page preserves the current live garden. Failed storage writes preserve previous slot data and labels, including overwrites; blocked storage and load failures produce panel feedback. No background autosave, delete-slot action or cloud sync. Reset Garden does not erase saves. Storage is per origin/browser/device; preview and published URLs do not share it.
-
-`PlantManager.snapshot/restore` serialize seed, world position/yaw/scale, growth age, support wall ID and vine generation bounds/exclusions. Deterministic structures are regenerated before resetting the current garden; restored mature plants enter mature rendering batches and growing plants resume at their saved age. Runtime IDs, clone/delete/selection and bees reset on load; bees then rebuild only from mature blooms. Shadows and Bees density are saved/restored through the existing model. Viewer position stays unchanged during manual Load; fresh pages use the original starting pose. Seeds/bounds keep saves compact and depend on the current plant generator. Bump SAVE_VERSION for incompatible generator changes; mismatched saves are deleted rather than migrated. Entry/manager/save modules cache version 58; bee touchdown fix remains version 57.
-
-Validation: 66 garden tests pass, including persistent slot ordering, failed overwrites, corrupt/inaccessible slots, cloning/vine/growth round-trips and hidden/empty-panel input. Isolated Chrome context verified actual Save/Load clicks: saved 3 plants to Slot 3, then 4 to Slot 1, manually loaded Slot 3, reloaded page and automatically restored Slot 1’s 4 mature plants, Shadows off and Low bees. Slots remained [4, Empty, 3]; no page errors. Empty/filled panel screenshots reviewed and footer overlap corrected. Syntax and whitespace checks pass. Existing browser saves were untouched by browser testing. Quest legibility/controller validation remains pending. Local, uncommitted and unpushed; earlier push authorization does not cover these changes.
-
-
-## Right-wall VR Settings and independent preferences — 2026-10-30
-
-Added `vr-settings.mjs` on the right-hand wall when facing Settings (+Z): x=-ROOM_SIZE/2+.075, room-Z center, rotation +π/2, facing inward. Existing front-panel title is now Settings. Three numeric sliders use the same project-owned SettingsSlider adapter (generalized from BeeSlider) and shared sliderValue/ControlModel quantization, plus the existing active-hand/desktop drag routing. Height offset: 0–1 m, .05 m step, default 0. Movement speed: .25–3 m/s, .25 step, default 1. Turn speed: 15–120 degrees/s, 15 step, default 45. Model setters update shared Locomotion settings (turn converted to radians). Speeds affect its desktop and XR adapters consistently. Height offset sets rig.y only while XR is active and resets to zero outside XR, lifting headset and controllers together without mutating their tracked transforms. No shared runtime files changed.
-
-`preferences.mjs` owns the independent `secretGarden.settings.v1` localStorage record with only Shadows, Bees density, heightOffset, moveSpeed and turnSpeed plus version metadata. It validates ranges, falls back to defaults on malformed/unavailable storage and preserves prior stored values on failed writes. Both panels autosave with 250 ms debounce and pagehide flush. Feedback on the VR panel reports saved/pending/failure status. Garden saves now write schema version 2 under the existing slot keys and contain only version/savedAt/plants. Garden load/reset does not change any preferences. The existing temporary bee clear/rebuild on garden load preserves selected density.
-
-Legacy version-1 garden records remain readable. Their newest Shadows/Bees values seed the separate preferences record only if no valid separate save exists. Legacy slots are rewritten without duplicated preference fields only after the separate save succeeds; failures retain legacy disk data for retry. Slot ordering/timestamps and plant contents are preserved. No cloud synchronization or extra garden-slot copy of VR/general settings. Previous handoff statements about Shadows/Bees inside slots describe the superseded schema. Entry/settings/slider/preferences/VR/garden-save cache queries advanced to 59.
-
-Validation: 69 garden tests pass, including independent preferences, stripping/migrating legacy duplicate settings, failed writes/invalid storage, slider quantization, shared speed updates and VR-only rig height with unmodified tracked camera position. Isolated Chrome clicks set .50 m, 2 m/s and 90°/s, persisting all five preferences. Changed movement to 1.5 and Bees to High, loaded a garden and verified they remained unchanged; page reload restored the latest garden and independent preferences. Stored garden keys were exactly version/savedAt/plants. No page errors. VR panel screenshot reviewed; footer spacing refined. Syntax/whitespace checks pass. Quest seated height, comfort, slider interaction and sustained performance remain pending. All changes are local, uncommitted and unpushed.
-
-
-## Development save-version policy — 2026-10-30
-
-User explicitly requested no backwards compatibility. Removed all legacy slot/settings migration, extraction and rewrite logic. `SAVE_VERSION` (currently 2) is the sole accepted garden payload version. On read, any other/missing version deletes that slot key and leaves its in-memory entry null, so it displays Empty and cannot auto-load. Matching slots remain untouched. `SETTINGS_VERSION` (currently 1) similarly deletes incompatible preference records and starts with defaults. If storage deletion fails, the slot remains unavailable and existing error feedback reports the failure. Only the affected key is removed; no storage-wide clearing occurs.
-
-Keep storage keys stable when bumping payload versions so old records can be found and removed. Bump SAVE_VERSION whenever changed plant generation or serialization would make old garden saves incompatible. Retain only the current generator; do not add migrations or legacy generator implementations. This policy supersedes earlier migration notes above. Entry/garden-save/preferences cache version 60.
-
-Validation: all 71 garden tests pass, including deletion of both older/newer garden versions while retaining a matching slot, independent settings mismatch deletion/defaults, and unchanged persistence/error-handling tests. Whitespace checks pass. Changes remain local, uncommitted and unpushed.
-
-
-## Neutral-gated snap turning — 2026-10-30
-
-Added Snap turn checkbox above the turn slider on the right-wall VR Settings panel. Default is off. Enabling it hides Turn speed and shows Snap with labeled 15°/30°/45° stops (default 30°); disabling it restores the prior smooth speed. Only the visible slider is in the ray-target list; inactive definitions are disabled to reject stale drags. Panel board and rows were spaced for the added checkbox.
-
-Project-owned `snap-turn.mjs` reads shared movement axes and uses shared Locomotion.move for movement and exact headset-pivot rotations. Snap activation requires horizontal right-stick magnitude >=.65; another snap requires the entire thumbstick (including vertical axis) within radius .2. Holding or reversing direction does not repeat. New controller identity, tracking loss/resume, XR session changes, suspension and turn-setting changes disarm the latch until neutral. Smooth mode follows the existing navigation update; desktop arrows remain smooth. Turn speed is temporarily set only for the one shared pivot move and restored immediately. No shared runtime changes or extra controller listeners.
-
-Independent preferences now include snapTurn and snapAngle. SETTINGS_VERSION is bumped to 2 with no migration, per the development policy: old settings records are deleted and defaults used, while garden slots remain version 2 and are unaffected. Settings/slider/snap-turn/VR/preferences/entry cache version 61.
-
-Validation: 74 garden tests pass, including all three exact angles, stable world headset pivot, no held/reversed-stick repeat, full neutral requirement, tracking/reset suppression and smooth mode continuity. Checkbox/slider tests cover mode visibility, disabled old sliders and 30° default. Isolated Chrome real clicks enabled Snap, selected each angle and restored enabled/45° after reload with no page errors. Screenshot reviewed. Syntax and whitespace checks pass. Physical Quest interaction and comfort remain pending. Local, uncommitted and unpushed.
-
-
-## Right-stick teleport targeting — 2026-10-30
-
-Added project-owned `teleport.mjs`. After a neutral-seeded right stick deflects upward (Y<=-.65), the right controller temporarily supplies the single pointer even if the prior pointer hand was left or disabled. During teleport aiming normal planting/copy/delete/settings input is suppressed and existing edges continue sampling, so held controls cannot fire afterward. The prior ActiveController state is preserved. Aim uses the existing ControllerPointer against environmental geometry and panels, without plants; blockers therefore win nearest hit, but plants may be intersected. No extra controller raycasts are added.
-
-Target marker is a 16-sided cylinder, .18 m radius × 1.6 m tall, transparent opacity .5, depthWrite off, no shadows. Green marks a valid upward floor hit (surface Y near zero, normal Y>.9) inside the existing viewer containment rectangles/margin; red marks invalid surfaces. Missing targets hide it. Releasing upward Y back to >=-.2 recomputes the current ray target and teleports only if valid. Translation accounts for physical head offset and rig yaw so the tracked headset, not rig origin, ends above the target. Height offset and yaw are preserved. Marker/ray clear on release; the normal pointer returns next frame. Tracking loss, controller reconnect, XR session transitions and inactive frames cancel and absorb held-up input until neutral, never committing a stale destination.
-
-Smooth and snap turning stay enabled during aiming. `SnapTurn.update` now accepts a teleporting flag: while aiming, horizontal neutral (|X|<=.2) rearms the snap, allowing repeated deliberate turns while Y remains up. Outside teleport it retains full-stick radial neutral. Gate activation remains |X|>=.65. Left-stick walking remains available. No save-schema changes. Entry/teleport/snap-turn cache queries advanced to 62.
-
-Validation: all 78 garden tests pass. New tests cover gesture seeding, valid/invalid/missing targets, correct head-centered destination, height/yaw preservation, tracking cancellation and smooth/snap turning while aiming. Isolated Chrome WebGL checked real garden and room floor ray hits as valid, wall hit invalid, opacity .5 and no page errors; cylinder screenshot reviewed. Syntax/whitespace checks pass. Full physical Quest gesture/release/controller behavior and comfort remain pending. Local, uncommitted and unpushed.
-
-
-## Door teleport destination — 2026-10-30
-
-Door leaf, both handles and hinge stile now identify as door teleport targets. Aiming at any of them is valid even while closed and maps to the exact hallway midpoint (x=0, y=0, z=DOOR_Z); the cylinder is placed at that destination rather than the surface hit. Other environmental blockers retain their existing rules. Target loss/change clears the door action.
-
-On valid release, `Teleport.finish` opens the door fully before moving the headset to the midpoint. `room.openFully` latches wanted/open fraction=1, cancels any reversing/closing state, selects swing away from the pre-teleport approach side and updates the hinge world transform immediately. Proximity keeps it fully open while the user is at the midpoint; normal automatic closing resumes after departure. Door teleport invalidates the shadow map on that same frame when shadows are enabled. No save format changes. Entry/environment/room/teleport cache version 63.
-
-Validation: all 80 garden tests pass, including leaf/handle/stile targets, exact highlight/destination agreement, no opening before release, full opening from both sides, stable open state after arrival and cancellation after aiming away. Whitespace checks pass. Physical Quest appearance/controller testing remains pending. Local, uncommitted and unpushed.
-
-
-## Teleport movement-mode checkbox — 2026-10-30
-
-Added Teleport above Movement speed in VR Settings, default off. On gates right-stick teleport gestures and blocks all left-stick translation through the project SnapTurn wrapper in both smooth-turn and snap-turn modes; turning stays enabled. Off cancels any teleport gesture and restores smooth controller movement. Desktop WASD is unchanged. Movement speed is model-disabled and visually grayed while Teleport is on; its value is preserved and stale/held slider interactions cannot modify it. Shared SettingsSlider now dims disabled text, track and thumb and suppresses hover highlighting. Panel rows/board were spaced to include the new checkbox.
-
-Teleport preference autosaves independently of gardens. SETTINGS_VERSION bumped to 3 with no compatibility/migration code, so old settings reset per the project policy; garden SAVE_VERSION remains 2. Entry/settings/slider/VR/preferences/snap-turn cache version 64.
-
-Validation: all 82 garden tests pass, including translation suppression with continued smooth/snap rotation, restoring translation on mode off, disabled slider rejection and value preservation. Isolated Chrome click enabled Teleport, verified disabled Movement speed, and restored mode on reload without page errors; panel screenshot inspected. Whitespace/syntax checks pass. Physical Quest mode behavior and comfort remain pending. Local, uncommitted and unpushed.
-
-
-## VR checkbox proportions — 2026-10-30
-
-Teleport and Snap turn checkbox planes now preserve the shared widget canvas aspect ratio (1024:212), both at .18 m height and aligned with the left edge of the sliders. This removes horizontal stretching of their squares and lettering while retaining the existing panel spacing. Entry/VR panel cache version 65. Chrome screenshot inspected; actual checkbox activation, disabled speed state and preference reload verified with no page errors. Whitespace check passes. Local and unpushed.
-
-
-## VR Settings visual cleanup — 2026-10-30
-
-Added project-local `vr-control-style.mjs` to skin existing model-bound slider/checkbox widgets consistently without replacing input logic. All rows are 1.65 m wide, with canvas-to-plane aspect ratios matched exactly. Rounded green rows, gold values/slider fill, quieter hover, aligned type/insets and compact full-width checkbox rows with On/Off labels replace the mix of stretched sliders and short checkbox bars. Disabled Movement speed stays dim and explains its Teleport dependency. Header now includes Comfort & movement; save feedback is smaller and aligned to the same inset. Board is 1.9 × 2.1 m at y=1.4 with uniform row gaps and no overlap. Shared runtime and save schemas are unchanged. Entry/VR/skin cache version 66.
-
-Validation: six settings/model tests pass. Chrome reviewed both disabled Teleport mode and enabled Snap mode; actual checkbox clicks, 15°/30°/45° selection and reload persistence passed without page errors. Final screenshot reviewed with desktop overlays hidden to inspect the whole panel. Syntax/whitespace checks pass. Headset readability remains pending. Local, uncommitted and unpushed.
-
-
-## Pointer above transparent control rows — 2026-10-30
-
-Controller ray materials now join the transparent render queue with depthWrite=false, retaining the shared pointer’s depthTest=false and renderOrder=1000. This makes their high render order effective relative to the transparent rounded VR option backgrounds, which previously rendered after the opaque rays and covered them. Applies to both controller rays, including teleport mode, without changing shared runtime or targeting. Entry cache version 67. Syntax/whitespace checks pass. Local and unpushed.
-
-
-## Teleport moved to left thumbstick — 2026-10-30
-
-Teleport mode now reads upward input from the tracked left controller and aims using its pointer. Release/cancellation, cylinder/door targeting, prior-pointer restoration and the Teleport enable setting are unchanged. The right stick remains dedicated to smooth/snap turning. Removed the special horizontal-only snap rearm during teleport: with separate sticks, right-stick full neutral applies consistently in both modes. Earlier right-stick teleport notes are superseded. Entry/snap-turn cache version 68; save versions unchanged. Tests verify held left-stick teleport alongside independent repeated right-stick turns without translation. Local and unpushed.
-
-
-## Default VR movement preferences — 2026-10-30
-
-Fresh/default preferences now enable Teleport and Snap turn, with the existing 30° default snap angle. Smooth movement starts disabled and its speed slider gray; the turn slider starts in Snap mode. Valid saved preferences remain authoritative. Save schema is unchanged; no migration or compatibility code added. Entry/preferences cache version 69. Settings tests cover fresh defaults and preservation of explicitly saved off choices. Earlier default-off notes are superseded. Local and unpushed.
-
-
-## Either-hand teleport initiation — 2026-10-30
-
-Either neutral-seeded thumbstick may now start teleport; its controller supplies the single aiming ray and release commits only that hand’s target. Per-source readiness absorbs other-hand gestures during an active teleport, so held input cannot steal ownership or immediately start another gesture afterward. Simultaneous fresh upward presses deterministically prefer left, regardless of source order. Owner tracking loss cancels without teleport; reconnect/resume still require neutral. Right-stick turning remains available: when the right hand owns teleport, horizontal neutral rearms snap while holding up; left-owned teleport retains ordinary right-stick full-neutral gating. No save changes. Entry/teleport/snap-turn cache version 70.
-
-Validation: 11 teleport/snap tests pass, covering both owners, release, other-hand suppression, simultaneous ordering and tracking cancellation, plus existing destination/door/turning behavior. Syntax/whitespace checks pass. Local and unpushed.
-
-
-## Symmetric turning in Teleport mode — 2026-10-30
-
-With Teleport enabled, either tracked controller now provides smooth or snap turning from its horizontal thumbstick axis, while upward input initiates teleport on that hand. Snap readiness is tracked independently per input source; horizontal neutral rearms that source even while held up, so both hands behave identically. Tracking loss/reconnect/settings reset continue to absorb held snap input. Smooth turning uses the strongest horizontal input rather than summing speed; simultaneous equal opposing inputs cancel. Snap events are consumed per source and combine into at most one chosen-angle turn per frame, with opposing events cancelling. Teleport-disabled mode retains left-stick movement/right-stick turning and full-stick neutral for snaps. Shared Locomotion still owns head-pivot rotation; no shared runtime/save schema changes. Entry/snap-turn cache version 71.
-
-Validation: 13 snap/teleport tests pass, including identical left/right smooth and snap response while held upward, independent neutral rearming, no doubled simultaneous turns and opposing-input cancellation. Syntax/whitespace checks pass. Physical Quest symmetry/comfort verification remains pending. Local and unpushed.
-
-
-## Matching Settings and Save/Load styling — 2026-10-30
-
-Settings and Save/Load now match VR Settings: dark green boards/headers, rounded full-width rows, gold actions/values, muted secondary text, aligned 48 px headers/38 px control labels and subtle hover/disabled states. Settings reuses the existing project control skin for Shadows and Bees; Bees supplies labeled Off/Low/Medium/High stops through a generic stop formatter. Reset Garden uses a matching full-width rounded action. Settings board widened to the same 1.9 m as the side panels. Save slots use consistent rounded rows/buttons, Empty secondary labels and dim disabled Load actions. Canvas/plane ratios match for undistorted text. Current input hit regions, save semantics and pointer ordering remain intact. Entry/settings/save/VR/skin cache version 72; no save schema/shared runtime changes.
-
-Validation: 14 relevant settings/save/preferences tests pass. Isolated Chrome actual clicks verified Save, Load, Shadows and High bee density with no page errors. Both panel screenshots reviewed. Syntax/whitespace checks pass. Local and unpushed.
-
-
-## Release — controls, saves and matching panels, 2026-10-30
-
-User authorized pushing the accumulated smooth bee touchdown fix, three garden save slots with latest-save startup restore, independent general/VR preferences, current-version-only save policy and project AGENTS instructions, seated height/speed controls, either-controller teleport and smooth/snap turning, door teleport/opening, default Teleport/Snap enabled, pointer overlay correction and matching Settings/Save/VR panel styling. Final entry cache version 72; garden payload version 2 and settings payload version 3.
-
-Final scoped review and all 87 garden tests passed; `git diff --check` clean. Chrome interaction/rendering checks and pending Quest limitations remain recorded above. All runtime changes are confined to Secret Garden, with no shared runtime edits or build step required. Earlier local/unpushed notes are historical after this release.
-
-
-## Exact bee count and wall fallback — 2026-10-31
-
-Replaced the density control with an integer total-count selector 0–10, default 3, retaining the matching panel style. `Bees.count/setCount` replaces density/ratio logic; population is exact regardless of plant/flower count. Removed the obsolete BEE_LEVELS labels and BeeSlider specialization. The existing generic SettingsSlider handles the count with whole-number steps and 0/5/10 labels. Zero disables/clears live bees; reenabling restores the chosen count.
-
-Mature-only flower records remain cached. Bees choose a different mature flower when available; if none exists (including when the only flower is the one just visited), `wallLanding` selects a random point on one of the four interior garden walls with inward normal, corner/height margins and doorway exclusion. Wall destinations persist without pointless rerouting on unrelated plant revisions; newly mature blooms retarget wall visitors, and deleted flowers retarget to surviving flowers or walls. Deleting/resetting plants does not reduce the population. Existing curved flight, smooth surface-aligned touchdown, random rests, no shadows and two instanced draw calls remain unchanged. Garden-load bee rebuilding preserves count.
-
-Independent settings now interpret bees as count and default to 3; SETTINGS_VERSION bumped to 4, so older settings are deleted/reset without migration as required. Garden SAVE_VERSION remains 2. Entry/bee/selector/settings/preferences/VR cache versions advanced to 73 for affected imports.
-
-Validation: all 87 garden tests passed after the count conversion; focused tests additionally assert doorway avoidance. Coverage includes every count 0–10 with no flowers, maturity/deletion/reset transitions without count changes, wall normals/bounds and single-flower fallback, plus existing touchdown and preference/control behavior. Isolated Chrome verified default 3 wall-visiting bees in an empty garden, actual count selections 0/1/3/7/10 and restoration of 10 after reload, with no page errors. Panel screenshot reviewed; syntax/whitespace checks pass. Quest appearance/performance remains unverified for this change. Local, uncommitted and unpushed.
-
-
-## Bee-count release — 2026-10-31
-
-User authorized committing/pushing the exact 0–10 bee selector (default 3), random wall fallback when no other mature flower exists, obsolete density-code removal and independent settings version 4. Entry cache version 73. Final scoped diff reviewed, all 87 garden tests passed and whitespace checks clean. Chrome checks and Quest limitations remain recorded above. No shared runtime changes/build required. Earlier local/unpushed notes are historical after release.
-
-
-## Quest 2 rapid-hover flicker mitigation — 2026-10-31
-
-User reports flicker when quickly pointing between settings on Quest 2. Inspection found per-hover canvas redraw/texture uploads (including whole Save/Load panel redraws) and transparent sorting for fully opaque rounded row contents. Replaced hover redraws with material-color highlighting for styled sliders/checkboxes, Reset Garden and Save/Load rows. Actual value/label/status changes still redraw their textures. Rounded edges now use opaque alpha-test cutouts (.05) instead of transparent row blending; plain Settings header is opaque. Controller rays retain their high-order transparent/depth-disabled overlay policy. No shared runtime or save-schema changes. Entry/settings/save/VR/style cache versions advanced to 74.
-
-Validation: all 88 garden tests pass. New regression cycles rapid hover across all three panels and asserts zero texture-version increments, opaque cutout row flags, continued value redraw and working highlight changes. Isolated Chrome verified Save/Load, Shadows and bee-count interactions without page errors; Settings screenshot inspected. Whitespace/syntax checks pass. Root cause is not confirmed on hardware: these changes address plausible texture-upload/frame-time and transparent-ordering causes; physical Quest 2 rapid-hover retesting is required before claiming the reported flicker resolved. Local, uncommitted and unpushed.
-
-
-## Rapid-hover mitigation release — 2026-10-31
-
-User authorized committing/pushing the GPU-only hover highlighting and opaque cutout panel-row mitigation for Quest 2 flicker. Final entry cache version 74. All 88 garden tests and Chrome interaction/rendering checks passed as recorded above; whitespace checks clean. Actual Quest 2 resolution remains unconfirmed pending headset testing. No shared runtime/save-schema changes. Earlier local/unpushed notes are historical after release.
-
-
-## Flowers on exposed ellipsoid canopies — 2026-10-31
-
-Confirmed rounded/umbrella flowering trees previously attached blooms to twig endpoints at the centers of their crown ellipsoids. Added pure `canopy-flowers.mjs` postprocessing: seeded outward directions from owning crowns, ray/rotated-ellipsoid intersection across the canopy union, outermost exit placement with 6 mm clearance, and outward gradient normals. Euler XYZ rotations match the renderer. Existing flower stalks extend to the new surface endpoints; single blooms now also receive a stalk, preserving the ordered stem attachment graph, renderer/batching/picking and bee landing consumers. Blossom count/cap and cluster/color/shape rules remain; open-leaf trees, shrubs and ground flowers retain branch-tip placement. Pines and columnar trees remain nonflowering. Timings are bounded to finish bloom growth by ten seconds.
-
-Generator changes invalidate garden reproduction, so SAVE_VERSION is bumped to 3 with no legacy generator/migration; old garden slots are deleted under the documented development policy. Independent settings stay version 4. Entry/generator/helper/renderer/manager/bees/vine imports and garden-save cache queries updated to 75 where affected.
-
-Validation: full garden suite passes, including 1,200-seed growth/component bounds and new canopy coverage checking exposed placement outside every overlapping ellipsoid, surface normals, stem attachment, clone determinism and renderer-transform parity. Chrome rendered flowering rounded seed 34 (30 blooms) and umbrella seed 50 (12 blooms) at maturity with no page errors; screenshot inspected. Whitespace checks pass. Quest visual review remains pending. Local, uncommitted and unpushed.
-
-
-## Ellipsoid shrubs with hidden structure — 2026-10-31
-
-Added `shrub-generator.mjs`, replacing shrubs’ old visible recursive branch/leaf geometry with 1–5 seeded, low ellipsoid crowns. A hidden root and internal branches position the crowns and drive normalized growth; hidden flower stalks preserve structural attachment. Secondary centers stay inside the central crown, guaranteeing overlap. Crown dimensions/yaw/tilt/colors vary by seed. The existing shrub flowering chance is preserved; flowering shrubs emit 4–7 blooms per crown and reuse exposed-canopy placement/normals, including overlap exclusion. All parts finish within ten seconds and remain well below the component cap.
-
-Renderer skips hidden parts before bucket construction, so internal branches contribute no geometry, draw calls, shadows or ray targets in either growing or mature plants. CPU structural poses still update to support crown/flower growth. Existing crown geometry, pooled mature batches, deletion, clones and bee landing-point generation are reused. Removed unreachable old shrub-angle branches from generic generation; no legacy shrub generator retained.
-
-SAVE_VERSION bumped to 4 because shrub seed reproduction changes, with mismatched garden slots deleted per project policy. Independent settings remain version 4. Entry/generator/shrub/renderer/manager/bees/vine/garden-save cache queries advanced to 76 where affected.
-
-Validation: all 90 garden tests pass. New 1,200-seed shrub sweep covers all canopy counts 1–5, overlap/low proportions, flowering/nonflowering forms, exposed bloom positions, hidden stems, no individual leaves and absence of branch geometry before/after mature batching. Picking regression fixtures now target visible crowns where shrub stems are hidden. Existing determinism, growth, component-bound and clone tests pass. Isolated Chrome rendered flowering 1/3/5-crown shrubs (5/18/28 blooms), screenshot inspected, no page errors. Whitespace checks pass. Physical Quest review remains pending. Local, uncommitted and unpushed.
-
-
-## Restore visible shrub structure — 2026-10-31
-
-User reversed the hidden-branch request. Shrub roots, crown branches and flower stalks are now rendered through normal stem batches, showing their growth and connections before/around expanding foliage. Kept 1–5 overlapping ellipsoids and exposed-surface blossoms. Removed the hidden-part flags and renderer skip path entirely; no unused hidden-structure compatibility code remains. All structural stems are also included in normal targeting, shadows and mature batches. SAVE_VERSION bumped to 5 (current-only policy); independent settings remain version 4. Affected entry/generator/shrub/renderer/manager/bees/vine/save queries advanced to 77.
-
-Validation: all 90 garden tests pass. Shrub regression asserts every structural stem has rendered instances, stems survive mature batching, and flowers stay attached to their stalk endpoints at multiple growth ages. Existing canopy overlap/surface, determinism, growth and picking tests pass. Whitespace checks pass. Headset growth appearance remains pending. Local, uncommitted and unpushed; prior hidden-shrub notes are superseded.
-
-
-## Left-palm plant debug menu — 2026-10-31
-
-Added `debug-menu.mjs` and `debug-plant-types.mjs`. The menu opens when the tracked left grip-space palm normal (+X for a left hand, per https://www.w3.org/TR/webxr/#dom-xrinputsource-gripspace) faces upward: world-up dot >.75 to open and >.55 to remain open. Hysteresis avoids threshold chatter. Pose includes rig yaw and seated height. Menu follows above the palm and faces the viewer; rotating away, tracking loss, suspension or leaving XR hides it. It is controller-based (xr-standard gamepad/gripSpace), not hand-tracking gesture input.
-
-Menu lists Random first, Flowers, Shrubs, Grass, Ivy, Tree/random form and all five named tree forms. Existing single ControllerPointer is temporarily routed to the right controller/menu only, regardless of prior active hand/pointer state. Right trigger rising edge selects; opening-frame triggers are absorbed. Left controls, planting/copy/delete, teleport and locomotion are suppressed while open, but button edges continue sampling to avoid held-input leakage after closing. Prior ActiveController state is preserved. Hover uses an independent small highlight plane, no canvas texture uploads. The menu texture redraws only after selection/status changes.
-
-`PlantManager.chooseType` picks a fresh ordinary seed from browser crypto and bounded deterministic rejection search (512 attempts maximum) against current generated form/treeForm. No forced generator variants or special persisted plant representation. Matching seeds enter normal persistent clone mode, including clone scale/yaw variations and existing incompatible-surface behavior; Ivy sets wall mode, other forms ground. Random clears clone state. Menu selections are temporary debug/clone state, not saved preferences. No generator/save schema changes for the menu. Entry/manager/menu/type-selection cache version 78.
-
-Validation: full garden suite passed (93 tests before an additional focused persistent-clone regression); type tests cover every option, matching seeds, surfaces, palm-normal hysteresis, visibility/trigger suppression, hover upload stability and repeated seeded clone planting. Chrome simulated palm pose and real ray intersections selected all 11 rows, with appropriate seeds/surfaces and no page errors; menu screenshot inspected. Syntax/whitespace checks pass. Real Quest palm orientation, accessibility/reach and trigger routing still require headset validation. Local, uncommitted and unpushed.
-
-
-## Separate debug planting mode and plus marker — 2026-10-31
-
-Plant debug menu no longer borrows clone state. `PlantManager.debugType` records the chosen form; chooseType validates the ID, clears prior clone state and activates that debug type without acquiring a seed. Each valid subsequent plant searches from a fresh random seed for the selected form/treeForm, skips the previous debug seed and keeps the type active. Ivy also receives a new seed per placement. Debug plants use ordinary scale 1 and random ground yaw; clone-only scale variation remains exclusive to cloning. Incompatible surfaces reject planting without consuming a seed or clearing the selected debug type. Copying a plant exits debug mode for persistent cloning; Random, B/Y reset, Reset Garden and garden Load clear debug state through the existing reset/copy paths.
-
-Added `debug-target-icon`, a plus (+) inside the compatible ground/wall/plant targeting circle, oriented to the same surface and lifted like the existing rectangle clone marker. Debug and clone markers are mutually exclusive. All target-reset/session/inactive paths also hide the plus. Menu feedback now says debug ready. No generator or save schema changes: each placed plant still stores a normal deterministic seed, and transient debug mode is not persisted. Entry/manager/menu/type-selection cache version 79.
-
-Validation: all 95 garden tests pass, including every form/treeForm, mode separation, repeated fresh seeded debug placement, retained debug selection, incompatible-surface rejection, cloning after debug and existing palm-menu behavior. Chrome verified a visible four-vertex plus with clone marker hidden, two different shrub seeds, retained bush debug mode and null clone state, without page errors. Whitespace/syntax checks pass. Quest indicator review remains pending. Local, uncommitted and unpushed. Prior menu-as-clone descriptions are superseded.
-
-
-## Specific debug options only — 2026-10-31
-
-Removed Random and Tree/random form from the palm menu. Its nine entries are Flowers, Shrubs, Grass, Ivy and Rounded/Open leaf/Pine/Cypress/Umbrella trees. Canvas height and row hit mapping derive from the option list. B/Y still returns to normal random planting. Entry/menu/type-selection/manager cache queries advanced to 80. Focused menu tests and whitespace checks pass. Local and unpushed.
-
-
-## Options-only debug menu — 2026-10-31
-
-Removed the palm menu title, instruction and status footer. Canvas/plane height now fits nine option rows plus 8 px top/bottom padding; ray UV row mapping and hover positioning use the reduced inset. Selected-row highlight remains. Removed unused status-message state. Entry/menu cache version 81. Focused menu tests and whitespace checks pass. Local and unpushed.
-
-
-## Exclude greenish flower colors — 2026-10-31
-
-Added pure `flower-colors.mjs` hue mapping, excluding 70–170° (yellow-green through green/teal). Ground and ivy generators map their existing single flower-hue PRNG sample uniformly across the remaining hue arc; no additional randomness is consumed, preserving geometric sequences. Shrubs/trees and hydrangea blooms inherit the same palette. Leaf/stem colors, saturation and brightness rules are unchanged. SAVE_VERSION bumped to 6 for changed seeded appearance, with no migration; independent settings remain version 4. Affected entry/generator/renderer/manager/bees/vine/debug-type/menu/save query versions advanced to 82.
-
-Validation: full garden suite passes. New 1,200-seed ground-and-vine sweep checks every blossom hue and covers flower/bush/tree/vine forms, including mapping range endpoints. Syntax/whitespace checks pass. Local, uncommitted and unpushed.
-
-
-## Plant/debug release — 2026-10-31
-
-User authorized committing/pushing exposed ellipsoid-tree flowers, 1–5 ellipsoid shrubs with visible trunks/branches/flower connections, the options-only left-palm debug menu, distinct fresh-seed-per-placement debug mode and plus indicator, and exclusion of greenish flower hues. Final entry cache version 82; current garden save version 6 (obsolete slots deleted under the development policy), settings version 4 unchanged.
-
-Final scoped changes reviewed; all 97 garden tests pass and whitespace checks are clean. Chrome visual/ray/planting checks and user headset feedback remain recorded above. No shared runtime changes or build step required. Earlier local/unpushed notes are historical after release.
-
-
-## Random upward shrub canopy branches — 2026-10-31
-
-Shrub ellipsoid-support branches now use random azimuths separated by at least 30° around the circle, and independent 0–30° elevation above horizontal. Circular gaps reserve the minimum angle and distribute remaining angle randomly, avoiding evenly spaced placement/rejection loops. Branch spread is bounded against the rotated central ellipsoid to keep strong overlap despite added rise. Central trunk stays vertical; flower stalk behavior is unchanged, as explicitly clarified by the user. SAVE_VERSION bumped to 7 under the development policy; independent settings stay 4. Affected generator/shrub/renderer/manager/bees/vine/debug-type/menu/save/entry cache queries advanced to 83. All 98 garden tests passed, including a 1,200-seed angle/separation/irregularity sweep and existing overlap/growth coverage. Local and unpushed.
-
-## Remove VR footer and increase room-panel hover contrast — 2026-10-31
-
-Removed the VR Settings footer canvas/mesh and status-message API, and trimmed unused board space below the last control. Automatic preferences persistence/debounce/pagehide flush remains unchanged; failures are reported on the existing Save/Load status line instead. No saved/pending success footer is shown. All three room panels now share ROOM_HOVER_BRIGHTNESS=2.2 (previously 1.12) for stronger material-only highlights. Styled checkboxes/sliders, Reset Garden and Save/Load rows use the same level; disabled controls remain unhighlighted. No canvas uploads on hover, transparent row sorting or save-schema changes introduced. Affected entry/VR/settings/save/style query versions advanced to 84.
-
-Validation: 15 relevant panel/settings/preferences/save tests pass, including stronger highlights, disabled controls, absent footer and zero texture uploads during rapid hover. Chrome screenshot reviewed; pointer hovering a real control produced the expected highlight and no page errors. Syntax/whitespace checks pass. Local, uncommitted and unpushed.
-
-
-## Standalone cup-flower/stem alignment — 2026-10-31
-
-User confirmed tulip-like blooms on standalone plants and their bee landing normals did not match the stem. Reproduced seed 9 bell form with ~92° between the generated flower normal and supporting stem direction. Petal rendering consistently uses the stored +Z bloom axis; the mismatch came from independently sampled bloom tilt/heading (including intentional bell nodding), not a renderer-wide 90° axis error.
-
-Standalone deep-cup forms (lily/bell, cup>=.6) now derive the flower normal from the final supporting stem direction, including cluster stalks. Existing random draws are retained to avoid unrelated geometry/color changes. Rendered bloom opening and flowerLandings now share the corrected direction automatically. Shrub/tree surface blooms and ivy normals retain their surface behavior. SAVE_VERSION bumped to 8 for changed seeded orientation, with no migration; independent settings remain version 4. Affected entry/generator/renderer/manager/bees/vine/debug-types/menu/save cache versions advanced to 85.
-
-Validation: full garden suite passes (100 tests). A 1,200-seed regression verifies every standalone lily/bell normal and world-transformed bee landing normal against its stem; an actual petal-instance geometry test verifies the rendered opening axis on seed 9. Removed the old arbitrary test restriction against upright normals. Chrome compared seeds 7/lily and 9/bell after correction; screenshot inspected, no page errors. Syntax/whitespace checks pass. Quest visual verification remains pending. Local, uncommitted and unpushed.
-
-
-## Align all standalone flower forms — 2026-10-31
-
-User reports the same stem/flower orientation mismatch on a six-petaled star-like bloom. Extended the previous cup-only correction to all standalone flower forms: bloom normals always follow the final supporting stem, and bee landing normals inherit that direction. Shrub/tree/ivy surface normals are unchanged. The seed-sweep regression now covers all seven bloom forms. SAVE_VERSION bumped to 9 under the current-only development policy; settings remain 4. Affected dependency/entry query versions advanced to 86. Full garden suite and whitespace checks pass. Local, uncommitted and unpushed.
-
-
-## Smaller maximum flower leaves — 2026-10-31
-
-Reduced standalone flower base leafSize maximum from .19 to .1425 (75%), retaining the .09 minimum and per-leaf .75–1.4 variation. Final unscaled leaf-size cap is .1995 instead of .266. Other plant types keep their existing size rules. Single existing PRNG sample is retained. SAVE_VERSION bumped to 10 under the development policy; settings remain 4. Affected entry/dependency query versions advanced to 87. Regression sweeps 1,200 seeds checking base/final caps. Full garden suite and whitespace checks pass. Local, uncommitted and unpushed.
-
-
-## Second flower leaf-size reduction — 2026-10-31
-
-Reduced the actual standalone flower leaf cap another 25%, from .1995 to .149625, and set the final minimum to half the cap (.0748125). Exported explicit FLOWER_LEAF_MIN/MAX constants. Per-plant leaf size chooses an upper size within those limits, then individual leaves sample between the fixed minimum and that plant’s upper size. This replaces the flower-only multiplicative variation, so the final limits apply to actual leaf geometry sizes rather than only a base parameter. Other forms retain their previous variation. SAVE_VERSION bumped to 11 under project policy; settings remain 4. Affected dependency/entry query versions advanced to 88. Full garden suite and 1,200-seed leaf-size regression pass, with whitespace checks clean. Local, uncommitted and unpushed.
-
-
-## Flower leaf base attachment and relative orientation — 2026-10-31
-
-Standalone flower leaves now carry a seeded unit direction constructed in the supporting stem’s local tangent frame. The deviation from that stem is uniformly 0–60°, using the previous tilt PRNG sample mapped into the new range; azimuth distributes leaves around the stem. Renderer maps the diamond geometry’s +Y base-to-tip axis to this direction, retaining its origin at the component attachment anchor. This replaces the unrelated world-Euler tilt for standalone flowers. Existing diamond geometry, reduced size limits and growth scaling are unchanged; other leaf types keep their existing orientation paths.
-
-SAVE_VERSION bumped to 12 for changed seeded appearance; settings remain 4. Affected dependency/entry cache versions advanced to 89. All 103 garden tests pass. New 1,200-seed checks cover unit directions/0–60° spread; actual instance matrices at multiple growth ages verify the diamond base is attached and tip direction matches. Chrome rendered representative lily/bell flower plants without page errors; screenshot reviewed. Whitespace checks pass. Local, uncommitted and unpushed.
-
-
-## Sharp-corner flower leaf attachment — 2026-10-31
-
-User clarified that the diamond base must be its smallest-angle corner. Added three flower-specific folded diamond geometries with narrower half-widths and shoulders at 65% of base-to-tip length. All three have an acute base angle smaller than either side or tip angle. Their origin remains the stem attachment, preserving the existing 0–60° direction rule. Standalone flower leaves use leafFlower0/1/2 buckets, including normal mature pooling/picking; open-tree leaves retain their original geometries. Renderer/entry cache version 90. Generator/save formats are unchanged for this renderer-only geometry correction.
-
-Validation: full garden suite passes, with explicit corner-angle regression for all three flower outlines and existing multi-age base attachment/direction checks. Rendering test classifies all leaf geometry variants as leaves. Whitespace checks pass. Local, uncommitted and unpushed.
-
-
-## Flower/leaf refinement release — 2026-10-31
-
-User authorized committing/pushing the accumulated random upward shrub support branches (flower stalk behavior retained), VR status-footer removal and stronger room hover contrast, standalone bloom/stem/bee-normal alignment, two leaf-size reductions and half-maximum minimum, and base-anchored 0–60° flower leaves with sharpest-corner diamond attachment. Final entry cache version 90; garden SAVE_VERSION 12 under current-only policy; independent settings version 4 unchanged.
-
-All 104 garden tests pass, scoped changes reviewed and whitespace checks clean. Chrome visual/interaction checks and user visual feedback are recorded above. No shared runtime changes or build required. Earlier local/unpushed notes are historical after this release.
-
-
-## Ten clouds with continuous sky coverage — 2026-10-31
-
-Increased CloudSky to 10 instances. Nine clouds occupy bounded-jitter angular sectors around the garden, with a larger tenth near overhead to cover high sky angles. Ring radii are approximately 105–117 m for the current garden/view range; altitudes remain 36–45 m and cloud scale remains 8× with seeded/injectable random variation (.85–1.2 multiplier, overhead 1.1–1.2). Default layout varies each page via Math.random; tests inject deterministic samplers. Random phase/radius/height/scale/yaw are sampled only at construction.
-
-Replaced the old long horizontal wrap path with slow continuous circular drift at .28/110 radians/s (~.28 m/s on the ring). Shared angular speed preserves sector separation. No visible reset/recycling endpoints exist; overhead cloud drifts within 2 m of the center. This keeps coverage around the garden and near zenith instead of merely ensuring some cloud is within far clipping range. All instances retain shared geometry/material, a single draw call, baked facet shading and no shadows. Coverage concerns visible sky, not views blocked by room ceilings/walls or looking down. No save-schema/shared runtime changes. Entry/environment/cloud query versions advanced to 91.
-
-Validation: full garden suite passes. Cloud tests verify 10 instances, scale/shadow policy, continuous complete loops, frame-rate independence and randomized layouts. Coverage checks actual mesh vertices in 65° square-camera frusta across every garden corner, 24 horizontal headings, 0°/30°/60°/90° sky pitches, 24 phases of a full cycle, and extreme/random layout samples. Chrome verified 10 clouds, no shadows and no page errors; sky screenshot inspected. Whitespace checks pass. Physical Quest sky review remains pending. Local, uncommitted and unpushed.
-
-
-## More varied cloud spacing, scale and altitude — 2026-10-31
-
-Replaced near-even ring-sector jitter with randomized circular gaps constrained to 16–60°. Pairwise angle transfers preserve 360° coverage while creating clusters and open gaps; no fixed-spacing fallback. Cloud scale range expanded from .85–1.2× to .4–1.7× the base 8× scale, with guaranteed small/large examples per layout. Heights now range 28–64 m and include low/high examples. Ring depth/radius follows randomized elevation/altitude, bounded to keep horizon coverage; yaw now varies through the full circle. Overhead cloud remains near center with an appropriate large scale to cover high-angle views. Count stays 10, shared angular drift preserves the irregular layout, and rendering remains one shadow-free instanced batch. Environment/cloud/entry cache version 92; no save/shared runtime changes.
-
-Validation: full garden suite passes. Cloud tests cover size/height contrast, irregular bounded gaps, deterministic time-based continuous loops and actual-geometry sky coverage across extreme and multiple seeded layouts. Chrome verified 10 clouds without page errors; screenshot inspected for visibly different sizes/depths/heights. Whitespace checks pass. Local, uncommitted and unpushed.
-
-
-## One-minute cloud loop for testing — 2026-10-31
-
-Temporarily increased shared cloud angular speed to 2π/60 rad/s, so all 10 clouds complete their loops in exactly one minute. Relative spacing/height/scale are unchanged. This is a testing speed, superseding the previous ~41-minute loop until user requests otherwise. Entry/environment/cloud cache version 93. Cloud regressions verify 60-second period, continuity, frame-rate independence and sky coverage. Whitespace checks pass. Local and unpushed.
-
-
-## West-to-east cloud arcs and wall-hidden recycling — 2026-10-31
-
-Replaced the radial orbit with monotonic west (−X) to east (+X) journeys. Ten cloud phases are stratified with bounded jitter; tracks vary across north/central/south depth lanes with additional offsets, height, size and yaw variation. Each path has a gentle 3 m height bow and small lateral bend across the garden. Past 65% of the path half-width, smooth endpoint easing lowers the cloud; beyond 90%, its highest geometry vertex is already .2 m below the wall top. Only then does it recycle from far east to far west. Endpoint X bounds include cloud reach/garden dimensions, keeping the complete geometry beyond the walls at reset. This is actual wall/floor occlusion, not a visible far-plane teleport.
-
-Retained the user’s 60-second testing cycle; with the current 400 m route, speed is ~6.67 m/s. Central cruise heights remain varied (28–64 m plus the shallow bow); endpoint heights intentionally dip below the horizon and do not represent cruise altitude. Random depth lanes are around −100/0/+100 m to fill near-horizon and overhead regions. One instanced draw, no shadows, no shared-runtime/save changes. Entry/environment/cloud query versions advanced to 94. Earlier radial-orbit descriptions are superseded.
-
-Validation: full garden suite passes. Cloud tests verify eastward travel, symmetric shallow arcs, complete mesh bounds beyond the garden/below the wall at both reset ends, frame-rate independence and exact 60-second traversal recurrence. Through a full test cycle and extreme/seeded layouts, actual cloud vertices remain visible above wall intersections from all four inset garden corners. This guarantees available sky cloud coverage, not visibility through room ceilings or while looking at the floor. Chrome verified 10 shadow-free clouds with no page errors; final screenshot reviewed. Whitespace checks pass. Physical Quest motion/recycle review remains pending. Local, uncommitted and unpushed.
-
-
-## Thirty-minute cloud cycle — 2026-10-31
-
-Changed cloud traversal/recycle duration from the temporary 60-second test cycle to 1800 seconds (30 minutes). Current 400 m route speed is ~.222 m/s. West-east arcs, wall-hidden reset, randomized layout/size/height and coverage remain unchanged. Entry/environment/cloud cache version 95. Cloud tests cover the 1800-second period and sample coverage/recycle checks relative to cycleSeconds. Whitespace checks pass. Local and unpushed.
-
-
-## Cloud release — 2026-10-31
-
-User authorized committing/pushing 10 varied clouds, west-to-east shallow arcs, complete wall-hidden recycling and the final 30-minute cycle. Final entry cache version 95. All 105 garden tests pass and whitespace checks are clean. Chrome visual checks and coverage/recycling tests are recorded above. No save-version/shared-runtime changes or build step required. Earlier testing-speed/radial-path/local notes are historical.
-
-
-## Bloom all standalone flower stem tips — 2026-10-31
-
-Standalone flower stems now retain their terminal bloom or bloom cluster even when side branches sprout below the tip. Previously any successful side branch suppressed the parent tip bloom, leaving its upper section bare. Side branches retain their own terminal blooms; tree/shrub rules remain unchanged. Garden SAVE_VERSION is now 13 for changed seeded generation, with current-only saves and no compatibility implementation; settings remain version 4. Changed generator/import chains and entry query versions advanced to 96.
-
-Added a 1,200-seed regression checking every standalone stem ends in a bloom or tip-attached flowering stalks, including branching and clustered examples, with blooms fully grown at 10 seconds and component bounds respected. Validation: all 106 garden tests pass; `git diff --check` is clean. Headset visual verification remains pending. Local and unpushed.
-
-
-## Flower-tip release — 2026-10-31
-
-User confirmed the flower-tip change looks better and authorized publication. All 106 garden tests pass and whitespace checks are clean. Release includes terminal blooms on branched standalone stems, regression coverage, garden save version 13 and entry/import cache version 96. Earlier local/unpushed and pending visual-review notes are historical.
-
-## Five CPU optimizations — 2026-10-31
-
-Added `garden-picker.mjs`: a world-space bounding-volume hierarchy rejects whole plant groups before invoking existing exact component/grass pickers. PlantManager caches its target wrapper and rebuilds the hierarchy only on garden revision changes; conservative full-growth bounds cover growing plants, so maturity needs no rebuild. Exact nearest-hit behavior, overlapping plants and wrapped vines remain covered by targeting regressions. Empty gardens expose no targets.
-
-Growth now reuses pose/coordinate arrays, settles components once their own and ancestor growth finish, and writes instance matrices only for changed poses. Renderer invalidates pose caches when age moves backward. Fixed conservative origin-centered spheres cover full growth, including petal opening and leaf offsets, replacing per-frame instance bounding-sphere scans. Selection still uses exact current triangles for growing plants and frozen component hierarchies for mature plants; broad-phase bounds are conservative.
-
-Removed the redundant desktop scene update and replaced forced full updates with normal matrix propagation. Static plant roots/batch meshes, mature pools and garden ground/walls/brickwork freeze local matrix composition; animated rig/controllers/door remain dynamic. Mature pools incrementally union added instance geometry boxes and derive spheres from cached bounds. Deletion retains conservative bounds until a pool empties, avoiding full-pool rescans at completion/deletion; bounds can grow loose after extensive deletions.
-
-Entry/import cache version 97; no generator appearance, save payload or settings change, so garden/settings versions remain 13/4. All 110 garden tests pass, including cached-vs-fresh poses, actual geometry containment throughout growth (ground plants and wrapped vines), spatial candidate rejection/rebuild, and no full bounds scans on growth/maturity/deletion. Chrome isolated-session smoke check matured 25 plants into 15 pools with one garden picker and no page errors. Whitespace checks clean. User-visible behavior and sustained Quest CPU/frame-time gains need headset verification; no performance percentage is claimed. Local and unpushed.
-
-
-## 512-pixel shadow comparison — 2026-10-31
-
-Reduced the sun shadow map from 1024×1024 to 512×512 for user comparison. Coverage, filtering, bias and refresh rules are unchanged. This uses one quarter as many shadow-map texels; visual quality and actual Quest GPU benefit remain to be compared. Entry/environment cache version 98. No save/settings version change. All 110 garden tests pass and whitespace checks are clean. Local and unpushed, alongside the CPU optimizations above.
-
-
-## Restore 1024-pixel shadows — 2026-10-31
-
-User requested restoring the sun shadow map to 1024×1024 after the comparison. Coverage, filtering, bias and refresh rules remain unchanged. Entry/environment cache version 99. Supersedes the 512-pixel comparison above; CPU optimizations remain in place. Local and unpushed. Whitespace checks pass.
-
-## CPU optimization release — 2026-10-31
-
-User authorized publication of the five CPU optimizations. Retained 1024×1024 shadows following the user's visual comparison; further GPU optimizations are deferred. Final entry/environment cache version 99, CPU module versions 97; garden/settings versions remain 13/4. All 110 garden tests pass and whitespace checks are clean. Isolated Chrome smoke validation is recorded above; no measured Quest performance gain is claimed. Earlier local/unpushed notes are historical for this release.
-
-## Balanced standalone flower stalks — 2026-10-31
-
-Primary stalks now form a balanced radial arrangement: a single stalk leans at most 15° from vertical; two stalks point approximately 180° apart; three approximately 120° apart. The first stalk chooses the shared random heading and lean. Subsequent headings and leans vary by ±7.5° around their shared targets, keeping any pair's deviation from ideal radial separation and inclination difference within 15°. Multi-stalk inclination retains the previous .04–.42 rad range. Existing random draw count/order is retained; side-branch construction and bloom rules are unchanged. Tree/shrub/vine construction is unaffected.
-
-Garden SAVE_VERSION bumped to 14 for changed seeded flower geometry, under the current-only development policy; older garden records are deleted and shown Empty, with no migration. Settings remain version 4. Entry and affected import chains use cache version 100. All 111 garden tests pass, including a 3,000-seed sweep for all stalk counts, angle limits, radial balance and random heading coverage. Whitespace checks clean. Headset appearance remains for user review. Local and unpushed.
-
-## Revised flower lean limits — 2026-10-31
-
-Single-stalk flowers now lean at most 10° from vertical. Multi-stalk inclination jitter increases to ±10° around the shared lean, allowing up to 20° pairwise lean variation, still bounded to .04–.42 rad overall. Radial spacing variation remains within 15° of the opposite/120° arrangement. Side-branch rules remain unchanged. Garden SAVE_VERSION is now 15 for changed seeded appearance, with obsolete garden records cleared under the current-only policy; settings remain 4. Entry/affected dependency cache version 101. All 111 garden tests pass, including updated 3,000-seed stalk checks; whitespace checks clean. Local and unpushed.
-
-## Twenty-degree radial spacing variation — 2026-10-31
-
-Multi-stalk radial heading jitter is now ±10° around the opposite/120° arrangement, allowing up to 20° pairwise spacing deviation. Multi-stalk lean variation remains 20°; single-stalk lean remains at most 10° from vertical. Garden SAVE_VERSION bumped to 16 for changed seeded appearance; settings remain 4. Entry/affected dependency cache version 102. All 111 garden tests pass, including updated stalk-spacing regression; whitespace checks clean. Local and unpushed.
-
-## Zero-to-ten-degree single stalks — 2026-10-31
-
-Removed the inherited .04 rad minimum for standalone single-stalk flowers: their lean now samples 0–10° from vertical, allowing vertical stalks. Multi-stalk rules are unchanged. Garden SAVE_VERSION bumped to 17 for changed seeded appearance; settings remain 4. Entry/affected import cache version 103. All 111 garden tests pass; stalk regression verifies the 0–10° range and near-vertical examples below 1°. Whitespace checks clean. Local and unpushed.
-
-
-## Balanced flower release and current decisions — 2026-10-31
-
-User reports everything looks good and authorized publication. Final standalone flower rules: 1–3 primary stalks; a single stalk leans 0–10° from vertical; two stalks radiate roughly 180° apart and three roughly 120° apart, with up to 20° pairwise radial-spacing deviation and 20° pairwise lean variation. Multi-stalk lean remains clamped to .04–.42 rad. Whole-plant heading remains random. Side-branch generation and terminal bloom/cluster rules remain unchanged. Final garden SAVE_VERSION 17, independent settings version 4, entry/affected flower dependency cache version 103. Obsolete garden records are cleared without legacy generators or migrations.
-
-Lighting stays as-is: one shadow-casting directional sun (color #ffefcf, intensity 3.1, position −6/12/7), hemisphere sky #e7f1ff / ground #665039 at intensity 2.1, and a non-shadow-casting control-room point light. The sun retains its 1024×1024 shadow map, reused while static and refreshed for relevant geometry changes. User found 1024 visibly better than 512; further GPU optimizations are deferred. Previously released CPU optimizations remain enabled.
-
-Release validation: all 111 garden tests pass, including the 3,000-seed stalk-angle sweep; whitespace checks clean. User visual feedback is positive; no new quantified Quest performance benchmark is claimed. This release supersedes earlier intermediate angle/version and local/unpushed notes above.
-
-## Relaxed controller hand outlines — 2026-10-31
-
-Added local procedural `hand-outline.mjs` models attached to `renderer.xr.getControllerGrip(i)` under the existing rig. Outline-only wrist/palm/five-finger silhouettes have gently curled fingers and mirrored palm depth: left palm normal +X, right −X, fingers −Z, thumb +Y in grip space. Two perimeter curves with a few side connections are thin 1.1 mm-radius pentagonal tubes, merged into one unlit opaque draw per hand (680 triangles each). Pale neutral color, standard depth occlusion, no shadows, textures, external assets or per-frame geometry changes. This is a fixed relaxed controller-hand pose, not tracked finger articulation.
-
-Visibility requires a tracked grip and left/right xr-standard controller source; hides on tracking loss, inactive/session end and disconnect. Bare-hand sources are not rendered through this controller model. Pointer/menu/trigger behavior is unchanged. Diagnostic controllers are exposed through window.secretGarden for local inspection. Entry/new model cache version 104; garden/settings versions unchanged at 17/4.
-
-Validation: all 113 garden tests pass, including mirrored finite human-scale geometry and visibility/disposal lifecycle. Isolated Chrome preview inspected for both outlines, two draws/1360 triangles total, no page errors; whitespace checks clean. Actual Quest grip alignment, silhouette size and comfort remain for user review. Local and unpushed.
-
-
-## Pale green controller pills — 2026-11-01
-
-Replaced the unreleased hand outlines with simple pale green (#c4dfb2) capsules, per user request. Removed outline geometry/module/tests rather than retaining unused alternatives. `hand-pill.mjs` attaches a 14 cm long / 6 cm diameter low-poly capsule along the grip Z axis, centered at the grip origin, using a simple Lambert material. One draw per hand, no shadows; existing tracked-grip/session/disconnect visibility and pointer behavior are retained. Entry/model cache version 105; save versions unchanged. Validation: all 112 garden tests pass, including grip visibility/disposal coverage; whitespace checks clean. Quest appearance/alignment remains for user review. Local and unpushed.
-
-## Debug menu closer to hand — 2026-11-01
-
-Debug menu now anchors its lower edge 2.54 cm (one inch) above the hand pill's top (3 cm above grip), replacing the previous fixed 32 cm center offset. The panel still faces the headset; its center is offset along panel-local up from that lower-edge anchor so the panel does not overlap the hand. Palm-up visibility, right-ray selection and menu dimensions are unchanged. Entry/debug-menu cache version 106; save versions unchanged. All 112 garden tests pass; whitespace checks clean. Local and unpushed.
-
-
-## Darker hand pills — 2026-11-01
-
-Darkened controller pill color from pale green #c4dfb2 to muted green #69895b. Geometry, lighting material and tracking behavior unchanged. Entry/hand-pill cache version 107; save versions unchanged. Whitespace checks clean. Local and unpushed.
-
-## Clip pointer at hand-pill surface — 2026-11-01
-
-Pointer rays retain depth-disabled overlay rendering for control-panel readability, but their visible starting segment is now clipped past the owning pill surface. An analytic capsule intersection transforms the controller ray into grip/model space, finds its forward exit, and starts the line 1 mm beyond it. Controller/grip orientation differences are respected; hit tests and target endpoints are unchanged. No capsule intersection restores the normal start; hidden/untracked pills do not clip. Entry/hand-pill cache version 108; saves unchanged. All 113 garden tests pass, including forward/side exit, target endpoint preservation and hidden-pill reset; whitespace checks clean. Quest visual verification pending. Local and unpushed.
-
-## Revert pill-surface pointer clipping — 2026-11-01
-
-User requested backing out the recent pointer-line change. Removed the capsule intersection helper, clipPointer method/frame call and clipping-specific test. Pointer again begins at its original controller-ray origin with its existing depth-disabled overlay material. Darker hand pills and closer debug menu are retained. Entry/hand-pill cache version 109; saves unchanged. All 112 garden tests pass; whitespace checks clean. Supersedes the clipping entry above. Local and unpushed.
-
-
-## Pointer depth-testing comparison — 2026-11-01
-
-Enabled normal pointer-line depth testing and reset renderOrder to 0 for user testing, replacing the always-on-top overlay behavior. The existing transparent material/depthWrite=false remains; the pointer now respects opaque scene depth, including hand pills and panel surfaces. Pointer targeting and geometry are unchanged. Entry cache version 110. Whitespace checks clean. Local and unpushed.
-
-## Keep normal pointer depth testing — 2026-11-01
-
-User tested the pointer against the control panels and confirmed it interacts correctly with normal depth testing. Keep depthTest=true and renderOrder=0; the always-on-top overlay is no longer desired. Hand pills and opaque scene objects naturally occlude the line. No pill-surface clipping is retained. This supersedes historical pointer-overlay/experimental-comparison guidance above. Entry version remains 110; local and unpushed.
-
-## Full-size teleport column — 2026-11-01
-
-Teleport marker now has a 3 ft diameter (.9144 m; .4572 m radius) and 6 ft height (1.8288 m). Center is offset .9144 m above the destination to keep the base at floor level. Existing 50% opacity, colors and teleport validity rules are unchanged; this is a visual size change, not a new clearance/collision requirement. Entry/teleport cache version 111. All 112 garden tests pass with updated door marker height; whitespace checks clean. Local and unpushed.
-
-## Teleport column opacity gradient — 2026-11-01
-
-Teleport column now fades linearly from 100% opacity at its base to 0% at its top (50% midway). Uses standard MeshBasicMaterial RGBA vertex colors with white RGB, preserving valid/invalid green/red tint and avoiding custom shader hooks. Transparent blending and depthWrite=false remain; dimensions remain 3 ft diameter / 6 ft height. Entry/teleport cache version 112; saves unchanged. All 112 garden tests pass with updated base material opacity; whitespace checks clean. Local and unpushed.
-
-
-## Narrower teleport column — 2026-11-01
-
-Reduced teleport column diameter to 2.5 ft (.762 m; .381 m radius). Height remains 6 ft, with the 100%-to-0% opacity gradient unchanged. Entry/teleport cache version 113; saves unchanged. Whitespace checks clean. Local and unpushed.
-
-## Hand and teleport presentation release — 2026-11-01
-
-User authorized publication. Final behavior: dark muted-green (#69895b) grip capsules, 14 cm long / 6 cm diameter, with no shadows; debug menu lower edge one inch above the pill top; normal pointer depth testing with renderOrder 0, confirmed by user to work correctly with control panels. No outline-hand or capsule-pointer-clipping implementation is retained. Teleport column is 2.5 ft diameter and 6 ft tall, with linear opacity from 100% at base to fully transparent at top and unchanged valid/invalid colors. Geometry changes do not alter teleport clearance rules.
-
-Final entry/teleport cache version 113; hand-pill 109; debug-menu 106. Garden/settings versions remain 17/4. All 112 garden tests pass; whitespace checks clean. Previous local/unpushed and intermediate appearance notes are historical for this release. Foveation was discussed only: no explicit override or new setting was added; bundled Three.js retains its default request of 1.0, subject to runtime support. Lighting stays unchanged.
-
-## Editable Blender door source — 2026-11-01
-
-Created assets/secretGarden/door/secret-garden-door.blend with separate leaf, two cube handles, fixed round hinge stile and optional hidden entrance trim, matching current garden-room/layout dimensions. Leaf/handles parent to a hinge empty at the left jamb; Blender Z rotation swings the assembly. Coordinates use Blender Z-up, doorway midpoint at origin, mapped to runtime (0,0,7.7724). Door leaf dimensions 1.09×2.22×.055 m. Entrance trim preserves its actual facade offset (.9469 m in front of the hallway door), hidden initially. Includes preview camera/lights and embedded editing notes. Companion README and create-door.py document units, hierarchy and reproducible creation; rerunning the script overwrites its target and should not be used on edited files.
-
-Blender 5.2.2 LTS generated/saved the file and rendered a reviewed preview successfully. No runtime geometry, cache or save changes; the .blend is an editing source only, not yet loaded by the game. Local and unpushed.
-
-## Use edited Blender heart door — 2026-11-01
-
-Parented the user's Heart mesh to Door leaf in the Blender source, preserving world placement and making it follow the hinge. Saved the updated source after creating a one-time before-parenting backup. Asset-folder .gitignore excludes that backup and Blender .blend1/.blend2 files; do not publish backup copies. New export-door.py exports evaluated triangle positions/normals, material groups, colors/roughness/metalness/emission and the actual six-node door hierarchy into assets/secretGarden/door/door-model.mjs (204 triangles, ~31 KB). Coordinate conversion is X/Y/Z → X/Z/−Y. Exporter excludes presentation/context objects; save/export a closed door pose.
-
-Runtime door-model.mjs builds the exported Blender leaf, two handles, heart and fixed hinge stile; removed the replaced procedural door/handle/stile construction from garden-room.mjs. Existing entrance trim remains procedural. Heart is a child of leaf, leaf/handles follow the same double-action hinge; imported float data aligns to the exact simulation jamb X/Z. All five meshes cast/receive shadows and are environment/teleport-door targets. Automatic opening, hallway clearance, door teleport destination/openFully behavior and independent settings/saves remain unchanged. Entry/environment/room/asset import cache version 114; garden/settings versions unchanged at 17/4.
-
-All 113 garden tests pass, including imported cube-handle dimensions, unchanged opening/closed seams and heart parenting/world motion/ray targeting through both swings. Chrome isolated-session preview shows the heart door, confirms Heart parent Door leaf and five teleport-door targets, with no page errors; screenshot inspected. Blender source was saved successfully. Whitespace checks clean. Headset appearance remains for user review. Local and unpushed.
-
-## Light brown heart material — 2026-11-01
-
-Changed the heart's Blender material from pink to light brown #8A7058, a lighter warm brown complement to the door's #48392B. Updated the source .blend and re-exported the generated runtime module; geometry/hierarchy unchanged (204 triangles). Entry/environment/room/door-data cache chain version 115. All 113 garden tests pass; whitespace checks clean. Local and unpushed.
-
-## Blender heart-door release — 2026-11-01
-
-User authorized publication of the editable Blender door, connected heart and runtime integration. Final heart material is light brown #8A7058; source .blend, generated JavaScript mesh data, export/recreation scripts and editing README are included. Blender backups remain excluded. The existing procedural leaf/handles/stile are replaced by the exported six-node/204-triangle model; entrance trim remains procedural. Opening from both sides, ray targeting, shadows and door teleport behavior are preserved. User has no format preference when rendering performance is equivalent, so retain the generated mesh-data module; no GLB was created.
-
-Final entry/import cache chain 115; garden/settings versions remain 17/4. All 113 garden tests pass; whitespace checks clean. Browser inspection of the imported model and Blender save/export checks are recorded above. Earlier local/unpushed notes are historical for this release.
-
-## Lower shrub base — 2026-11-07
-
-Initial bush stalk height now varies uniformly from 2–6 inches (.0508–.1524 m), independently of canopy size. The first ellipsoid remains centered on its tip and may intersect the ground. Secondary branches retain their existing placement relative to that tip. Garden save version is 18 under the current-version-only policy; obsolete garden slots are deleted, while settings remain version 4. Affected module cache chains advanced to 116. Local and unpushed.
-
-## Single-mesh ferns — 2026-11-07
-
-Added ferns as a fifth random ground-plant family (equal 20% family probability) and a Ferns entry in the existing palm debug menu. Each deterministic seed generates 7–11 radial arching fronds with varied height, spread, orientation and green shades; no flowers. Each frond uses one shared 120-triangle mesh containing a narrow rachis and twelve pairs of folded pointed leaflets. Growing fronds scale up and spread from a more upright pose, completing within ten seconds; this is a simple opening animation, not a curled fiddlehead simulation. Fronds share one instanced geometry batch per growing fern and use existing mature pooling, exact triangle picking, cloning, deletion and save serialization. Typical fern geometry is 840–1320 triangles. Shadows remain enabled.
-
-User explicitly authorized the garden save reset. SAVE_VERSION is 19, settings remain version 4, and affected entry/import queries are 117. Current-version-only storage behavior is retained. The previous lower-shrub change is also still local.
-
-Validation: all 115 garden tests pass, including new deterministic fern/growth/debug selection, clone matrix/color equality, geometry finiteness and exact selection before/after mature batching. Existing save mismatch/current-version tests pass. Seed-dependent coverage now uses broader tree samples and selects a flower by its form instead of an obsolete fixed seed. Chrome rendered three mature ferns with no page errors; screenshot visually reviewed. git diff --check passed. Quest appearance, debug-menu reach/readability and sustained frame rate remain for user review. Local and unpushed.
-
-## Fixed fern growth orientation — 2026-11-07
-
-Removed the growth-dependent frond X rotation. Ferns now scale up from their crown in their final upright/arching orientation from the start, without pitching upward during growth. Mature shape and seeded variation are unchanged. Renderer/entry cache version 118; saves remain 19/4. Supersedes the opening-pose description above. Local and unpushed.
-
-## Trim fern tips — 2026-11-07
-
-Shortened each frond's central stalk to the upper attachment of its final leaf pair, eliminating the bare line beyond the leaves. Leaf positions, fixed growth orientation and triangle count are unchanged. Renderer/entry cache version 119; saves remain 19/4. Local and unpushed.
-
-## Fern and lower-shrub release — 2026-11-07
-
-User approved the fern appearance and authorized committing/pushing this release. Final behavior includes 2–6 inch initial shrub stalks and ferns in random planting and the debug menu. Ferns retain a fixed upright/arching orientation throughout growth and their central stalks end at the last pair of leaflets. Garden/settings versions are 19/4; user authorized the garden save reset. Final entry/renderer cache version is 119. All 116 garden tests and git diff --check pass. Chrome preview and user appearance feedback are recorded above; no sustained Quest performance benchmark was taken. Earlier local/unpushed notes above are historical for this release.
-
-## Seed-head grass variation — 2026-11-07
-
-Grass seeds now choose plain or seed-head patches with equal probability, retaining grass as one of the five random plant families. Existing low blades remain, with the new variation adding 6–12 slender stalks .65–1.05 m tall and tan oat-like heads .10–.16 m long. Each head uses one shared 96-triangle mesh containing twelve grains. Stalks grow before their attached heads; all finish within ten seconds. Parts stay below the 600-component cap. All grass components remain free of cast/received shadows and reuse mature batches.
-
-Debug Grass selects plain patches; the new Grass · Seed heads row selects the variation. Grass picking still uses one analytic ellipsoid per patch; seeded patches use taller centered bounds covering their stalk/head height. Cloning and current-version snapshot/restore retain the variant through its seed. SAVE_VERSION is 20, settings remain 4, affected cache chains are 120. The user explicitly granted standing approval for required development save-version bumps and obsolete-record deletion until they request save compatibility tracking; this is recorded in AGENTS.md.
-
-Validation: all 118 garden tests pass, including deterministic bounded stalk/head generation, ten-second growth, debug selection, clone equality, finite picker bounds/transforms, shadow flags, mature pooling, current-save restoration and deletion. Chrome preview rendered three seed-head patches with no page errors; screenshot visually reviewed. git diff --check passed. Quest appearance, debug-menu readability and performance remain for user testing. Local and unpushed.
-
-## Spawn menu and generic submenus — 2026-11-07
-
-Renamed the palm debug menu and placement mode to spawn menu/mode throughout runtime code, diagnostic fields, modules, tests and current README controls. Runtime files are now spawn-menu.mjs and spawn-plant-types.mjs; window.secretGarden exposes spawnMenu/spawnIcon, and PlantManager uses spawnType/canSpawn. Historical debug-menu notes above describe earlier releases.
-
-The root menu retains Flowers, Shrubs, Grass, Grass · Seed heads, Ferns and Ivy, with Trees > opening Rounded, Open leaf, Pine, Cypress and Umbrella. Every submenu inserts < Back as its first row. SPAWN_MENU_ITEMS is a nested children schema; flattenSpawnItems derives selectable plant types for seed selection and manager validation. SpawnMenu accepts a custom items array and navigates arbitrary nesting with a parent stack. Navigation does not change the selected spawn type. Canvas texture and panel geometry resize per page, disposing superseded resources and preserving the lower hand anchor. Hover clears on navigation, and the submenu survives temporary hiding. Existing palm gating, right trigger interaction, clone switching and locomotion suppression are retained.
-
-Cache chains for menu/manager/entry are 121; garden/settings versions remain 20/4. All 120 garden tests pass, including tree selection/back, nested generic navigation, no spawning on navigation and fixed lower-edge resizing. Chrome smoke check loaded renamed modules without page errors and selected Pine through Trees then returned to root. git diff --check passes. Quest interaction/readability remains for user testing. Local and unpushed, alongside the seed-head grass change above.
-
-## First-pass mushrooms — 2026-11-07
-
-Added mushrooms as the sixth equally likely random ground family. Mushroom seeds choose bolete, fly agaric or chanterelle, with either one specimen (45%) or a coherent 3–7 specimen cluster (55%). Each planting shares its family/palette, with per-specimen scale, slight lean and color variation. Nominal stalk height is .10–.30 m before .7–1.2 specimen variation and occasional larger specimens. Stalks are pale, bolete stalks thicker, and caps use seeded warm or occasional unusual hues. Fly agaric has pale raised spots; chanterelles have a shallow wavy funnel profile. No morels, oysters or puffballs in this pass.
-
-New pure mushroom-generator.mjs emits ordinary stems plus attached foliage cap/spot parts. mushroom-geometry.mjs provides reusable closed faceted caps and one shared fly-agaric spot assembly. Stalks rise before caps expand, with all parts mature by ten seconds. Existing parent attachment, instancing, mature pooling, picking, clone transforms, save/restore and deletion apply to the entire planting. Mushrooms are not flowers and do not attract bees. Stems support optional seeded pale coloring; foliage supports optional saturation and mushroom meshes follow their stalk axis.
-
-Mushrooms > uses the generic spawn submenu with Bolete, Fly agaric, Chanterelle and < Back only; no Random option was added. Garden/settings versions are 21/4 under the standing save-reset authorization. Affected runtime cache chain is 122. Existing seed-specific tests now select their required form explicitly; broad plant/grass sweeps increased to retain sample coverage with six families.
-
-Validation: all 122 garden tests pass, including deterministic mushroom distributions/families/colors, finite bounded parts, parent connectivity, complete growth, subtype selection, clone matrix/color equality, exact mature ray picking, current snapshot restoration and cleanup. Chrome rendered all three families without page errors; screenshot reviewed. git diff --check passes. Quest appearance and performance remain for user testing. Local and unpushed, alongside seed-head grass and spawn-menu changes above.
-
-## Full-range mushroom HSB palettes — 2026-11-07
-
-Mushroom cluster base hue, saturation and brightness are now sampled independently and uniformly across [0,1]. Removed the warm-hue bias and restricted lightness/saturation ranges. Each specimen varies from its cluster base by at most .018 hue (wrapped), .04 saturation and .05 brightness. Saturation/brightness reflect at range boundaries to avoid clamped endpoint pileups; cluster members stay similar without being identical. Caps use the existing display-space HSV-to-HSL renderer path used by flower petals. Pale stems and fly-agaric spots remain contrasting accents. This supersedes the earlier warm-palette description.
-
-Garden/settings versions are 22/4, affected cache chains 123. All 123 garden tests pass, including an 18,000-seed sweep checking broad uniform HSB distribution, finite in-range colors and bounded nonidentical cluster variation. git diff --check passes. Local and unpushed.
-
-## Stronger mushroom cluster color variation — 2026-11-07
-
-Widened per-specimen cap variation around the shared cluster HSB base to ±.07 hue (±25.2 degrees), ±.18 saturation and ±.20 brightness. Full-range uniformly sampled base palettes and reflected saturation/brightness boundaries remain. This supersedes the subtle variation limits above and makes neighboring specimens visibly different while retaining a related palette. Garden/settings versions are 23/4; affected import/entry cache chain 124. Local and unpushed.
-
-## Grass spawn submenu — 2026-11-07
-
-Moved plain and seed-head grass into Grass > using the existing generic submenu schema. Child labels are Grass and Seeded grass, with automatic < Back navigation. Plant IDs, generator behavior and save versions (23/4) are unchanged. Affected menu/manager/entry cache chain is 125. Local and unpushed.
-
-## Back at bottom of spawn submenus — 2026-11-07
-
-The generic spawn menu now appends < Back after all child items, including nested submenus. Parent-stack capture excludes that final navigation row. This supersedes previous first-row Back descriptions. Entry/menu cache version 126; save versions unchanged at 23/4. Menu navigation checks cover selection, bottom Back, nested navigation and lower-edge anchoring. Local and unpushed.
-
-## Seeded grass, spawn menu and mushroom release — 2026-11-07
-
-User authorized committing and pushing the accumulated changes: seed-head grass; renamed spawn menu with generic nested Trees, Mushrooms and Grass submenus; < Back at the bottom of every submenu; and single/cluster bolete, fly agaric and chanterelle mushrooms. Final cap palettes use uniform full-range HSB bases with wider related-color variation within each cluster. No Random entry appears in the spawn menu.
-
-Final garden/settings versions are 23/4, with standing authorization for development save resets recorded in AGENTS.md. Entry/spawn-menu cache version is 126, generator/mushroom/save chains 124 and spawn-type/manager chains 125. All 123 garden tests pass and git diff --check is clean. Prior Chrome preview checks are recorded above; no sustained Quest performance benchmark was taken. Earlier local/unpushed notes above are historical for this release.
-
-## Gradual rain cycles — 2026-11-07
-
-Added the settings-room Rain slider with Never / Rarely / Sometimes / Often / Always, sharing the existing ControlModel, SettingsSlider skin and desktop/VR drag interaction. The appearance panel is now 1.9 m high with separated shadow, bee, rain and reset rows. Rain defaults to Sometimes and starts clear. Random clear intervals are 480–900 s (Rarely), 120–240 s (Sometimes), 30–75 s (Often), and zero (Always). Every shower chooses peak intensity .25–1, eases up over 20–40 s, holds for 30–75 s, then eases to zero over 25–45 s. Never eases active rain out over 30 s. Always immediately starts the next rise after fading to zero; changing frequency otherwise preserves the active shower. Active simulation time pauses on hidden/untracked frames.
-
-New pure rain-cycle.mjs owns the state machine. garden-rain.mjs reuses Weather's src/rain-simulation.js unchanged (and its simulation.js dependency): terminal 4–9 m/s drops, velocity-aligned streaks, mild coherent turbulence, and complete-segment .5 m headset exclusion. One opaque, depth-tested LineSegments batch uses preallocated buffers, up to 6,000 simulated drops, a 12 m viewer-following radius / 10 m height and an active compacted outdoor draw range. Both endpoints must lie within the garden rectangle, so rain never enters the roofed room/hall. Clear frames skip particle updates. No splashes, puddles, audio, lighting changes or plant interaction were added. Weather source modules remain unchanged.
-
-The current sky background smoothly blends to #74777b and cloud material tint to #64696f with rain intensity; cloud motion/facet colors persist. Clear colors restore exactly at zero rain. App diagnostics expose rain through window.secretGarden. Frequency persists independently of garden saves. SETTINGS_VERSION is 5 (old settings reset to defaults under the standing policy); garden SAVE_VERSION remains 23. Entry/settings/preferences/rain import cache chain is 127.
-
-Validation: all 127 garden tests and all 50 Weather tests pass. Rain regressions cover ordered clear intervals, random peaks, eased rise/fall, frame partition independence, Never/Always, reusable buffers, outdoor-only finite endpoints, sky/cloud restoration, slider stop mapping and preference roundtrip. Existing version-mismatch tests include previous settings version 4. Chrome rendered active rain with gray sky/clouds and the enlarged settings panel; both screenshots reviewed, all five slider labels readable, no page errors. git diff --check passes. Quest stereo visibility, panel readability and sustained rain performance remain for user testing. Local and unpushed.
-
-## Rain margin, ground effects and immediate extremes — 2026-11-07
-
-Extended the rain rectangle 1.2192 m (four feet) beyond all garden walls to conceal the previous hard edge. Explicit hallway/room roof exclusions remain; reusable compacted particle buffers are unchanged. Ground impacts on the actual garden dirt now call Weather's unchanged GroundEffects implementation: fixed pools of 300 four-streak splashes and 200 expanding twelve-segment ripple rings, with independent default probabilities of 15%/10%, lifetimes .2/.45 s and existing fade/depth behavior. Ground effects animate before incoming impact callbacks and upload once after simulation. No impacts are emitted off the garden dirt or inside the covered room/hall. Rain, splashes and rings explicitly have castShadow=false and receiveShadow=false; they do not invalidate cached shadow maps.
-
-Never now immediately clears intensity, drop draw range, splash/ripple pools and visibility, restoring the exact clear sky/cloud colors in the slider setter. Always immediately selects a random .25–1 rain intensity and starts in the hold phase, updating particles and sky/cloud colors without waiting for another simulation frame. Later showers retain the existing gradual cycles. Other frequencies retain gradual automatic transitions. These changes supersede prior Never fade-out and Always initial-rise behavior. Garden/settings versions remain 23/5; affected entry/settings/rain cache chain 128.
-
-Validation: all 129 garden tests and 50 Weather tests pass, including rendered drops beyond walls, covered passage exclusion, real-impact splash/ripple generation, shadow flags on all three effects, immediate Never/Always rendering/color changes, pool cleanup and disposal. Chrome rain/splash/ripple screenshot reviewed with no page errors. git diff --check passes. Quest appearance and sustained performance remain for user testing. Local and unpushed.
-
-## Overcast rain lighting — 2026-11-07
-
-Rain intensity now blends existing directional and hemisphere lights through weather-lighting.mjs. At intensity 0, the exact clear colors/intensities remain: directional #ffefcf / 3.1, hemisphere sky #e7f1ff, ground #665039 / 2.1. At intensity 1, directional becomes cool neutral #c7cdd3 / .75 and hemisphere sky #c3c7cb, ground #514a41 / 1.7. Intermediate rain uses the same intensity as sky/cloud tint. Never restores all lighting immediately; Always immediately applies lighting for its selected random rain intensity.
-
-Sun position, cast-shadow flags and shadow-map policy are unchanged. Light uniform changes need no extra cached-shadow-map renders. Rain and ground effects remain shadow-free. Environment exposes sun, hemisphere and weatherLighting; GardenRain accepts that lighting adapter and restores clear lighting on disposal. Cache chain 129, save versions remain 23/5. All 130 garden tests pass, including blended/end-point intensities, colors, immediate settings behavior and unchanged sun pose/shadow flag. Chrome preview reviewed with no page errors; git diff --check passes. Quest lighting/readability remains for user review. Local and unpushed.
-
-## First-Always overcast correction — 2026-11-07
-
-Separated atmospheric overcast from randomized drop density. Previously a .25 peak applied only 25% gray sky/cloud tint, making the first Always selection appear unchanged. RainCycle.overcast now tracks normalized shower rise/fall (0–1), reaches full overcast during hold regardless of density, and resets immediately on Never. Sky/cloud colors and weather lighting follow overcast; particle count still follows the random intensity. Always immediately enters full overcast with its random drop density. Cache chain 130, saves unchanged at 23/5. Added first-Always settings-model regression at minimum density plus gradual overcast coverage. Local and unpushed.
-
-## Fixed weather extremes and matched random darkness — 2026-11-07
-
-Always now immediately holds intensity 1 indefinitely, with maximum drop count, full gray sky/cloud colors and full overcast lighting. Never immediately restores normal clear conditions. Rarely/Sometimes/Often retain random shower peaks and gradual rise/fall, with atmospheric darkness and lighting matching actual rain intensity. Leaving Always for a middle setting fades from maximum to clear before resuming its random schedule. This supersedes the separate normalized-overcast and random-Always behavior above. Entry/rain/settings cache chain 131; saves unchanged at 23/5. Local and unpushed.
-
-## Weather-responsive rain effect colors — 2026-11-07
-
-Drops, splashes and rings now blend their material colors with the same rain/overcast intensity as the sky and lighting. Clear-to-maximum colors: drops #cbd1d5 → #84909a; splashes #d5dadd → #8d989f; rings #c8d0d5 → #808e98. Never immediately restores original colors and hides effects; Always immediately applies darkest colors. Only three shared material colors update, with no extra draw calls or per-particle work. Shadow-free behavior and ripple alpha animation remain. Entry/rain cache chain 132; save versions unchanged at 23/5. Local and unpushed.
-
-## Longer clear intervals — 2026-11-07
-
-Updated random clear intervals to 600–1200 s (Rarely, 10–20 minutes), 300–600 s (Sometimes, 5–10 minutes), and 120–300 s (Often, 2–5 minutes). Shower rise/hold/fall durations remain 20–40 / 30–75 / 25–45 s. Never/Always behavior is unchanged. Affected entry/rain/settings cache chain 133; saves unchanged at 23/5. Local and unpushed.
-
-## Canopy flower stalk support correction — 2026-11-07
-
-Fixed shared canopy flower placement: the outermost exposed ray exit can select an ellipsoid on another branch, but previously only the flower/stalk endpoint moved, leaving the stalk rooted on its old branch. Stalks now adopt the selected canopy's supporting branch, attachment fraction, center start and supporting growth timing. This applies to rounded/umbrella trees and shrubs. Flowers retain exposed surface positions/normals and visibility outside overlapping crowns. Pine/cypress have no canopy flowers; open trees use their separate existing flower placement.
-
-After placement, a dependency-order pass remaps parent/canopy IDs so reassigned stalks can safely refer to branches originally generated later. Part counts and ordinary growth/render/picking representations remain unchanged. SAVE_VERSION is 24 under standing development reset authorization; settings remain 5. Affected canopy/generator/renderer/manager/entry cache chain 134; existing rain changes remain local as well.
-
-All 134 garden tests pass, including rounded/umbrella seed sweeps checking matching canopy/stalk supports and a two-crown regression exercising reassignment to a later branch, valid ID order and attachment through growth. Existing shrub, geometry targeting, clone, save, mature batching and ten-second completion checks pass. git diff --check passes. Local and unpushed; headset appearance remains for user review.
-
-## Upright cypress trunks — 2026-11-07
-
-Cypress (columnar) trunks now use zero inclination instead of the shared random .015–.09 radian tree lean. Cypress canopy ellipsoids also use zero tilt. Their trunk and canopy attachment centers grow straight up; other tree families retain existing lean. SAVE_VERSION is 25, settings remain 5; affected generator/import/entry cache chain 135. Cypress seed-sweep coverage now asserts identical start/end X/Z and positive vertical growth. Local and unpushed.
-
-## Fixed garden rain volume — 2026-11-07
-
-Rain simulation and restarts are now anchored at world X/Z (0,0), independent of walking/teleport/head position. The visible rain rectangle retains four-foot padding and covered-area exclusions. The enclosing simulation cylinder radius is reduced from 12 m to the padded rectangle's diagonal radius (~9.94 m), reducing off-area simulation while retaining corner coverage; height stays 10 m. Live head position is still used for streak/head exclusion. Viewer movement no longer shifts or repopulates the weather volume.
-
-Weather RainSimulation.update accepts an optional fourth center parameter, defaulting to head for unchanged Weather behavior. Secret Garden passes a fixed center. RainSimulation resetVolume is called with that same fixed center. Secret Garden imports the extended simulation through a fresh cache query; Weather's existing API/use is retained. Garden entry/rain cache chain 136, saves unchanged at 25/5. All 135 garden tests pass, including zero-time movement/teleport stability and fixed-center restarts. Local and unpushed.
-
-## One-time inactive rain cleanup — 2026-11-07
-
-Rain now clears splash/ripple pools, marks their buffers for upload, resets draw range/count and hides the ground group only when transitioning from active rain to zero drops. Further clear frames and repeated Never selections skip this cleanup; fresh clear startup already has empty/hidden effects. Rain scheduling and atmospheric updates remain active. Never still clears immediately, and restarting rain re-arms cleanup for the next stop. Entry/rain cache version 137; saves unchanged at 25/5. Local and unpushed.
-
-## Rain and tree corrections release — 2026-11-07
-
-User authorized committing/pushing the accumulated rain implementation and refinements plus canopy flower support corrections and upright cypress trees. Final rain area is fixed around the garden with four-foot padding and covered-area exclusions, pooled drops/splashes/rings, no weather shadows, matched sky/cloud/light/effect-color transitions, immediate clear Never and continuous maximum Always. Middle frequencies retain random gradual showers with 10–20 / 5–10 / 2–5 minute clear intervals. Clear cleanup runs once per stop. Weather's optional fixed-center API retains existing default behavior.
-
-Final garden/settings versions 25/5 under standing development-reset authorization. Final entry/rain cache version 137; generator chain 135. All 136 garden tests and the full root test suite pass, including Weather and shared regressions. git diff --check is clean. Earlier Chrome checks and remaining headset performance/appearance review are recorded above. Earlier local/unpushed notes are historical for this release.
+# The Secret Garden — current handoff
+
+Updated 2026-11-08 against implementation release `7d078ef`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
+
+## Status and working rules
+
+- Buildless static desktop/WebXR garden using local Three.js r180. Latest implementation release is `7d078ef` on `main`; this condensation is a subsequent documentation-only change.
+- Read [project instructions](AGENTS.md) and [repository instructions](../../AGENTS.md). Current source and Git state take precedence over documentation.
+- Starts empty unless the latest valid browser garden save autoloads. Plants mature in ten seconds; overlap is allowed and population is uncapped.
+- No plant maintenance, plant collision/spacing enforcement, vegetation wind, wet materials, puddles or rain audio. Morels, oysters and puffballs are not implemented.
+- Implement locally, validate, allow user testing, and commit/push only with current authorization. A previous push request does not authorize later changes.
+- Preserve unrelated work and excluded Blender backups. Do not introduce permanent profiling loops/HUDs without a request.
+- Prior user instruction: do not check GitHub Pages deployment after pushing. Distinguish a verified push from deployment status.
+
+## Running and validation
+
+From repository root:
+
+```sh
+python3 -m http.server 8080 --bind 127.0.0.1
+node --test projects/secretGarden/tests/*.mjs
+```
+
+Open `/projects/secretGarden/`. No install or build is required. For USB Quest preview use [Start-VR.command](../../Start-VR.command), keeping its terminal and authorized USB connection active. WebXR requires trusted localhost or HTTPS.
+
+- Last implementation validation: **136 garden tests pass**, plus the full root suite including Weather/shared tests, and `git diff --check`.
+- Isolated garden changes need relevant garden checks. Cross-project/shared runtime changes need affected consumers and the root suite per repository policy.
+- Documentation-only changes need content/link checks and `git diff --check`, not runtime tests.
+- If Node is missing from PATH, discover the bundled runtime using the workspace dependency tool. Do not hardcode runtime cache paths in repository scripts.
+- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **137**. Individual dependency queries need not match it.
+
+## Planting and selection
+
+- Right controller starts active. Only the active hand normally displays its ray and handles planting/face buttons.
+- Active trigger plants once per press. Inactive trigger transfers control without planting; release and press again to plant. Simultaneous triggers cannot also plant during handoff.
+- Active A (right) / X (left) copies a targeted plant seed, or returns to random mode elsewhere.
+- Active B (right) / Y (left) clears clone/spawn mode. Holding it over the same plant for one continuous second deletes that planting. A red fill shows progress; release before another deletion.
+- Active grip toggles the pointer. Pointer-off stops controller raycasting; either trigger reactivates that hand without planting. Inactive face buttons do nothing.
+- Held inputs are absorbed on entry, reconnect and tracking resume; tracking loss cancels interaction.
+- Desktop: click/Space plants, B copies/resets, X deletes, WASD walks, arrows turn, pointer drag looks. A is strafing.
+- Ground plants require dirt; ivy requires interior wall faces. Clone seeds remain remembered while aiming across surface changes, but incompatible planting uses a random seed and clears the copy.
+- Cloning persists after planting. Clones independently sample 80–120% scale, without compounding copied scale. Ground placements independently sample yaw.
+- A gold base ring selects an entire planting/cluster. Overlapping rectangles indicate cloning; a plus indicates spawn mode. Clone icons appear on planting targets.
+- Pointers use normal depth testing and render order 0. No overlay rendering or capsule-surface clipping is retained.
+
+## Spawn menu
+
+Rotate the left palm upward to show the menu; use the right ray/trigger to select. Turning the palm away hides it, retaining its current submenu.
+
+| Root item | Choices |
+| --- | --- |
+| Flowers | Fresh flower seed per placement |
+| Shrubs | Fresh shrub seed per placement |
+| Grass > | Grass, Seeded grass |
+| Ferns | Fresh fern seed per placement |
+| Ivy | Wall-only placement |
+| Mushrooms > | Bolete, Fly agaric, Chanterelle |
+| Trees > | Rounded, Open leaf, Pine, Cypress, Umbrella |
+
+- Every submenu ends with **< Back**. No Random option appears; normal controls return to random planting.
+- [spawn-plant-types.mjs](spawn-plant-types.mjs) defines generic nested `children` arrays and derives flattened selectable types for seed matching and validation.
+- [spawn-menu.mjs](spawn-menu.mjs) supports arbitrary nesting, parent navigation, panel resizing and disposal of superseded textures/geometries. Its lower edge stays one inch above the controller pill top.
+- Navigation does not spawn or change selection. Selecting a type produces a fresh matching seed on each placement.
+- Incompatible surfaces preserve spawn selection without planting. Copying a plant switches to clone mode.
+- Menu interaction takes priority over world actions, locomotion and teleport, then restores normal pointer behavior.
+
+## Movement, controllers and teleport
+
+- Defaults: Teleport on, Snap turn on, snap angle 30°, height offset 0 m, remembered smooth move speed 1 m/s, turn speed 45°/s.
+- Teleport on: either stick's up gesture aims with that hand; release teleports to a valid floor. Initiating hand owns the gesture. Either stick's horizontal input turns; equal simultaneous inputs do not double turns, opposite equal inputs cancel.
+- Teleport off: left stick moves head-relative, right stick turns. Movement speed is disabled in the panel during teleport mode but retains its value. Desktop walking remains available.
+- Snap angles: 15°, 30°, 45°. Another snap requires horizontal neutral, including after entry/reconnect/tracking resume/turn-setting changes. Desktop arrow turning stays smooth.
+- Destination column: 2.5 ft diameter, 6 ft high, green/red for valid/invalid, alpha fading from 100% at the base to 0% at the top. This visual does not add collision-clearance requirements.
+- Plants do not block teleport aiming; walls/panels do. Door/handle targeting selects the hallway midpoint and opens the door fully on teleport.
+- Teleport preserves facing and seated offset; invalid targets/tracking loss/suspension cancel. Height offset affects VR head/controllers together, not desktop height.
+- Viewer containment includes physical head offset and rig yaw. It is virtual containment, not a physical safety boundary.
+- Tracked controller grips display muted green `#69895b` capsules, 14 cm long and 6 cm diameter, with no shadows.
+
+## Garden, room and settings
+
+- Dirt interior: 9.144 × 13.716 m (30 × 45 ft); stone walls 3.048 m high, with instanced running-bond masonry.
+- Entrance is behind the starting viewer on the +Z wall. A 1.8288 m hallway leads to a roofed 3.6576 × 3.6576 m settings room.
+- Automatic double-action door sits at hallway midpoint `(0,0,7.7724)`, opens away from approach from either side, and closes when the viewer leaves.
+- Room/hall floors are non-plantable; doorway exclusions keep ivy clear. [garden-layout.mjs](garden-layout.mjs) owns layout/containment constants.
+- Facing Garden Settings: Save/Load is on the left wall, VR Settings on the right.
+- Garden Settings: Shadows, Bees, Rain, Reset Garden. Reset clears plants and returns to random mode, preserving position, preferences and garden slots.
+- Room UI reuses shared ControlModel/checkbox/slider mapping and the existing pointer. Hover highlights change material tint without canvas uploads.
+- Shadows default on, use a 1024-pixel map and refresh during shadow-casting growth, scene/door changes or reenable. Static scenes retain cached maps.
+- No explicit foveation control is installed; bundled Three.js keeps its default runtime request.
+
+## Plants and generation
+
+[generator.mjs](generator.mjs) uses a pure uint32 seeded PRNG. Seed acquisition, placement yaw and clone scale live outside generation. Parts have ordered parent IDs, attachment fractions and normalized growth timings. No generator uses unseeded randomness.
+
+Random ground placement equally selects flowers, shrubs, trees, grass, ferns or mushrooms; wall placement uses ivy. All complete growth within ten seconds. Parts are capped at 600 per planting; woody recursion is bounded to three levels.
+
+| Family | Current behavior |
+| --- | --- |
+| Flowers | Daisy, buttercup, lily, bell, rosette, star and single-sphere hydrangea. Single/clustered blooms; terminal stalks flower. Bloom axes and bee landing normals follow supporting stems. |
+| Shrubs | 1–5 overlapping ellipsoids, visible trunks/branches/flower stalks, no individual leaves. Initial stalk 2–6 inches; foliage may intersect ground. Branch azimuths differ by at least 30° and rise 0–30° above horizontal. |
+| Trees | Rounded/umbrella ellipsoids, open-leaf branches, layered pine and stacked rounded-tier cypress. Cypress trunks and ellipsoids have zero tilt. Pine/cypress do not flower. |
+| Grass | Irregular rounded 320–460-blade patches with taller centers. Half add 6–12 seeded stalks .65–1.05 m tall. No grass components cast/receive shadows. |
+| Ferns | 7–11 radial arching fronds, one shared 120-triangle mesh each with twelve leaflet pairs. Fixed orientation throughout growth; stalk ends at the last pair. No curled-fiddlehead simulation. |
+| Mushrooms | Bolete, spotted fly agaric, wavy-funnel chanterelle. Single (45%) or 3–7 specimen cluster (55%). Pale stalks rise before caps expand. Entire planting is one selectable/cloneable unit. |
+| Ivy | Surface-constrained vines wrap wall corners, respecting floor/top/doorway exclusions. Clones retain growth rules while adapting to placement. Some flower, including sphere blooms. |
+
+- Flower colors exclude greenish hues 70–170° across flowers/shrubs/trees/ivy. Mushroom colors cover the full range.
+- Standalone flower leaves attach at their sharp base, point 0–60° from the supporting stem, and range .0748125–.149625 m before scaling.
+- Single flower stalk lean is 0–10°. Multiple stalks use correlated lean/radial spacing. Tree flower budget is 30 blooms; petals are bounded to thirteen per ring and three layers.
+- Rounded/umbrella tree and shrub flowers occupy exposed canopy surfaces, accounting for overlap. If the final ellipsoid belongs to another branch, the flower stalk adopts that branch's attachment/start/timing. Parent/canopy IDs are reordered afterward to preserve growth dependencies.
+- Mushroom cluster base H/S/B samples uniformly from [0,1]; specimen variations are ±.07 hue, ±.18 saturation and ±.20 brightness. Hue wraps; saturation/brightness reflect at boundaries. Stalks/spots remain pale accents.
+- Mushroom stalk height is nominally .10–.30 m before size variation/occasional larger specimens. Mushroom caps/spots use shared geometry; mushrooms are not bee flower targets.
+
+## Bees and clouds
+
+- Bees are an exact population of 0–10, default 3, independent of bloom count. Zero hides both batches and skips animation.
+- Bees prefer mature flowers, otherwise random inward-facing wall spots outside the doorway. Flight is curved/darting, touchdown aligns to surfaces, rests last 2–5 s. Object intersection is allowed.
+- Body/wing batches use two instanced draws without cast/received shadows. Plant reset/deletion preserves population and updates targets.
+- Ten clouds share one instanced draw, have no shadows and traverse west to east over thirty minutes.
+- Phases, tracks, sizes and heights vary. Clouds lower fully behind walls at path ends before recycling; motion continues during rain.
+
+## Rain and lighting
+
+Five-stop room slider, default Sometimes. Fresh default sessions start clear.
+
+| Setting | Clear interval | Conditions |
+| --- | --- | --- |
+| Never | Indefinite | Immediately clears drops/effects and restores clear colors/lights. |
+| Rarely | Random 10–20 minutes | Gradual random showers. |
+| Sometimes | Random 5–10 minutes | Gradual random showers. |
+| Often | Random 2–5 minutes | Gradual random showers. |
+| Always | None | Immediately holds maximum rain/darkness continuously. |
+
+- Middle showers choose 25–100% peak intensity: rise 20–40 s, hold 30–75 s, fade 25–45 s. Darkness and effect colors follow actual intensity.
+- Leaving Always for a middle frequency fades from maximum over 25–45 s before resuming that schedule. Hidden/untracked frames pause weather time.
+- Rain is fixed at garden center with four-foot (1.2192 m) padding and covered room/hall exclusions. Walking/teleporting never moves or repopulates its volume.
+- [garden-rain.mjs](garden-rain.mjs) reuses Weather's [RainSimulation](../weather/src/rain-simulation.js) and [GroundEffects](../weather/src/ground-effects.js). `update(dt, parameters, head, center = head)` separates live head exclusion from optional fixed center; Weather's default remains viewer-following.
+- Up to 6,000 drops in a 10 m high enclosing cylinder (~9.94 m radius), compacted into a fixed outdoor GPU buffer. Speeds 4–9 m/s, mild wind/coherent turbulence, whole-streak .5 m headset exclusion.
+- One opaque drop batch plus fixed pools: 300 four-streak splashes, 200 twelve-segment expanding rings. Dirt impacts have independent 15%/10% spawn probabilities; lifetimes .2/.45 s.
+- Drops/splashes/rings have **castShadow=false**, **receiveShadow=false** and do not invalidate cached maps.
+- Cleanup occurs once per active-to-clear transition: hide, clear pools, reset draw count and upload changed ground buffers. Clear frames skip repeated cleanup and particle simulation, retaining scheduling/atmospheric updates.
+
+| Property | Clear | Maximum rain |
+| --- | --- | --- |
+| Sky | `#788f9c` | `#74777b` |
+| Cloud tint | White | `#64696f` |
+| Directional | `#ffefcf`, 3.1 | `#c7cdd3`, .75 |
+| Hemisphere sky / ground | `#e7f1ff` / `#665039`, 2.1 | `#c3c7cb` / `#514a41`, 1.7 |
+| Drops | `#cbd1d5` | `#84909a` |
+| Splashes | `#d5dadd` | `#8d989f` |
+| Rings | `#c8d0d5` | `#808e98` |
+
+Light changes affect uniforms only; sun pose and shadow policy stay fixed. Effect tint changes touch three materials, adding no draw calls or per-particle color calculations.
+
+## Saves and preferences
+
+- Current **SAVE_VERSION=25**, **SETTINGS_VERSION=5**. Sources: [garden-saves.mjs](garden-saves.mjs), [preferences.mjs](preferences.mjs).
+- Support current versions only. Bump the relevant version for incompatible changes; retain stable keys, delete only mismatched records, and do not add legacy generators/deserializers/migrations.
+- User authorizes development bumps and obsolete-record deletion without further approval until explicitly requesting save compatibility tracking; see AGENTS.md.
+- Three slots store plant seeds, placement/surface constraints, yaw, clone scale and growth age. Latest saved valid slot autoloads. Manual Load preserves viewer position; Empty cannot load. Reset does not delete slots.
+- Garden prefix `secretGarden.save.v1.`; settings key `secretGarden.settings.v1`. Payload-version bumps do not rename keys.
+- Preferences independently store Shadows, Bees, Rain and VR comfort/movement. Debounce 250 ms, flush on page exit. Garden Save/Load/Reset does not change preferences.
+- Defaults: shadows on, bees 3, rain Sometimes, height offset 0, move speed 1, turn speed 45, teleport on, snap on, snap angle 30.
+- Storage is local to browser/device/origin; preview and Pages are separate. Errors preserve existing durable data and show panel feedback.
+
+## Architecture and performance
+
+| Modules | Responsibility |
+| --- | --- |
+| `app.mjs` | Setup, XR/desktop adapters, action routing, frame ordering, settings persistence. |
+| `generator.mjs`, `shrub-generator.mjs`, `mushroom-generator.mjs`, `vine-generator.mjs` | Pure deterministic structures and attachment timing. |
+| `canopy-flowers.mjs`, `flower-colors.mjs` | Exposed flower placement/support and flower palette rules. |
+| `renderer.mjs`, `mushroom-geometry.mjs` | Shared geometry/materials, instance colors, cached/changed-only growth poses. |
+| `manager.mjs`, `mature-batches.mjs` | Lifecycle, clone/spawn modes, snapshots, pooled maturity/deletion. |
+| `garden-picker.mjs`, `plant-picker.mjs`, `grass-picker.mjs` | Whole-garden bounds, exact component hierarchy, analytic grass picking. |
+| `environment.mjs`, `garden-layout.mjs`, `garden-room.mjs`, `door-model.mjs` | Geometry, containment, lights, door and environment targets. |
+| `rain-cycle.mjs`, `garden-rain.mjs`, `weather-lighting.mjs`, `cloud-sky.mjs` | Weather scheduling, effects, lighting, moving clouds. |
+| `settings-panel.mjs`, `vr-settings.mjs`, `save-panel.mjs`, `bee-slider.mjs`, `vr-control-style.mjs` | Room UI bindings, interaction skins and feedback. |
+| `spawn-menu.mjs`, `spawn-plant-types.mjs` | Generic palm navigation and specific seed selection. |
+| `controller-actions.mjs`, `delete-hold.mjs`, `snap-turn.mjs`, `teleport.mjs`, `hand-pill.mjs` | Interaction state, comfort controls and feedback. |
+| `bees.mjs` | Bee targets, flight/landing animation and population. |
+
+- Growing plants have per-plant instanced batches; mature plants migrate once into shared geometry/shadow-flag pools, preserving world transforms/colors/identity.
+- Pools grow geometrically; deletion swaps final slots into holes and repairs handles. Empty pools release buffers; dirty pools flush after updates.
+- Detached CPU groups retain exact mature picking geometry while their source GPU instance buffers are released. Shared render pools are not picking targets.
+- Cached world-space bounds reject whole plants, then mature component hierarchies narrow exact triangle tests. Grass uses one reduced ellipsoid, taller for seeded stalks.
+- Conservative full-growth bounds avoid per-frame scans. Pose caches settle completed parts and invalidate when age moves backward. Static scene objects freeze local matrix composition.
+- Pool bounds grow incrementally and stay conservative after deletion until empty; extensive deletion may loosen bounds. Spatial subdivision is a possible measured optimization.
+- Crowded scenes can still cost growth, migration, geometry submission and targeting time. There is no hard population cap.
+- `window.secretGarden` exposes objects including `plants`, `rain`, `spawnMenu`, `environment`. `batchMature:false` and picker `enabled` are comparison hooks, not product settings.
+- Prior user feedback found batching/targeting helpful. Historical Mac microbenchmarks/pre-optimization captures do not establish current sustained Quest performance.
+- Rain optimization candidates: reduce discarded off-rectangle simulation and upload only active/changed ground-effect ranges. Measure before increasing complexity.
+
+## Door asset workflow
+
+Detailed commands: [door asset README](../../assets/secretGarden/door/README.md).
+
+- Editable source: `assets/secretGarden/door/secret-garden-door.blend`; generated data: `assets/secretGarden/door/door-model.mjs`, consumed by the project adapter.
+- Preserve hinge/leaf/Handle names and Heart parenting. Leaf/handles/heart swing together; fixed stile stays stationary. Export evaluated geometry in a closed pose.
+- Meters, Blender Z-up; coordinate map `(X,Y,Z)` → `(X,Z,-Y)`. Runtime model: six nodes, 204 triangles; heart `#8A7058`, door `#48392B`.
+- Saving Blender alone does not update the game: run `export-door.py`, include source/generated output together, advance asset/import queries.
+- `create-door.py` overwrites output; never run over edited source. Exclude presentation/context objects and retain `.blend1`, `.blend2`, before-parenting backup exclusions.
+- Keep the generated mesh-data format unless a change is justified; no GLB alternative is required.
+
+## Validation and outstanding Quest checks
+
+The last implementation release passed 136 garden tests, the full root suite including Weather/shared regressions, and whitespace checks. Chrome previews checked plant forms, imported door, spawn navigation, rain/ground effects, atmospheric lighting/colors and panel layout without page errors.
+
+Coverage includes deterministic bounded generation, ten-second attachment growth, clones, pooling/deletion, exact picking, save/version handling, controller gating, nested menus, teleport/snap, door hierarchy, rain timing/extremes/effects/fixed volume/colors/lighting/cleanup, upright cypress and canopy support corrections.
+
+Remaining hardware review:
+
+- Stereo rain/effect visibility, immediate Never/Always, overcast readability.
+- Room sliders and nested palm-menu reach/readability, handoff, tracking recovery, pointer occlusion.
+- Door alignment/scale, door teleport, boundaries and seated comfort.
+- Fern/seeded-grass/mushroom appearance and canopy flower stalk supports.
+- Sustained frame cadence with crowded gardens, simultaneous growth, maximum rain and bees. Automated/desktop checks do not establish headset performance or comfort.
