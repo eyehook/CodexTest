@@ -42,10 +42,10 @@ export class RainSimulation {
       this.positions[i + 1] = this.groundY + this.random() * this.volume.height;
     }
   }
-  update(dt, parameters, head) {
+  update(dt, parameters, head, center = head) {
     this.time += dt;
-    const relocate = Math.hypot(head.x - this.volume.x, head.z - this.volume.z) > this.volume.radius;
-    this.volume.follow(head.x, head.z);
+    const relocate = Math.hypot(center.x - this.volume.x, center.z - this.volume.z) > this.volume.radius;
+    this.volume.follow(center.x, center.z);
     const { count, wind, turbulence, fallSpeed, trailDuration } = parameters;
     const p = this.positions, segments = this.segments, strength = turbulence / 100, trail = trailDuration / 1000;
     const v = this.volume;

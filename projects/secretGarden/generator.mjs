@@ -1,7 +1,7 @@
 import {generateMushrooms} from './mushroom-generator.mjs?v=124';
 import {flowerHue} from './flower-colors.mjs?v=82';
-import {generateShrub} from './shrub-generator.mjs?v=116';
-import {placeCanopyFlowers} from './canopy-flowers.mjs?v=75';
+import {generateShrub} from './shrub-generator.mjs?v=134';
+import {placeCanopyFlowers} from './canopy-flowers.mjs?v=134';
 // Pure plant data: meters, local coordinates, explicit attachments, normalized time.
 export const GROWTH_SECONDS = 10;
 export const MAX_COMPONENTS = 600;
@@ -115,7 +115,7 @@ export function generatePlant(seed) {
           const fraction=tier/(tiers-1),attachment=.24+fraction*.7;
           const radius=baseRadius*(1-.78*fraction),vertical=baseRadius*(1+.5*fraction);
           add({kind:'foliage',shape:'crown',parent:node.id,attachment,
-            scale:[radius,vertical,radius],yaw:range(0,Math.PI*2),tilt:range(-.025,.025),
+            scale:[radius,vertical,radius],yaw:range(0,Math.PI*2),tilt:0,
             hue:parameters.leafHue,light:parameters.leafLight+range(-.035,.035),
             begin:begin+duration*attachment+.04+fraction*.22,duration:.2});
         }
@@ -190,6 +190,7 @@ export function generatePlant(seed) {
   for(let i=0;i<parameters.primaryStems;i++) {
     const length=parameters.height*range(.78,1);
     let angle=form==='tree'?range(.015,.09):range(.04,.42);
+    if(treeForm==='columnar')angle=0;
     let azimuth=range(0,Math.PI*2);
     if(form==='flower') {
       if(i===0){flowerHeading=azimuth;flowerLean=angle;}

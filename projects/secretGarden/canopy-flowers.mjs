@@ -26,8 +26,19 @@ export function placeCanopyFlowers(parts,random){
   const local=canopyRotation(position.map((v,i)=>v-center[i]),surface,true);
   const normal=canopyRotation(local.map((v,i)=>v/(surface.scale[i]**2)),surface),length=Math.hypot(...normal);
   flower.normal=normal.map(v=>v/length);flower.position=position.map((v,i)=>v+flower.normal[i]*.006);flower.canopy=surface.id;
-  // Keep the existing stem attachment graph and growth/picking representation.
-  parts[flower.parent].end=flower.position;
+  // The exposed surface may belong to another branch: move the whole stalk attachment.
+  const stalk=parts[flower.parent],support=parts[surface.parent];
+  stalk.parent=surface.parent;stalk.attachment=surface.attachment;stalk.start=[...center];stalk.end=flower.position;
+  stalk.begin=support.begin+support.duration*surface.attachment;
+  flower.begin=Math.max(flower.begin,stalk.begin+stalk.duration);
   flower.begin=Math.min(flower.begin,1-flower.duration);
  }
+ // Reparenting can refer to a later branch. Restore dependency order and remap IDs
+ // so growth evaluation still sees each parent/canopy before its descendants.
+ const ordered=[],visited=new Set();
+ function visit(part){if(visited.has(part.id))return;visited.add(part.id);if(part.parent!==null)visit(parts[part.parent]);if(part.canopy!==undefined)visit(parts[part.canopy]);ordered.push(part);}
+ for(const part of parts)visit(part);
+ const ids=new Map(ordered.map((part,id)=>[part.id,id]));
+ for(const part of ordered){part.id=ids.get(part.id);if(part.parent!==null)part.parent=ids.get(part.parent);if(part.canopy!==undefined)part.canopy=ids.get(part.canopy);}
+ parts.splice(0,parts.length,...ordered);
 }

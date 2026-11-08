@@ -115,9 +115,11 @@ test('cypress starts with spherical foliage then stacks narrower taller ellipsoi
   let count=0;
   for(let seed=0;seed<1500;seed++){
     const p=generatePlant(seed);if(p.parameters.treeForm!=='columnar')continue;count++;
+    const trunk=p.parts.find(x=>x.kind==='stem'&&x.parent===null);assert.equal(trunk.end[0],trunk.start[0]);assert.equal(trunk.end[2],trunk.start[2]);assert.ok(trunk.end[1]>trunk.start[1]);
     const tiers=p.parts.filter(x=>x.kind==='foliage');assert.ok(tiers.length>=5&&tiers.length<=7);
     assert.equal(tiers[0].scale[0],tiers[0].scale[1]);assert.equal(tiers[0].scale[1],tiers[0].scale[2]);
     assert.equal(p.parts.filter(x=>x.kind==='stem').length,1);
+    assert.ok(tiers.every(tier=>tier.tilt===0));
     for(let i=1;i<tiers.length;i++){
       assert.equal(tiers[i].shape,'crown');assert.ok(tiers[i].attachment>tiers[i-1].attachment);
       assert.ok(tiers[i].scale[0]<tiers[i-1].scale[0]);assert.ok(tiers[i].scale[1]>tiers[i-1].scale[1]);

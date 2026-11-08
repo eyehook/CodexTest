@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
-import {Preferences,SETTINGS_KEY,DEFAULT_SETTINGS} from '../preferences.mjs';
+import {Preferences,SETTINGS_KEY,DEFAULT_SETTINGS,SETTINGS_VERSION} from '../preferences.mjs';
 import {GardenSaves,SAVE_PREFIX,SAVE_VERSION} from '../garden-saves.mjs';
 import {createVRSettings,applyHeightOffset} from '../vr-settings.mjs';
 import {Locomotion} from '../../../shared/xr/locomotion.mjs';
@@ -31,7 +31,7 @@ test('right-wall sliders quantize, apply shared locomotion speeds, and offset on
 });
 
 test('mismatched settings versions are deleted and use defaults',()=>{
- for(const version of [0,1,2,3,5]){const d=disk();d.setItem(SETTINGS_KEY,JSON.stringify({version,...DEFAULT_SETTINGS,bees:1}));const prefs=new Preferences(d);assert.deepEqual(prefs.value,DEFAULT_SETTINGS);assert.equal(prefs.exists,false);assert.equal(prefs.error,false);assert.equal(d.getItem(SETTINGS_KEY),null);}
+ for(const version of [0,1,2,3,4,SETTINGS_VERSION+1]){const d=disk();d.setItem(SETTINGS_KEY,JSON.stringify({version,...DEFAULT_SETTINGS,bees:1}));const prefs=new Preferences(d);assert.deepEqual(prefs.value,DEFAULT_SETTINGS);assert.equal(prefs.exists,false);assert.equal(prefs.error,false);assert.equal(d.getItem(SETTINGS_KEY),null);}
 });
 
 test('snap checkbox swaps the turn slider and defaults to 30 degrees',()=>{

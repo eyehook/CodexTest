@@ -1,4 +1,4 @@
-export const SAVE_VERSION=23;
+export const SAVE_VERSION=25;
 export const SAVE_PREFIX='secretGarden.save.v1.';
 const finite=Number.isFinite,vector=v=>Array.isArray(v)&&v.length===3&&v.every(finite);
 export function validateSave(value){

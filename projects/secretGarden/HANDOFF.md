@@ -995,3 +995,71 @@ The generic spawn menu now appends < Back after all child items, including neste
 User authorized committing and pushing the accumulated changes: seed-head grass; renamed spawn menu with generic nested Trees, Mushrooms and Grass submenus; < Back at the bottom of every submenu; and single/cluster bolete, fly agaric and chanterelle mushrooms. Final cap palettes use uniform full-range HSB bases with wider related-color variation within each cluster. No Random entry appears in the spawn menu.
 
 Final garden/settings versions are 23/4, with standing authorization for development save resets recorded in AGENTS.md. Entry/spawn-menu cache version is 126, generator/mushroom/save chains 124 and spawn-type/manager chains 125. All 123 garden tests pass and git diff --check is clean. Prior Chrome preview checks are recorded above; no sustained Quest performance benchmark was taken. Earlier local/unpushed notes above are historical for this release.
+
+## Gradual rain cycles — 2026-11-07
+
+Added the settings-room Rain slider with Never / Rarely / Sometimes / Often / Always, sharing the existing ControlModel, SettingsSlider skin and desktop/VR drag interaction. The appearance panel is now 1.9 m high with separated shadow, bee, rain and reset rows. Rain defaults to Sometimes and starts clear. Random clear intervals are 480–900 s (Rarely), 120–240 s (Sometimes), 30–75 s (Often), and zero (Always). Every shower chooses peak intensity .25–1, eases up over 20–40 s, holds for 30–75 s, then eases to zero over 25–45 s. Never eases active rain out over 30 s. Always immediately starts the next rise after fading to zero; changing frequency otherwise preserves the active shower. Active simulation time pauses on hidden/untracked frames.
+
+New pure rain-cycle.mjs owns the state machine. garden-rain.mjs reuses Weather's src/rain-simulation.js unchanged (and its simulation.js dependency): terminal 4–9 m/s drops, velocity-aligned streaks, mild coherent turbulence, and complete-segment .5 m headset exclusion. One opaque, depth-tested LineSegments batch uses preallocated buffers, up to 6,000 simulated drops, a 12 m viewer-following radius / 10 m height and an active compacted outdoor draw range. Both endpoints must lie within the garden rectangle, so rain never enters the roofed room/hall. Clear frames skip particle updates. No splashes, puddles, audio, lighting changes or plant interaction were added. Weather source modules remain unchanged.
+
+The current sky background smoothly blends to #74777b and cloud material tint to #64696f with rain intensity; cloud motion/facet colors persist. Clear colors restore exactly at zero rain. App diagnostics expose rain through window.secretGarden. Frequency persists independently of garden saves. SETTINGS_VERSION is 5 (old settings reset to defaults under the standing policy); garden SAVE_VERSION remains 23. Entry/settings/preferences/rain import cache chain is 127.
+
+Validation: all 127 garden tests and all 50 Weather tests pass. Rain regressions cover ordered clear intervals, random peaks, eased rise/fall, frame partition independence, Never/Always, reusable buffers, outdoor-only finite endpoints, sky/cloud restoration, slider stop mapping and preference roundtrip. Existing version-mismatch tests include previous settings version 4. Chrome rendered active rain with gray sky/clouds and the enlarged settings panel; both screenshots reviewed, all five slider labels readable, no page errors. git diff --check passes. Quest stereo visibility, panel readability and sustained rain performance remain for user testing. Local and unpushed.
+
+## Rain margin, ground effects and immediate extremes — 2026-11-07
+
+Extended the rain rectangle 1.2192 m (four feet) beyond all garden walls to conceal the previous hard edge. Explicit hallway/room roof exclusions remain; reusable compacted particle buffers are unchanged. Ground impacts on the actual garden dirt now call Weather's unchanged GroundEffects implementation: fixed pools of 300 four-streak splashes and 200 expanding twelve-segment ripple rings, with independent default probabilities of 15%/10%, lifetimes .2/.45 s and existing fade/depth behavior. Ground effects animate before incoming impact callbacks and upload once after simulation. No impacts are emitted off the garden dirt or inside the covered room/hall. Rain, splashes and rings explicitly have castShadow=false and receiveShadow=false; they do not invalidate cached shadow maps.
+
+Never now immediately clears intensity, drop draw range, splash/ripple pools and visibility, restoring the exact clear sky/cloud colors in the slider setter. Always immediately selects a random .25–1 rain intensity and starts in the hold phase, updating particles and sky/cloud colors without waiting for another simulation frame. Later showers retain the existing gradual cycles. Other frequencies retain gradual automatic transitions. These changes supersede prior Never fade-out and Always initial-rise behavior. Garden/settings versions remain 23/5; affected entry/settings/rain cache chain 128.
+
+Validation: all 129 garden tests and 50 Weather tests pass, including rendered drops beyond walls, covered passage exclusion, real-impact splash/ripple generation, shadow flags on all three effects, immediate Never/Always rendering/color changes, pool cleanup and disposal. Chrome rain/splash/ripple screenshot reviewed with no page errors. git diff --check passes. Quest appearance and sustained performance remain for user testing. Local and unpushed.
+
+## Overcast rain lighting — 2026-11-07
+
+Rain intensity now blends existing directional and hemisphere lights through weather-lighting.mjs. At intensity 0, the exact clear colors/intensities remain: directional #ffefcf / 3.1, hemisphere sky #e7f1ff, ground #665039 / 2.1. At intensity 1, directional becomes cool neutral #c7cdd3 / .75 and hemisphere sky #c3c7cb, ground #514a41 / 1.7. Intermediate rain uses the same intensity as sky/cloud tint. Never restores all lighting immediately; Always immediately applies lighting for its selected random rain intensity.
+
+Sun position, cast-shadow flags and shadow-map policy are unchanged. Light uniform changes need no extra cached-shadow-map renders. Rain and ground effects remain shadow-free. Environment exposes sun, hemisphere and weatherLighting; GardenRain accepts that lighting adapter and restores clear lighting on disposal. Cache chain 129, save versions remain 23/5. All 130 garden tests pass, including blended/end-point intensities, colors, immediate settings behavior and unchanged sun pose/shadow flag. Chrome preview reviewed with no page errors; git diff --check passes. Quest lighting/readability remains for user review. Local and unpushed.
+
+## First-Always overcast correction — 2026-11-07
+
+Separated atmospheric overcast from randomized drop density. Previously a .25 peak applied only 25% gray sky/cloud tint, making the first Always selection appear unchanged. RainCycle.overcast now tracks normalized shower rise/fall (0–1), reaches full overcast during hold regardless of density, and resets immediately on Never. Sky/cloud colors and weather lighting follow overcast; particle count still follows the random intensity. Always immediately enters full overcast with its random drop density. Cache chain 130, saves unchanged at 23/5. Added first-Always settings-model regression at minimum density plus gradual overcast coverage. Local and unpushed.
+
+## Fixed weather extremes and matched random darkness — 2026-11-07
+
+Always now immediately holds intensity 1 indefinitely, with maximum drop count, full gray sky/cloud colors and full overcast lighting. Never immediately restores normal clear conditions. Rarely/Sometimes/Often retain random shower peaks and gradual rise/fall, with atmospheric darkness and lighting matching actual rain intensity. Leaving Always for a middle setting fades from maximum to clear before resuming its random schedule. This supersedes the separate normalized-overcast and random-Always behavior above. Entry/rain/settings cache chain 131; saves unchanged at 23/5. Local and unpushed.
+
+## Weather-responsive rain effect colors — 2026-11-07
+
+Drops, splashes and rings now blend their material colors with the same rain/overcast intensity as the sky and lighting. Clear-to-maximum colors: drops #cbd1d5 → #84909a; splashes #d5dadd → #8d989f; rings #c8d0d5 → #808e98. Never immediately restores original colors and hides effects; Always immediately applies darkest colors. Only three shared material colors update, with no extra draw calls or per-particle work. Shadow-free behavior and ripple alpha animation remain. Entry/rain cache chain 132; save versions unchanged at 23/5. Local and unpushed.
+
+## Longer clear intervals — 2026-11-07
+
+Updated random clear intervals to 600–1200 s (Rarely, 10–20 minutes), 300–600 s (Sometimes, 5–10 minutes), and 120–300 s (Often, 2–5 minutes). Shower rise/hold/fall durations remain 20–40 / 30–75 / 25–45 s. Never/Always behavior is unchanged. Affected entry/rain/settings cache chain 133; saves unchanged at 23/5. Local and unpushed.
+
+## Canopy flower stalk support correction — 2026-11-07
+
+Fixed shared canopy flower placement: the outermost exposed ray exit can select an ellipsoid on another branch, but previously only the flower/stalk endpoint moved, leaving the stalk rooted on its old branch. Stalks now adopt the selected canopy's supporting branch, attachment fraction, center start and supporting growth timing. This applies to rounded/umbrella trees and shrubs. Flowers retain exposed surface positions/normals and visibility outside overlapping crowns. Pine/cypress have no canopy flowers; open trees use their separate existing flower placement.
+
+After placement, a dependency-order pass remaps parent/canopy IDs so reassigned stalks can safely refer to branches originally generated later. Part counts and ordinary growth/render/picking representations remain unchanged. SAVE_VERSION is 24 under standing development reset authorization; settings remain 5. Affected canopy/generator/renderer/manager/entry cache chain 134; existing rain changes remain local as well.
+
+All 134 garden tests pass, including rounded/umbrella seed sweeps checking matching canopy/stalk supports and a two-crown regression exercising reassignment to a later branch, valid ID order and attachment through growth. Existing shrub, geometry targeting, clone, save, mature batching and ten-second completion checks pass. git diff --check passes. Local and unpushed; headset appearance remains for user review.
+
+## Upright cypress trunks — 2026-11-07
+
+Cypress (columnar) trunks now use zero inclination instead of the shared random .015–.09 radian tree lean. Cypress canopy ellipsoids also use zero tilt. Their trunk and canopy attachment centers grow straight up; other tree families retain existing lean. SAVE_VERSION is 25, settings remain 5; affected generator/import/entry cache chain 135. Cypress seed-sweep coverage now asserts identical start/end X/Z and positive vertical growth. Local and unpushed.
+
+## Fixed garden rain volume — 2026-11-07
+
+Rain simulation and restarts are now anchored at world X/Z (0,0), independent of walking/teleport/head position. The visible rain rectangle retains four-foot padding and covered-area exclusions. The enclosing simulation cylinder radius is reduced from 12 m to the padded rectangle's diagonal radius (~9.94 m), reducing off-area simulation while retaining corner coverage; height stays 10 m. Live head position is still used for streak/head exclusion. Viewer movement no longer shifts or repopulates the weather volume.
+
+Weather RainSimulation.update accepts an optional fourth center parameter, defaulting to head for unchanged Weather behavior. Secret Garden passes a fixed center. RainSimulation resetVolume is called with that same fixed center. Secret Garden imports the extended simulation through a fresh cache query; Weather's existing API/use is retained. Garden entry/rain cache chain 136, saves unchanged at 25/5. All 135 garden tests pass, including zero-time movement/teleport stability and fixed-center restarts. Local and unpushed.
+
+## One-time inactive rain cleanup — 2026-11-07
+
+Rain now clears splash/ripple pools, marks their buffers for upload, resets draw range/count and hides the ground group only when transitioning from active rain to zero drops. Further clear frames and repeated Never selections skip this cleanup; fresh clear startup already has empty/hidden effects. Rain scheduling and atmospheric updates remain active. Never still clears immediately, and restarting rain re-arms cleanup for the next stop. Entry/rain cache version 137; saves unchanged at 25/5. Local and unpushed.
+
+## Rain and tree corrections release — 2026-11-07
+
+User authorized committing/pushing the accumulated rain implementation and refinements plus canopy flower support corrections and upright cypress trees. Final rain area is fixed around the garden with four-foot padding and covered-area exclusions, pooled drops/splashes/rings, no weather shadows, matched sky/cloud/light/effect-color transitions, immediate clear Never and continuous maximum Always. Middle frequencies retain random gradual showers with 10–20 / 5–10 / 2–5 minute clear intervals. Clear cleanup runs once per stop. Weather's optional fixed-center API retains existing default behavior.
+
+Final garden/settings versions 25/5 under standing development-reset authorization. Final entry/rain cache version 137; generator chain 135. All 136 garden tests and the full root test suite pass, including Weather and shared regressions. git diff --check is clean. Earlier Chrome checks and remaining headset performance/appearance review are recorded above. Earlier local/unpushed notes are historical for this release.

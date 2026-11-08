@@ -63,3 +63,7 @@ The sky contains 10 low-poly clouds moving west (−X) to east (+X) along shallo
 Cloud spacing is deliberately irregular, with clustered and open patches. Sizes vary from 0.4× to 1.7× the shared base scale, and heights from 28–64 m. Layouts include distinctly small/large and low/high clouds while retaining sky coverage.
 
 Clouds complete one west-to-east traversal/recycle every 30 minutes.
+
+Rain: the settings-room Rain slider offers Never, Rarely, Sometimes, Often and Always (default Sometimes). The garden starts clear, then showers gradually build to a random intensity and fade away. The sky and clouds turn gray with rainfall and recover afterward. Never immediately clears rain, splashes, rings, sky and cloud tint; Always immediately holds maximum rain and maximum overcast. Middle frequencies use random shower intensities with matching sky, cloud and lighting darkness. Rain extends four feet beyond the garden walls, with ground splashes and expanding rings on the dirt. Rain and ground effects cast no shadows. Frequency is saved with settings, independently of garden slots.
+
+Rain also softens and cools the existing directional and hemisphere lights, restoring clear lighting as it ends. Never and Always apply their lighting changes immediately.

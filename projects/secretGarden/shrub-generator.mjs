@@ -1,4 +1,4 @@
-import {placeCanopyFlowers,canopyRotation} from './canopy-flowers.mjs?v=75';
+import {placeCanopyFlowers,canopyRotation} from './canopy-flowers.mjs?v=134';
 // Random circular gaps, each at least 30 degrees, with no rejection/fixed-spacing fallback.
 export function shrubBranchAngles(count,random){
  if(!count)return [];

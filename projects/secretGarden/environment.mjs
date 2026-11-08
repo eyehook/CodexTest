@@ -1,3 +1,4 @@
+import {WeatherLighting} from './weather-lighting.mjs?v=129';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {CloudSky} from './cloud-sky.mjs?v=95';
 import {mergeGeometries} from '../../shared/vendor/three-r180/addons/BufferGeometryUtils.js';
@@ -11,7 +12,7 @@ export function constrainViewer(rig,viewerPosition,doorOpen=false) {
 }
 export function createEnvironment(scene,renderer,{viewDistance=250}={}) {
   scene.background=new THREE.Color('#788f9c');
-  scene.add(new THREE.HemisphereLight(0xe7f1ff,0x665039,2.1));
+  const hemisphere=new THREE.HemisphereLight(0xe7f1ff,0x665039,2.1);scene.add(hemisphere);
   const sun=new THREE.DirectionalLight(0xffefcf,3.1); sun.position.set(-6,12,7); sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024); Object.assign(sun.shadow.camera,{left:-10,right:10,top:10,bottom:-10,near:.5,far:35});
   sun.shadow.bias=-.0005; sun.shadow.normalBias=.025; scene.add(sun);
@@ -63,5 +64,5 @@ export function createEnvironment(scene,renderer,{viewDistance=250}={}) {
   const clouds=new CloudSky(scene,{halfWidth:HALF_WIDTH,halfDepth:HALF_DEPTH,wallHeight:WALL_HEIGHT,viewDistance});
   const room=createGardenRoom(scene);
   for(const object of [ground,...walls,blocks]){object.updateMatrix();object.matrixAutoUpdate=false;}
-  return {ground,walls,clouds,room,targets:[ground,...walls,...room.targets]};
+  return {ground,walls,clouds,room,sun,hemisphere,weatherLighting:new WeatherLighting(sun,hemisphere),targets:[ground,...walls,...room.targets]};
 }

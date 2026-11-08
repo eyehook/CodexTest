@@ -250,3 +250,9 @@ ten Cloud tests and browser checks for all three migrated projects passed.
 Documentation/module links and whitespace checks passed. Physical Quest retesting
 of this shared UI remains outstanding. Source, tests and documentation are included
 together; see Git history for the release commit and check Pages status separately.
+
+## Fixed-center rain consumer — 2026-11-07
+
+Secret Garden now reuses RainSimulation with a fixed garden-centered volume. update(dt, parameters, head, center = head) accepts an optional center independent of the live head-exclusion position. Existing Weather callers omit center and retain viewer-following behavior. Secret Garden resets with its fixed center and supplies it on updates. No other Weather behavior changes.
+
+Fixed-center consumer release validation: the user authorized publication on 2026-11-07. The full root suite, including Weather tests, and all 136 Secret Garden tests pass. Default Weather viewer-following behavior remains covered by its existing tests.

@@ -1,31 +1,32 @@
+import {GardenRain} from './garden-rain.mjs?v=137';
 import {HandPill} from './hand-pill.mjs?v=109';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {createSettingsPanel} from './settings-panel.mjs?v=84';
+import {createSettingsPanel} from './settings-panel.mjs?v=133';
 import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
 import {ControllerPointer,createPointerLine} from '../../shared/xr/pointer.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=115';
-import {PlantRenderer} from './renderer.mjs?v=124';
+import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=129';
+import {PlantRenderer} from './renderer.mjs?v=135';
 import {DeleteHold} from './delete-hold.mjs?v=13';
 import {ActiveController} from './controller-actions.mjs?v=19';
 import {doorwayPlantingBlocked} from './garden-layout.mjs?v=46';
-import {Bees} from './bees.mjs?v=124';
-import {PlantManager} from './manager.mjs?v=125';
-import {SpawnMenu} from './spawn-menu.mjs?v=126';
-import {GardenSaves} from './garden-saves.mjs?v=124';
+import {Bees} from './bees.mjs?v=135';
+import {PlantManager} from './manager.mjs?v=135';
+import {SpawnMenu} from './spawn-menu.mjs?v=135';
+import {GardenSaves} from './garden-saves.mjs?v=135';
 import {Teleport} from './teleport.mjs?v=113';
 import {SnapTurn} from './snap-turn.mjs?v=71';
-import {Preferences} from './preferences.mjs?v=73';
+import {Preferences} from './preferences.mjs?v=127';
 import {createVRSettings,applyHeightOffset} from './vr-settings.mjs?v=84';
 import {createSavePanel} from './save-panel.mjs?v=84';
 const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.025,250);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
 const rig=new THREE.Group();scene.add(rig);rig.add(camera);rig.position.z=2.1;camera.position.set(0,1.6,0);camera.rotation.x=-.22;
 const environment=createEnvironment(scene,renderer,{viewDistance:camera.far}),plants=new PlantManager(new PlantRenderer(scene));
-const bees=new Bees(scene);
-const settings=createSettingsPanel(scene,renderer,{bees,onReset:()=>{plants.reset();deleteHold.cancel();target=null;marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=deleteFill.visible=false;}});
+const bees=new Bees(scene),rain=new GardenRain(scene,environment.clouds,{lighting:environment.weatherLighting});
+const settings=createSettingsPanel(scene,renderer,{bees,rain,onReset:()=>{plants.reset();deleteHold.cancel();target=null;marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=deleteFill.visible=false;}});
 const navigation=new Locomotion(rig,{moveSpeed:1,turnSpeed:Math.PI/4}),edges=new ButtonEdges(),frameState=new XRFrameState();
 const snapTurn=new SnapTurn(),teleport=new Teleport(scene),spawnMenu=new SpawnMenu(scene,id=>plants.chooseType(id));
 const pointer=new ControllerPointer({far:25}),desktopRay=new THREE.Raycaster(),mouse=new THREE.Vector2(0,0),keys=new Set();
@@ -49,11 +50,11 @@ const status=document.querySelector('#status');
 const storage={getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value),removeItem:key=>localStorage.removeItem(key)};
 const preferences=new Preferences(storage),saves=new GardenSaves(storage);
 const vrValues={...preferences.value},vrSettings=createVRSettings(scene,vrValues,navigation);
-settings.model.set('shadows',preferences.value.shadows);settings.model.set('bees',preferences.value.bees);
+settings.model.set('shadows',preferences.value.shadows);settings.model.set('bees',preferences.value.bees);settings.model.set('rain',preferences.value.rain);
 let settingsTimer=null;
-function persistSettings(){clearTimeout(settingsTimer);settingsTimer=null;try{preferences.save({...vrValues,shadows:renderer.shadowMap.enabled,bees:bees.count});}catch{savePanel.setMessage('Settings could not be saved');}}
+function persistSettings(){clearTimeout(settingsTimer);settingsTimer=null;try{preferences.save({...vrValues,shadows:renderer.shadowMap.enabled,bees:bees.count,rain:rain.level});}catch{savePanel.setMessage('Settings could not be saved');}}
 function scheduleSettingsSave(){clearTimeout(settingsTimer);settingsTimer=setTimeout(persistSettings,250);}
-settings.model.onChange=id=>{if(id==='shadows'||id==='bees')scheduleSettingsSave();};vrSettings.model.onChange=id=>{if(id==='teleport')teleport.reset();snapTurn.reset();scheduleSettingsSave();};
+settings.model.onChange=id=>{if(id==='shadows'||id==='bees'||id==='rain')scheduleSettingsSave();};vrSettings.model.onChange=id=>{if(id==='teleport')teleport.reset();snapTurn.reset();scheduleSettingsSave();};
 window.addEventListener('pagehide',()=>{if(settingsTimer!==null)persistSettings();});
 function clearGardenInteraction(){deleteHold.cancel();target=null;desktopSlider=vrSlider=null;marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=deleteFill.visible=false;}
 function restoreGarden(save){
@@ -115,7 +116,7 @@ renderer.setAnimationLoop((time,frame)=>{
   const viewerPosition=viewerWorld.copy(session?state.pose.transform.position:camera.position);
   rig.updateMatrixWorld(true);viewerPosition.applyMatrix4(rig.matrixWorld);
   const doorChanged=environment.room.update(dt,viewerPosition);
-  environment.clouds.update(dt);
+  environment.clouds.update(dt);rain.update(dt,viewerPosition);
   settings.beginFrame(doorChanged||plants.hasGrowingShadows||shadowRevision!==plants.shadowRevision);shadowRevision=plants.shadowRevision;plants.update(now);bees.update(plants,now);scene.updateMatrixWorld();target=null;
   if(session){
     edges.retain(session.inputSources);
@@ -163,4 +164,4 @@ renderer.setAnimationLoop((time,frame)=>{
   settings.setHover(target?.kind==='control'?target.control:null);savePanel.setHover(target?.kind==='control'?target.control:null);vrSettings.setHover(target?.kind==='control'?target.control:null);showTarget(target);updateHUD();renderer.render(scene,camera);
 });
 // Read-only diagnostic access for local acceptance checks.
-window.secretGarden={scene,renderer,camera,rig,plants,environment,settings,bees,saves,savePanel,vrSettings,vrValues,preferences,teleport,spawnMenu,spawnIcon,cloneIcon,controllers};
+window.secretGarden={scene,renderer,camera,rig,plants,environment,settings,bees,rain,saves,savePanel,vrSettings,vrValues,preferences,teleport,spawnMenu,spawnIcon,cloneIcon,controllers};
