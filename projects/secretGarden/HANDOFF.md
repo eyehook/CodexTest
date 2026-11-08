@@ -1,10 +1,10 @@
 # The Secret Garden — current handoff
 
-Updated 2026-11-08 against implementation release `7d078ef`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
+Updated 2026-11-08 against implementation release `7d078ef`. Includes the current mushroom tuning and visible app version. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
 
 ## Status and working rules
 
-- Buildless static desktop/WebXR garden using local Three.js r180. Latest implementation release is `7d078ef` on `main`; this condensation is a subsequent documentation-only change.
+- Buildless static desktop/WebXR garden using local Three.js r180. Latest implementation release is `7d078ef` on `main`; current changes tune mushroom counts, spacing, size variation and cap brightness, and add a visible app version.
 - Read [project instructions](AGENTS.md) and [repository instructions](../../AGENTS.md). Current source and Git state take precedence over documentation.
 - Starts empty unless the latest valid browser garden save autoloads. Plants mature in ten seconds; overlap is allowed and population is uncapped.
 - No plant maintenance, plant collision/spacing enforcement, vegetation wind, wet materials, puddles or rain audio. Morels, oysters and puffballs are not implemented.
@@ -27,7 +27,7 @@ Open `/projects/secretGarden/`. No install or build is required. For USB Quest p
 - Isolated garden changes need relevant garden checks. Cross-project/shared runtime changes need affected consumers and the root suite per repository policy.
 - Documentation-only changes need content/link checks and `git diff --check`, not runtime tests.
 - If Node is missing from PATH, discover the bundled runtime using the workspace dependency tool. Do not hardcode runtime cache paths in repository scripts.
-- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **137**. Individual dependency queries need not match it.
+- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **141**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 141); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
 
 ## Planting and selection
 
@@ -101,15 +101,15 @@ Random ground placement equally selects flowers, shrubs, trees, grass, ferns or 
 | Trees | Rounded/umbrella ellipsoids, open-leaf branches, layered pine and stacked rounded-tier cypress. Cypress trunks and ellipsoids have zero tilt. Pine/cypress do not flower. |
 | Grass | Irregular rounded 320–460-blade patches with taller centers. Half add 6–12 seeded stalks .65–1.05 m tall. No grass components cast/receive shadows. |
 | Ferns | 7–11 radial arching fronds, one shared 120-triangle mesh each with twelve leaflet pairs. Fixed orientation throughout growth; stalk ends at the last pair. No curled-fiddlehead simulation. |
-| Mushrooms | Bolete, spotted fly agaric, wavy-funnel chanterelle. Single (45%) or 3–7 specimen cluster (55%). Pale stalks rise before caps expand. Entire planting is one selectable/cloneable unit. |
+| Mushrooms | Bolete, spotted fly agaric, wavy-funnel chanterelle. Single (45%) or 2–5 specimen cluster (55%). Cluster spacing increases with planting height, using radial distance `sqrt(i) * (height * .95 + .06) * .5`; individual stalk heights and cap widths vary. Pale stalks rise before caps expand. Entire planting is one selectable/cloneable unit. |
 | Ivy | Surface-constrained vines wrap wall corners, respecting floor/top/doorway exclusions. Clones retain growth rules while adapting to placement. Some flower, including sphere blooms. |
 
 - Flower colors exclude greenish hues 70–170° across flowers/shrubs/trees/ivy. Mushroom colors cover the full range.
 - Standalone flower leaves attach at their sharp base, point 0–60° from the supporting stem, and range .0748125–.149625 m before scaling.
 - Single flower stalk lean is 0–10°. Multiple stalks use correlated lean/radial spacing. Tree flower budget is 30 blooms; petals are bounded to thirteen per ring and three layers.
 - Rounded/umbrella tree and shrub flowers occupy exposed canopy surfaces, accounting for overlap. If the final ellipsoid belongs to another branch, the flower stalk adopts that branch's attachment/start/timing. Parent/canopy IDs are reordered afterward to preserve growth dependencies.
-- Mushroom cluster base H/S/B samples uniformly from [0,1]; specimen variations are ±.07 hue, ±.18 saturation and ±.20 brightness. Hue wraps; saturation/brightness reflect at boundaries. Stalks/spots remain pale accents.
-- Mushroom stalk height is nominally .10–.30 m before size variation/occasional larger specimens. Mushroom caps/spots use shared geometry; mushrooms are not bee flower targets.
+- Mushroom cluster base hue/saturation sample uniformly from [0,1] and brightness from [.20,1]; specimen variations are ±.07 hue, ±.18 saturation and ±.20 brightness. Hue wraps; saturation/brightness reflect at boundaries. Cap brightness is clamped to a minimum of 20% after specimen variation. Stalks/spots remain pale accents.
+- Mushroom stalk height is nominally .10–.30 m before per-specimen size variation of .48–1.48×. Mushroom caps/spots use shared geometry; mushrooms are not bee flower targets.
 
 ## Bees and clouds
 
@@ -154,7 +154,7 @@ Light changes affect uniforms only; sun pose and shadow policy stay fixed. Effec
 
 ## Saves and preferences
 
-- Current **SAVE_VERSION=25**, **SETTINGS_VERSION=5**. Sources: [garden-saves.mjs](garden-saves.mjs), [preferences.mjs](preferences.mjs).
+- Current **SAVE_VERSION=29**, **SETTINGS_VERSION=5**. Sources: [garden-saves.mjs](garden-saves.mjs), [preferences.mjs](preferences.mjs).
 - Support current versions only. Bump the relevant version for incompatible changes; retain stable keys, delete only mismatched records, and do not add legacy generators/deserializers/migrations.
 - User authorizes development bumps and obsolete-record deletion without further approval until explicitly requesting save compatibility tracking; see AGENTS.md.
 - Three slots store plant seeds, placement/surface constraints, yaw, clone scale and growth age. Latest saved valid slot autoloads. Manual Load preserves viewer position; Empty cannot load. Reset does not delete slots.

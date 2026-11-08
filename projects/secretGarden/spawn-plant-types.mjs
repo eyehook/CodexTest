@@ -1,4 +1,4 @@
-import {generatePlant} from './generator.mjs?v=135';
+import {generatePlant} from './generator.mjs?v=141';
 export const SPAWN_MENU_ITEMS=[
  {id:'flower',label:'Flowers',form:'flower'}, {id:'bush',label:'Shrubs',form:'bush'},
  {label:'Grass',children:[{id:'grass',label:'Grass',form:'grass',seedHeads:false}, {id:'seed-grass',label:'Seeded grass',form:'grass',seedHeads:true}]}, {id:'fern',label:'Ferns',form:'fern'}, {id:'vine',label:'Ivy',surface:'wall'},

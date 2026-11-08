@@ -10,13 +10,13 @@ test('mushrooms vary between singles and coherent clusters in three bounded seed
  for(let seed=0;seed<1800;seed++){
   const p=generatePlant(seed);if(p.parameters.form!=='mushroom')continue;total++;assert.deepEqual(p,generatePlant(seed));
   const {mushroomForm,count}=p.parameters;families.add(mushroomForm);counts.add(count);hues.add(p.parameters.capHue);
-  assert.ok(count===1||count>=3&&count<=7);assert.ok(p.parts.length<MAX_COMPONENTS);assert.equal(p.parameters.flowers,false);
+  assert.ok(count===1||count>=2&&count<=5);assert.ok(p.parts.length<MAX_COMPONENTS);assert.equal(p.parameters.flowers,false);
   const stems=p.parts.filter(p=>p.kind==='stem'),caps=p.parts.filter(p=>p.shape==='mushroom-'+mushroomForm);assert.equal(stems.length,count);assert.equal(caps.length,count);
   const young=componentPose(p,0),mature=componentPose(p,10);
   for(const part of p.parts){assert.equal(young[part.id].growth,0);assert.equal(mature[part.id].growth,1);assert.ok(mature[part.id].anchor.every(Number.isFinite));if(part.kind==='foliage'){assert.deepEqual(mature[part.id].anchor,p.parts[part.parent].end);assert.ok(part.begin>=p.parts[part.parent].begin+p.parts[part.parent].duration);}}
   assert.equal(p.parts.filter(p=>p.shape==='mushroom-spots').length,mushroomForm==='fly-agaric'?count:0);
  }
- assert.ok(total>200&&hues.size>100);assert.deepEqual([...families].sort(),['bolete','chanterelle','fly-agaric']);assert.ok(counts.has(1)&&counts.has(3)&&counts.has(7));
+ assert.ok(total>200&&hues.size>100);assert.deepEqual([...families].sort(),['bolete','chanterelle','fly-agaric']);assert.deepEqual([...counts].sort(),[1,2,3,4,5]);
  const menu=SPAWN_MENU_ITEMS.find(i=>i.label==='Mushrooms');assert.deepEqual(menu.children.map(i=>i.id),['bolete','fly-agaric','chanterelle']);
 });
 test('mushroom families select, grow, clone, batch, raycast and restore as one planting',()=>{
@@ -33,17 +33,18 @@ test('mushroom families select, grow, clone, batch, raycast and restore as one p
  }
 });
 
-test('mushroom palettes cover uniform HSB ranges with visible within-cluster variations',()=>{
+test('mushroom palettes cover their HSB ranges with a 20% cap brightness floor and within-cluster variations',()=>{
  const bins=Array.from({length:3},()=>Array(10).fill(0));let clusters=0;
  for(let seed=0;seed<18000;seed++){
   const p=generatePlant(seed);if(p.parameters.form!=='mushroom')continue;
   const base=[p.parameters.capHue,p.parameters.capSaturation,p.parameters.capBrightness];
-  base.forEach((v,i)=>{assert.ok(v>=0&&v<=1);bins[i][Math.min(9,Math.floor(v*10))]++;});
+  assert.ok(base[2]>=.20&&base[2]<=1);
+  base.forEach((v,i)=>{assert.ok(v>=0&&v<=1);bins[i][Math.min(9,Math.floor((i===2?(v-.20)/.80:v)*10))]++;});
   const caps=p.parts.filter(c=>c.shape==='mushroom-'+p.parameters.mushroomForm);
   for(const cap of caps){
    assert.ok(Math.abs(((cap.hue-base[0]+1.5)%1)-.5)<=.07+1e-9);
    assert.ok(Math.abs(cap.saturation-base[1])<=.18+1e-9);assert.ok(Math.abs(cap.brightness-base[2])<=.20+1e-9);
-   assert.ok(cap.hue>=0&&cap.hue<=1&&cap.saturation>=0&&cap.saturation<=1&&cap.brightness>=0&&cap.brightness<=1);
+   assert.ok(cap.hue>=0&&cap.hue<=1&&cap.saturation>=0&&cap.saturation<=1&&cap.brightness>=.20&&cap.brightness<=1);
   }
   if(caps.length>1){clusters++;assert.ok(new Set(caps.map(c=>c.hue)).size>1);}
  }

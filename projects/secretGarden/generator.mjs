@@ -1,4 +1,4 @@
-import {generateMushrooms} from './mushroom-generator.mjs?v=124';
+import {generateMushrooms} from './mushroom-generator.mjs?v=141';
 import {flowerHue} from './flower-colors.mjs?v=82';
 import {generateShrub} from './shrub-generator.mjs?v=134';
 import {placeCanopyFlowers} from './canopy-flowers.mjs?v=134';
