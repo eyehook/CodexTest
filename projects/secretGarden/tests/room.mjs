@@ -8,7 +8,7 @@ import {componentPose} from '../generator.mjs';
 
 test('recessed doorway connects to an enclosed 12 foot room and all interior targets reject planting',()=>{
  const scene=new THREE.Scene(),env=createEnvironment(scene,{shadowMap:{}});scene.updateMatrixWorld(true);
- assert.equal(env.room.staticMeshes.length,2);assert.equal(ROOM_SIZE,3.6576);assert.ok(Math.abs(ROOM_BACK-ROOM_FRONT-3.6576)<1e-9);
+ assert.equal(env.room.staticMeshes.length,1);assert.equal(ROOM_SIZE,3.6576);assert.ok(Math.abs(ROOM_BACK-ROOM_FRONT-3.6576)<1e-9);
  const center=new THREE.Vector3(0,1.3,(ROOM_FRONT+ROOM_BACK)/2);
  const rays=[new THREE.Vector3(1,0,0),new THREE.Vector3(-1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,-1,0),new THREE.Vector3(0,0,-1)];
  for(const direction of rays){
@@ -64,10 +64,10 @@ test('vines and their visible foliage stay clear of the doorway even when arrivi
  }
 });
 
-test('six foot hallway has centered door and inset surfaces to avoid coplanar seams',()=>{
+test('two foot hallway has centered door and inset surfaces to avoid coplanar seams',()=>{
  const scene=new THREE.Scene(),env=createEnvironment(scene,{shadowMap:{}});
- assert.equal(HALL_LENGTH,1.8288);assert.ok(Math.abs(ROOM_FRONT-GARDEN_FRONT-1.8288)<1e-9);
- assert.ok(Math.abs(DOOR_Z-GARDEN_FRONT-.9144)<1e-9);assert.ok(Math.abs(ROOM_FRONT-DOOR_Z-.9144)<1e-9);
+ assert.equal(HALL_LENGTH,.6096);assert.ok(Math.abs(ROOM_FRONT-GARDEN_FRONT-.6096)<1e-9);
+ assert.ok(Math.abs(DOOR_Z-GARDEN_FRONT-.3048)<1e-9);assert.ok(Math.abs(ROOM_FRONT-DOOR_Z-.3048)<1e-9);
  assert.ok(HALL_WIDTH<DOOR_WIDTH);assert.ok(HALL_HEIGHT<DOOR_HEIGHT);assert.ok(HALL_ENTRY_INSET>0);
  assert.equal(env.room.hinge.getWorldPosition(new THREE.Vector3()).z,DOOR_Z);
  const hallwayWalls=env.room.targets.filter(mesh=>Math.abs(mesh.geometry.parameters?.depth-(HALL_LENGTH-HALL_ENTRY_INSET))<1e-9&&mesh.geometry.parameters?.width===.12);
@@ -142,4 +142,34 @@ test('Blender heart is attached to the door and remains targetable through both 
   const direction=new THREE.Vector3(0,0,-1).applyQuaternion(room.hinge.getWorldQuaternion(new THREE.Quaternion()));
   const hit=new THREE.Raycaster(target.clone().addScaledVector(direction,1),direction.clone().negate()).intersectObject(room.heart)[0];assert.ok(hit);assert.equal(hit.object,room.heart);
  }
+});
+
+test('exterior frame is brown wood and the shortened open passage remains continuous',()=>{
+ const env=createEnvironment(new THREE.Scene(),{shadowMap:{}});
+ const trim=env.room.targets.filter(mesh=>mesh.material.color?.getHex()===0x6b4c33);assert.equal(trim.length,4);assert.ok(trim.every(mesh=>mesh.material.roughness===.9));
+ for(let z=GARDEN_FRONT-.2;z<=ROOM_FRONT+.2;z+=.02){const p=constrainPosition(0,z,true);assert.ok(Math.abs(p.z-z)<1e-9);assert.equal(p.x,0);}
+ assert.ok(constrainPosition(0,DOOR_Z,false).z!==DOOR_Z);
+});
+
+test('entrance trim overlaps the hallway without coplanar inner faces',()=>{
+ const room=createEnvironment(new THREE.Scene(),{shadowMap:{}}).room,trim=room.targets.filter(mesh=>mesh.material.color?.getHex()===0x6b4c33);
+ const legs=trim.filter(mesh=>mesh.geometry.parameters.height>1);assert.equal(legs.length,2);
+ for(const leg of legs){const g=leg.geometry.parameters;assert.ok(Math.abs(Math.abs(leg.position.x)-g.width/2-(HALL_WIDTH/2-.006))<1e-9);assert.ok(Math.abs(leg.position.y+g.height/2-HALL_HEIGHT)<1e-9);}
+ for(const piece of trim.filter(mesh=>mesh.geometry.parameters.height!==.04)){assert.ok(piece.position.z+piece.geometry.parameters.depth/2>=GARDEN_FRONT+HALL_ENTRY_INSET);assert.ok(Math.abs(piece.position.z-piece.geometry.parameters.depth/2-(GARDEN_FRONT-.0625))<1e-9);}
+ const header=trim.find(mesh=>Math.abs(mesh.geometry.parameters.height-.146)<1e-9);assert.ok(Math.abs(header.position.y-header.geometry.parameters.height/2-(HALL_HEIGHT-.006))<1e-9);assert.ok(Math.abs(header.geometry.parameters.width-HALL_WIDTH-.28)<1e-9);
+});
+
+test('hallway ceiling continues through the header with overlapping end faces omitted',()=>{
+ const room=createEnvironment(new THREE.Scene(),{shadowMap:{}}).room;
+ const ceiling=room.targets.find(mesh=>mesh.geometry.parameters?.width===HALL_WIDTH+.24&&mesh.geometry.parameters?.height===.12);
+ const header=room.targets.find(mesh=>mesh.geometry.parameters?.width===HALL_WIDTH+.03&&Math.abs(mesh.geometry.parameters?.height-(ROOM_HEIGHT-HALL_HEIGHT))<1e-9);
+ assert.ok(ceiling&&header);const end=ceiling.position.z+ceiling.geometry.parameters.depth/2;
+ assert.ok(Math.abs(end-ROOM_FRONT)<1e-9);assert.equal(ceiling.userData.omitFace,'front');assert.equal(header.userData.omitFace,'bottom');assert.ok(Math.abs(header.position.y-header.geometry.parameters.height/2-HALL_HEIGHT)<1e-9);
+});
+
+test('hallway and room use one frozen visual mesh with their original surface colors',()=>{
+ const room=createEnvironment(new THREE.Scene(),{shadowMap:{}}).room,mesh=room.staticMeshes[0];assert.equal(room.staticMeshes.length,1);assert.ok(!Array.isArray(mesh.material));assert.equal(mesh.material.vertexColors,true);assert.equal(mesh.geometry.groups.length,0);assert.equal(mesh.matrixAutoUpdate,false);
+ const colors=mesh.geometry.attributes.color,seen=new Set();for(let i=0;i<colors.count;i++)seen.add(new THREE.Color().fromBufferAttribute(colors,i).getHex());
+ for(const color of [0x816850,0xb29879,0x503827,0x6b4c33])assert.ok(seen.has(color));
+ assert.ok(room.targets.some(target=>!target.parent&&target.geometry.parameters?.width));assert.ok(room.leaf.parent!==mesh);
 });

@@ -1,10 +1,10 @@
 # The Secret Garden — current handoff
 
-Updated 2026-11-09 for Version 181 stacked-stone walls, following plant release `efdccf3`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
+Updated 2026-11-09 for Version 192 hallway/frame update, following stone/audio release `067e726`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
 
 ## Status and working rules
 
-- Buildless static desktop/WebXR garden using local Three.js r180. Version 181 adds Quest shared-audio recovery and replaces regular brick facing with one static irregular stacked-stone mesh; garden saves remain at version 37. Rosettes and spherical-bloom removal were released in `efdccf3`. Vine leaf varieties were released in `4ca165d`. Open leaf tree removal was released in `3f2e3b5`. Panel updates were released in `cb68928`; audio was released in `ba18b7d`.
+- Buildless static desktop/WebXR garden using local Three.js r180. Version 192 shortens the hallway to two feet with its door centered and gives the exterior frame brown wooden trim. Stone walls and Quest audio recovery were released in `067e726`; garden saves remain at version 37. Rosettes and spherical-bloom removal were released in `efdccf3`. Vine leaf varieties were released in `4ca165d`. Open leaf tree removal was released in `3f2e3b5`. Panel updates were released in `cb68928`; audio was released in `ba18b7d`.
 - Read [project instructions](AGENTS.md) and [repository instructions](../../AGENTS.md). Current source and Git state take precedence over documentation.
 - Starts empty unless the latest valid browser garden save autoloads. Plants mature in ten seconds; overlap is allowed and population is uncapped.
 - No plant maintenance, plant collision/spacing enforcement, vegetation wind, wet materials or puddles. Morels, oysters and puffballs are not implemented.
@@ -23,12 +23,12 @@ node --test projects/secretGarden/tests/*.mjs
 
 Open `/projects/secretGarden/`. No install or build is required. For USB Quest preview use [Start-VR.command](../../Start-VR.command), keeping its terminal and authorized USB connection active. WebXR requires trusted localhost or HTTPS.
 
-- Current validation: **151 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating, voice cleanup, rosette generation/spike-only flowers/cloning/batching/bee landings and reset-button reactivation after garden edits; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
+- Current validation: **155 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating, voice cleanup, rosette generation/spike-only flowers/cloning/batching/bee landings and reset-button reactivation after garden edits; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
 - Last implementation validation: **136 garden tests pass**, plus the full root suite including Weather/shared tests, and `git diff --check`.
 - Isolated garden changes need relevant garden checks. Cross-project/shared runtime changes need affected consumers and the root suite per repository policy.
 - Documentation-only changes need content/link checks and `git diff --check`, not runtime tests.
 - If Node is missing from PATH, discover the bundled runtime using the workspace dependency tool. Do not hardcode runtime cache paths in repository scripts.
-- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **181**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 181); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
+- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **192**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 192); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
 
 ## Planting and selection
 
@@ -84,8 +84,9 @@ Rotate the left palm upward to show the menu; use the right ray/trigger to selec
 
 
 - Dirt interior: 9.144 × 13.716 m (30 × 45 ft); stone walls 3.048 m high, with a single merged, vertex-colored irregular stacked-stone facing.
-- Entrance is behind the starting viewer on the +Z wall. A 1.8288 m hallway leads to a roofed 3.6576 × 3.6576 m settings room.
-- Automatic double-action door sits at hallway midpoint `(0,0,7.7724)`, opens away from approach from either side, and closes when the viewer leaves.
+- Entrance is behind the starting viewer on the +Z wall. A .6096 m (2 ft) hallway leads to a roofed 3.6576 × 3.6576 m settings room.
+- Exterior entrance frame legs and header use brown wood `#6b4c33`; the threshold matches the frame. The light hallway ceiling extends continuously to the room; its buried end cap and the header bottom face are omitted from the merged geometry, eliminating the darker wall-colored underside patch and coplanar overlaps. Frame has a 6 mm inner lip over the hallway side and ceiling faces, avoiding coplanar surfaces and flickering at the joins. Frame depth bridges from the existing facade face to the inset hallway start, overlapping it by 2 mm to eliminate the trim/wall gap. Hallway/control-room walls use medium warm brown `#816850`; ceilings retain light wood-brown `#b29879` and both floors use dark brown `#503827`. Hallway, room and trim static surfaces render as one frozen vertex-colored mesh with one material/draw; detached CPU boxes retain targeting. Colors are preserved and shared roughness is .95. The moving door assembly remains separate. Room geometry/panels, rain exclusions and teleport targets derive from the shortened hallway layout. Automated passage/door/teleport checks pass; sampled door/handle vertices across ±90° did not intersect the exterior trim boxes. Headset doorway appearance and walking comfort still need review.
+- Automatic double-action door sits at hallway midpoint `(0,0,7.1628)`, opens away from approach from either side, and closes when the viewer leaves.
 - Room/hall floors are non-plantable; doorway exclusions keep ivy clear. [garden-layout.mjs](garden-layout.mjs) owns layout/containment constants.
 - All three control-room panel boards are vertically centered on the 2.6 m walls (board center 1.3 m); headers show titles only, without subheads. `room-panel-layout.mjs` sizes each board to its rows with .125 m outer padding on every side and .04 m clear vertical gaps between all rows, including headers; controls remain 1.65 m wide within 1.9 m boards. Snap/smooth turn sliders share one row. All three panels and their control skin use `room-panel-theme.mjs` for background, control fill, text, muted text, gold accents, track/border colors and disabled opacity. Save/Load buttons match the other controls’ dark green fill, gold active text and 40% disabled opacity, with muted borders for separation. Save/Load has no footer; save/load feedback is sent to the desktop page status area.
 - Facing Garden Settings: Save/Load is on the left wall, VR Settings on the right.

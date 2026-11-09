@@ -1,5 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {constrainPosition,DOOR_Z} from './garden-layout.mjs?v=46';
+import {constrainPosition,DOOR_Z} from './garden-layout.mjs?v=182';
 export class Teleport {
  constructor(scene){
   const geometry=new THREE.CylinderGeometry(.381,.381,1.8288,16),positions=geometry.attributes.position,colors=[];

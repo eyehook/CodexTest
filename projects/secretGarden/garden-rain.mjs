@@ -1,7 +1,7 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {RainSimulation} from '../weather/src/rain-simulation.js?v=garden-fixed-136';
 import {GroundEffects} from '../weather/src/ground-effects.js?v=shared-r180-1';
-import {HALF_WIDTH,HALF_DEPTH,HALL_WIDTH,ROOM_SIZE,ROOM_FRONT,ROOM_BACK} from './garden-layout.mjs?v=46';
+import {HALF_WIDTH,HALF_DEPTH,HALL_WIDTH,ROOM_SIZE,ROOM_FRONT,ROOM_BACK} from './garden-layout.mjs?v=182';
 import {RainCycle} from './rain-cycle.mjs?v=133';
 export const RAIN_MARGIN=1.2192; // Four feet beyond the garden walls.
 export function rainContains(x,z){

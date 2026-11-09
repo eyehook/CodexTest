@@ -3,7 +3,7 @@ import {layoutRoomPanel} from './room-panel-layout.mjs?v=164';
 import {ROOM_HOVER_BRIGHTNESS} from './vr-control-style.mjs?v=163';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {ControlModel} from '../../shared/ui/controls.mjs';
-import {ROOM_SIZE,ROOM_FRONT,ROOM_BACK,ROOM_HEIGHT} from './garden-layout.mjs?v=46';
+import {ROOM_SIZE,ROOM_FRONT,ROOM_BACK,ROOM_HEIGHT} from './garden-layout.mjs?v=182';
 export function createSavePanel(scene,saves,{onSave,onLoad,onMessage=()=>{}}){
  const group=new THREE.Group();group.name='garden-save-panel';group.position.set(ROOM_SIZE/2-.075,ROOM_HEIGHT/2,(ROOM_FRONT+ROOM_BACK)/2);group.rotation.y=-Math.PI/2;scene.add(group);
  const board=new THREE.Mesh(new THREE.BoxGeometry(1.9,1.8,.06),new THREE.MeshStandardMaterial({color:ROOM_PANEL_COLORS.background,roughness:.85}));board.position.z=-.035;board.userData.surface='environment';group.add(board);

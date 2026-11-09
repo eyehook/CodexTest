@@ -3,7 +3,7 @@ import {Vector3} from '../../shared/vendor/three-r180/three.module.js';
 import {selectPlantSeed,SPAWN_PLANT_TYPES} from './spawn-plant-types.mjs?v=176';
 import {generatePlant,GROWTH_SECONDS} from './generator.mjs?v=176';
 import {generateVine} from './vine-generator.mjs?v=176';
-import {doorwayPlantingBlocked,gardenGroundContains,vineDoorExclusion} from './garden-layout.mjs?v=46';
+import {doorwayPlantingBlocked,gardenGroundContains,vineDoorExclusion} from './garden-layout.mjs?v=182';
 export class PlantManager {
   constructor(renderer,randomSeed=()=>crypto.getRandomValues(new Uint32Array(1))[0],randomRotation=()=>Math.random()*Math.PI*2,randomScale=()=>.8+Math.random()*.4) {
     this.gardenPicker=new GardenPicker();this.targetRevision=-1;this.targetList=[this.gardenPicker.group];this.renderer=renderer;this.randomSeed=randomSeed;this.randomRotation=randomRotation;this.randomScale=randomScale;this.instances=new Map();this.growing=new Set();this.clonedSeed=null;this.clonedSurface=null;this.spawnType=null;this.lastSpawnSeed=null;this.nextId=1;this.revision=0;this.shadowRevision=0;

@@ -1,6 +1,6 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {doorModel} from '../../assets/secretGarden/door/door-model.mjs?v=115';
-import {HALL_WIDTH,DOOR_Z} from './garden-layout.mjs?v=46';
+import {doorModel} from '../../assets/secretGarden/door/door-model.mjs?v=182';
+import {HALL_WIDTH,DOOR_Z} from './garden-layout.mjs?v=182';
 
 // Geometry, materials and hierarchy are exported from the editable Blender source.
 export function createDoorModel(scene){

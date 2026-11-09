@@ -6,7 +6,7 @@ import {ControlModel} from '../../shared/ui/controls.mjs';
 import {VRCheckbox} from '../../shared/ui/checkbox.mjs';
 import {SettingsSlider} from './bee-slider.mjs?v=73';
 import {styleVRControl,ROOM_HOVER_BRIGHTNESS} from './vr-control-style.mjs?v=163';
-import {ROOM_BACK,ROOM_HEIGHT} from './garden-layout.mjs?v=46';
+import {ROOM_BACK,ROOM_HEIGHT} from './garden-layout.mjs?v=182';
 
 export function createShadowSettings(scene,renderer,{onReset=()=>{},getGardenRevision=()=>0,sound={enabled:true,setEnabled(value){this.enabled=value;}},rain={level:2,setLevel(value){this.level=value;}},bees={count:3,setCount(value){this.count=value;}}}={}){
  let refresh=true,resetRevision=null;
