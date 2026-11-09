@@ -2,7 +2,7 @@ import {GardenPicker} from './garden-picker.mjs?v=97';
 import {Vector3} from '../../shared/vendor/three-r180/three.module.js';
 import {selectPlantSeed,SPAWN_PLANT_TYPES} from './spawn-plant-types.mjs?v=168';
 import {generatePlant,GROWTH_SECONDS} from './generator.mjs?v=168';
-import {generateVine} from './vine-generator.mjs?v=168';
+import {generateVine} from './vine-generator.mjs?v=169';
 import {doorwayPlantingBlocked,gardenGroundContains,vineDoorExclusion} from './garden-layout.mjs?v=46';
 export class PlantManager {
   constructor(renderer,randomSeed=()=>crypto.getRandomValues(new Uint32Array(1))[0],randomRotation=()=>Math.random()*Math.PI*2,randomScale=()=>.8+Math.random()*.4) {

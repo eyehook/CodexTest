@@ -1,6 +1,9 @@
 import {flowerHue} from './flower-colors.mjs?v=82';
 import {randomFor,MAX_COMPONENTS,BLOOM_FORMS} from './generator.mjs?v=168';
 
+export const VINE_LEAF_FORMS=['ivy','heart','oval','five-lobed'];
+const VINE_LEAF_SHAPES=[3,6,7,8];
+
 // Local XY is the support wall, +Z faces into the garden. The seed defines
 // growth rules; bounds determine floor/top bends and the continuous wall perimeter.
 export function generateVine(seed,bounds) {
@@ -8,6 +11,7 @@ export function generateVine(seed,bounds) {
   const rng=randomFor(seed),range=(a,b)=>a+(b-a)*rng();
   const parameters={form:'vine',surface:'wall',leafHue:range(.24,.38),leafLight:range(.24,.4),
     leafSize:range(.1,.17),flowers:rng()<.38,flowerHue:flowerHue(rng()),flowerSaturation:range(.3,1),flowerBrightness:range(.35,1)};
+  const leafIndex=Math.floor(rng()*VINE_LEAF_FORMS.length);parameters.leafForm=VINE_LEAF_FORMS[leafIndex];
   const sphereForm=BLOOM_FORMS.findIndex(form=>form.volume);
   parameters.bloomShape=[0,1,2,sphereForm][Math.floor(rng()*4)];
   const parts=[];
@@ -88,7 +92,7 @@ export function generateVine(seed,bounds) {
         if(y-bounds.minY<.12||bounds.maxY-y<.12||!wrapping&&(x-bounds.minX<.14||bounds.maxX-x<.14))continue;
         const face=fold(x,y),segment=segments.find(s=>t<=s.t1)??segments.at(-1);
         const attachment=(t-segment.t0)/(segment.t1-segment.t0);
-        add({kind:'leaf',parent:segment.node.id,attachment,position:face.position,size:parameters.leafSize*range(.8,1.25),shape:3,
+        add({kind:'leaf',parent:segment.node.id,attachment,position:face.position,size:parameters.leafSize*range(.8,1.25),shape:VINE_LEAF_SHAPES[leafIndex],
           orientation:[0,face.yaw,-heading+(side?1:-1)*range(.7,1.25),'YXZ'],offset:[Math.sin(face.yaw)*.025,0,Math.cos(face.yaw)*.025],hue:parameters.leafHue,light:parameters.leafLight+range(-.04,.05),begin:leafBegin,duration:.12});
       }
       if(branching&&i>2&&i%5===0)shoot(end,node,6,heading+(rng()<.5?-1:1)*range(.7,1.2),node.begin+node.duration,.18,false);

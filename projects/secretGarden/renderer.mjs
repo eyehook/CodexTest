@@ -1,3 +1,4 @@
+import {vineLeafGeometry} from './vine-leaf-geometry.mjs?v=170';
 import {mushroomCapGeometry,mushroomSpotGeometry} from './mushroom-geometry.mjs?v=122';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {installPlantPicker} from './plant-picker.mjs?v=40';
@@ -75,7 +76,7 @@ const bloomAxis=new THREE.Vector3(0,0,1),petalHinge=new THREE.Vector3(1,0,0);
 export class PlantRenderer {
   constructor(scene,{batchMature=true}={}) {
     this.scene=scene;this.dummy=new THREE.Object3D();this.direction=new THREE.Vector3();this.bloomQuaternion=new THREE.Quaternion();this.petalQuaternion=new THREE.Quaternion();this.openQuaternion=new THREE.Quaternion();
-    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf3:ivyGeometry(),leaf4:grassGeometry(),leaf5:fernGeometry(),seedHead:seedHeadGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),hydrangea:hydrangeaGeometry(),center:new THREE.IcosahedronGeometry(1,0)};
+    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf3:ivyGeometry(),leaf6:vineLeafGeometry('heart'),leaf7:vineLeafGeometry('oval'),leaf8:vineLeafGeometry('five-lobed'),leaf4:grassGeometry(),leaf5:fernGeometry(),seedHead:seedHeadGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),hydrangea:hydrangeaGeometry(),center:new THREE.IcosahedronGeometry(1,0)};
     for(const form of ['bolete','fly-agaric','chanterelle'])this.geometries['mushroom-'+form]=mushroomCapGeometry(form);
     this.geometries['mushroom-spots']=mushroomSpotGeometry();
     this.geometries.crown.computeVertexNormals();

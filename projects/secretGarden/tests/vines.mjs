@@ -11,7 +11,7 @@ test('wall vines are deterministic, bounded, connected and mature in ten seconds
   for(let seed=0;seed<500;seed++){
     const p=generateVine(seed,bounds);assert.deepEqual(p,generateVine(seed,bounds));
     assert.ok(p.parts.length<MAX_COMPONENTS);const poses=componentPose(p,10);
-    assert.ok(p.parts.some(x=>x.kind==='leaf'&&x.shape===3));
+    assert.ok(p.parts.some(x=>x.kind==='leaf'&&[3,6,7,8].includes(x.shape)));
     for(const part of p.parts){
       assert.equal(growthAmount(part,0),0);assert.equal(growthAmount(part,10),1);
       if(part.parent!==null)assert.ok(part.parent<part.id);
@@ -52,8 +52,8 @@ test('wall vines migrate into mature batches and remain selectable and deletable
   const scene=new THREE.Scene(),r=new PlantRenderer(scene),m=new PlantManager(r,()=>8);
   const wall={type:'wall',yaw:Math.PI,halfLength:4.572,height:3.048,normal:new THREE.Vector3(0,0,-1)};
   const vine=m.plant(new THREE.Vector3(1.4,1,6.858),0,wall);m.update(10);
-  assert.ok(vine.visual.matureSlots.length);assert.ok([...r.matureBatches.pools.values()].some(pool=>pool.key==='leaf3'&&!pool.mesh.castShadow&&pool.mesh.receiveShadow));
-  const mesh=vine.visual.batches.find(x=>x.key==='leaf3').mesh,matrix=new THREE.Matrix4();mesh.getMatrixAt(0,matrix);
+  assert.ok(vine.visual.matureSlots.length);assert.ok([...r.matureBatches.pools.values()].some(pool=>pool.key==='leaf'+vine.structure.parts.find(p=>p.kind==='leaf').shape&&!pool.mesh.castShadow&&pool.mesh.receiveShadow));
+  const mesh=vine.visual.batches.find(x=>x.key==='leaf'+vine.structure.parts.find(p=>p.kind==='leaf').shape).mesh,matrix=new THREE.Matrix4();mesh.getMatrixAt(0,matrix);
   const center=new THREE.Vector3(0,.45,0).applyMatrix4(matrix).applyMatrix4(mesh.matrixWorld);
   const ray=new THREE.Raycaster(center.clone().add(new THREE.Vector3(0,0,-2)),new THREE.Vector3(0,0,1));
   assert.equal(ray.intersectObjects(m.targets,true)[0].object.userData.plantId,vine.id);
@@ -127,4 +127,17 @@ test('flowering vine seeds include single-sphere blooms on outward stalks',()=>{
   }
  }
  assert.ok(spheres>0&&petals>0);
+});
+
+test('vines choose one deterministic leaf form, retained across wall bounds and rendering',()=>{
+ const seen=new Set(),renderer=new PlantRenderer(new THREE.Scene());
+ for(let seed=0;seed<100;seed++){
+  const vine=generateVine(seed,bounds),form=vine.parameters.leafForm;seen.add(form);
+  assert.equal(generateVine(seed,{...bounds,maxY:3}).parameters.leafForm,form);
+  const shapes=new Set(vine.parts.filter(p=>p.kind==='leaf').map(p=>p.shape));assert.equal(shapes.size,1);
+  const shape=[...shapes][0],geometry=renderer.geometries['leaf'+shape];assert.ok(geometry);assert.ok([...geometry.attributes.position.array].every(Number.isFinite));
+  const plant={structure:vine,visual:renderer.create(vine,new THREE.Vector3(),seed)};renderer.update(plant,10);
+  assert.ok(plant.visual.batches.some(batch=>batch.key==='leaf'+shape));renderer.remove(plant.visual);
+ }
+ assert.deepEqual([...seen].sort(),['five-lobed','heart','ivy','oval']);renderer.dispose();
 });
