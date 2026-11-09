@@ -24,7 +24,7 @@ export function generateShrub(parameters,bloom,random){
   if(i===0)baseCanopy=canopy;
   if(parameters.flowers)for(let j=0,n=integer(4,7);j<n;j++){
    const stalk=add({kind:'stem',parent:node.id,attachment:1,start:node.end,end:[...node.end],radius:.003,taper:.48,begin:.52,duration:.1});
-   add({kind:'flower',canopy:canopy.id,parent:stalk.id,attachment:1,position:stalk.end,yaw:range(0,Math.PI*2),size:parameters.flowerSize*range(.4,.65),petals:parameters.petals,shape:parameters.bloomIndex,layers:bloom.layers,volume:bloom.volume??false,normal:[0,1,0],centerScale:bloom.center,hue:parameters.flowerHue,saturation:parameters.flowerSaturation,brightness:parameters.flowerBrightness,begin:.69+range(0,.02),duration:.25});
+   add({kind:'flower',canopy:canopy.id,parent:stalk.id,attachment:1,position:stalk.end,yaw:range(0,Math.PI*2),size:parameters.flowerSize*range(.4,.65),petals:parameters.petals,shape:parameters.bloomIndex,layers:bloom.layers,normal:[0,1,0],centerScale:bloom.center,hue:parameters.flowerHue,saturation:parameters.flowerSaturation,brightness:parameters.flowerBrightness,begin:.69+range(0,.02),duration:.25});
   }
  }
  placeCanopyFlowers(parts,random);return parts;

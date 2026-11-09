@@ -116,17 +116,17 @@ test('vine blooms extend ahead of foliage on short outward growing stalks',()=>{
   assert.ok(flowers>0);
 });
 
-test('flowering vine seeds include single-sphere blooms on outward stalks',()=>{
- let spheres=0,petals=0;
+test('flowering vines use petal blooms on outward stalks',()=>{
+ let petals=0;
  for(let seed=0;seed<300;seed++){
   const p=generateVine(seed,{...bounds,wrapDepth:3});
   for(const flower of p.parts.filter(x=>x.kind==='flower')){
-   if(flower.volume)spheres++;else petals++;
+   assert.ok(flower.petals>0);petals++;
    assert.equal(p.parts[flower.parent].role,'flower-stalk');assert.equal(growthAmount(flower,10),1);
    assert.equal(flower.shape,p.parameters.bloomShape);
   }
  }
- assert.ok(spheres>0&&petals>0);
+ assert.ok(petals>0);
 });
 
 test('vines choose one deterministic leaf form, retained across wall bounds and rendering',()=>{

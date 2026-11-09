@@ -8,7 +8,6 @@ function garden(p){return {instances:new Map([[p.id,p]]),growing:new Set([p]),re
 test('landing points are created only at maturity, with transformed surface positions and normals',()=>{
  const p=plant(1);assert.deepEqual(flowerLandings(p),[]);p.state='mature';const points=flowerLandings(p);
  assert.equal(points.length,100);assert.ok(points[0].position.distanceTo(new THREE.Vector3(1.038,2,2))<1e-8);assert.ok(points[0].normal.distanceTo(new THREE.Vector3(1,0,0))<1e-8);
- p.structure.parts[0].volume=true;assert.ok(Math.abs(flowerLandings(p)[0].position.x-1.33)<1e-8);
 });
 test('exact population survives growth, deletion and reset with mature-only flower targets',()=>{
  const b=new Bees(new THREE.Scene(),()=>.4),p=plant(1),g=garden(p);b.update(g,0);assert.equal(b.landings.length,0);assert.equal(b.bees.length,3);assert.ok(b.bees.every(bee=>bee.target.wall));

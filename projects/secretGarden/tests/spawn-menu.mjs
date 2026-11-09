@@ -27,7 +27,7 @@ test('spawn mode rejects incompatible surfaces without clearing selection or acq
  let calls=0;const manager=new PlantManager({},()=>{calls++;return 1;});manager.chooseType('vine');assert.equal(calls,0);assert.equal(manager.plant(new THREE.Vector3(),0),null);assert.equal(manager.spawnType,'vine');assert.equal(calls,0);manager.chooseType('random');assert.equal(manager.spawnType,null);
 });
 
-test('spawn menu includes only specific plant types and tree forms',()=>{assert.deepEqual(SPAWN_PLANT_TYPES.map(type=>type.id),['flower','bush','grass','seed-grass','fern','vine','bolete','fly-agaric','chanterelle','rounded','pine','columnar','umbrella']);});
+test('spawn menu includes only specific plant types and tree forms',()=>{assert.deepEqual(SPAWN_PLANT_TYPES.map(type=>type.id),['flower','bush','grass','seed-grass','fern','rosette','vine','bolete','fly-agaric','chanterelle','rounded','pine','columnar','umbrella']);});
 
 test('Trees submenu resizes with a fixed lower edge and returns without spawning',()=>{
  const old=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>new Proxy({}, {get:()=>()=>{}})})};

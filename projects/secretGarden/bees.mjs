@@ -1,5 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {componentPose,GROWTH_SECONDS} from './generator.mjs?v=168';
+import {componentPose,GROWTH_SECONDS} from './generator.mjs?v=176';
 import {HALF_WIDTH,HALF_DEPTH,WALL_HEIGHT,DOOR_HEIGHT,doorwayPlantingBlocked} from './garden-layout.mjs?v=46';
 const up=new THREE.Vector3(0,1,0),forward=new THREE.Vector3(0,0,1);
 const smooth=value=>{const t=Math.max(0,Math.min(1,value));return t*t*(3-2*t);};
@@ -9,7 +9,7 @@ export function flowerLandings(plant) {
   const poses=componentPose(plant.structure,GROWTH_SECONDS),yaw=new THREE.Quaternion().setFromAxisAngle(up,plant.rotationY??0),scale=plant.scale??1;
   return plant.structure.parts.filter(p=>p.kind==='flower').map(p=>{
     const normal=new THREE.Vector3().fromArray(p.normal).normalize();
-    const position=new THREE.Vector3().fromArray(poses[p.id].anchor).addScaledVector(normal,p.size*(p.volume?1.65:.19));
+    const position=new THREE.Vector3().fromArray(poses[p.id].anchor).addScaledVector(normal,p.size*.19);
     position.multiplyScalar(scale).applyQuaternion(yaw).add(plant.position);normal.applyQuaternion(yaw);
     return {plantId:plant.id,partId:p.id,position,normal};
   });

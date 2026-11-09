@@ -17,7 +17,7 @@ test('seed sweep is bounded, finite, connected and fully mature at ten seconds',
       if(part.kind==='stem'){part.end.forEach((v,i)=>assert.ok(Math.abs(mature[part.id].end[i]-v)<1e-10));}
     }
   }
-  assert.deepEqual([...forms].sort(),['bush','fern','flower','grass','mushroom','tree']);
+  assert.deepEqual([...forms].sort(),['bush','fern','flower','grass','mushroom','rosette','tree']);
 });
 test('growth poses depend on age, not intermediate frame sequence',()=>{
   const p=generatePlant(88),expected=componentPose(p,4.125);
@@ -49,7 +49,7 @@ test('blooms vary in silhouette, depth, orientation and clustered arrangement',(
     else single++;
     for(const f of flowers){assert.ok(Math.abs(Math.hypot(...f.normal)-1)<1e-9);if(f.normal[1]<0)nodding++;assert.equal(growthAmount(f,10),1);}
   }
-  assert.equal(forms.size,7);assert.ok(clustered>0&&single>0&&nodding>0);
+  assert.equal(forms.size,6);assert.ok(clustered>0&&single>0&&nodding>0);
 });
 
 test('clones sample independent uniform scale without changing the seed structure or compounding parent scale',()=>{

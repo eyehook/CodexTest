@@ -10,6 +10,6 @@ export function vineLeafGeometry(form){
  // Triangulate concave notches rather than filling them with a center fan.
  const positions=geometry.attributes.position;
  for(let i=0;i<positions.count;i++){const y=positions.getY(i),x=positions.getX(i);positions.setZ(i,.06*Math.sin(Math.PI*Math.max(0,y))*Math.max(0,1-Math.abs(x)/.65));}
- if(form==='heart')geometry.scale(.8,.8,.8);
+ if(form==='heart'||form==='oval')geometry.scale(.8,.8,.8);
  geometry.computeVertexNormals();return geometry;
 }

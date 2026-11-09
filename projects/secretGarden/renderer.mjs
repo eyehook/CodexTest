@@ -1,10 +1,11 @@
-import {vineLeafGeometry} from './vine-leaf-geometry.mjs?v=170';
+import {rosetteLeafGeometry} from './rosette-geometry.mjs?v=171';
+import {vineLeafGeometry} from './vine-leaf-geometry.mjs?v=177';
 import {mushroomCapGeometry,mushroomSpotGeometry} from './mushroom-geometry.mjs?v=122';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {installPlantPicker} from './plant-picker.mjs?v=40';
 import {installGrassPicker} from './grass-picker.mjs?v=35';
 import {MatureBatches} from './mature-batches.mjs?v=97';
-import {componentPose,BLOOM_FORMS} from './generator.mjs?v=168';
+import {componentPose,BLOOM_FORMS} from './generator.mjs?v=176';
 const up=new THREE.Vector3(0,1,0);
 function leafGeometry(shape,pointedBase=false) {
   const widths=[.48,.8,.24],w=widths[shape]*(pointedBase?.5:1),shoulder=pointedBase?.65:.45,ridge=pointedBase?.58:.42;
@@ -52,10 +53,6 @@ function seedHeadGeometry() {
   }
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return g;
 }
-function hydrangeaGeometry() {
-  const geometry=new THREE.IcosahedronGeometry(1,1).translate(0,0,.65);
-  geometry.computeVertexNormals();return geometry;
-}
 // Petals have real faceted depth, rather than reusing flat leaf silhouettes.
 function petalGeometry(form) {
   const g=new THREE.BufferGeometry(),vertices=[],indices=[];
@@ -76,7 +73,7 @@ const bloomAxis=new THREE.Vector3(0,0,1),petalHinge=new THREE.Vector3(1,0,0);
 export class PlantRenderer {
   constructor(scene,{batchMature=true}={}) {
     this.scene=scene;this.dummy=new THREE.Object3D();this.direction=new THREE.Vector3();this.bloomQuaternion=new THREE.Quaternion();this.petalQuaternion=new THREE.Quaternion();this.openQuaternion=new THREE.Quaternion();
-    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf3:ivyGeometry(),leaf6:vineLeafGeometry('heart'),leaf7:vineLeafGeometry('oval'),leaf8:vineLeafGeometry('five-lobed'),leaf4:grassGeometry(),leaf5:fernGeometry(),seedHead:seedHeadGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),hydrangea:hydrangeaGeometry(),center:new THREE.IcosahedronGeometry(1,0)};
+    this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf9:rosetteLeafGeometry(),leaf3:ivyGeometry(),leaf6:vineLeafGeometry('heart'),leaf7:vineLeafGeometry('oval'),leaf8:vineLeafGeometry('five-lobed'),leaf4:grassGeometry(),leaf5:fernGeometry(),seedHead:seedHeadGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),center:new THREE.IcosahedronGeometry(1,0)};
     for(const form of ['bolete','fly-agaric','chanterelle'])this.geometries['mushroom-'+form]=mushroomCapGeometry(form);
     this.geometries['mushroom-spots']=mushroomSpotGeometry();
     this.geometries.crown.computeVertexNormals();
@@ -88,7 +85,7 @@ export class PlantRenderer {
     }
     this.geometries.spire.computeVertexNormals();
     this.geometries.pine=this.geometries.pine.toNonIndexed();this.geometries.pine.computeVertexNormals();
-    BLOOM_FORMS.forEach((form,i)=>{if(!form.volume)this.geometries['petal'+i]=petalGeometry(form);});
+    BLOOM_FORMS.forEach((form,i)=>{this.geometries['petal'+i]=petalGeometry(form);});
     this.material=new THREE.MeshStandardMaterial({roughness:.95,side:THREE.DoubleSide});
     this.batchMature=batchMature;this.matureBatches=new MatureBatches(scene,this.geometries,this.material);
   }
@@ -100,7 +97,6 @@ export class PlantRenderer {
       if(p.kind==='stem')put(p.taper===0?'stemPoint':'stem'+Math.round((p.taper-.48)/.095),p);
       else if(p.kind==='foliage')put(p.shape,p);
       else if(p.kind==='leaf')put((structure.parameters.form==='flower'?'leafFlower':'leaf')+p.shape,p);
-      else if(p.volume)put('hydrangea',p);
       else {for(let i=0;i<p.petals*p.layers;i++)put('petal'+p.shape,p,i);put('center',p);}
     }
     const batches=[];
@@ -111,7 +107,7 @@ export class PlantRenderer {
         if(key.startsWith('stem')&&p.hue!==undefined)color.setHSL(p.hue,.2,p.light);
         else if(key.startsWith('stem'))color.set(structure.parameters.form==='tree'?0x6e5940:0x507044);
         else if(key==='center')color.set(p.shape===0?0x79512d:0xe6ba55);
-        else if(key.startsWith('petal')||key==='hydrangea'||p.brightness!==undefined) {
+        else if(key.startsWith('petal')||p.brightness!==undefined) {
           // Seeded HSV brightness, converted to HSL in display (sRGB) space.
           const light=p.brightness*(1-p.saturation/2);
           const saturation=light===0||light===1?0:(p.brightness-light)/Math.min(light,1-light);
@@ -163,9 +159,7 @@ export class PlantRenderer {
         } else {
           this.direction.fromArray(p.normal).normalize();
           this.bloomQuaternion.setFromUnitVectors(bloomAxis,this.direction);
-          if(key==='hydrangea'){
-            this.petalQuaternion.setFromAxisAngle(bloomAxis,p.yaw);d.quaternion.copy(this.bloomQuaternion).multiply(this.petalQuaternion);d.scale.setScalar(p.size*g);
-          } else if(key.startsWith('petal')) {
+          if(key.startsWith('petal')) {
             const layer=Math.floor(petal/p.petals), layerScale=1-layer*.23;
             const a=p.yaw+(petal%p.petals+layer*.5)/p.petals*Math.PI*2;
             this.petalQuaternion.setFromAxisAngle(bloomAxis,a);

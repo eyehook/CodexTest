@@ -1,5 +1,5 @@
 import {flowerHue} from './flower-colors.mjs?v=82';
-import {randomFor,MAX_COMPONENTS,BLOOM_FORMS} from './generator.mjs?v=168';
+import {randomFor,MAX_COMPONENTS,BLOOM_FORMS} from './generator.mjs?v=176';
 
 export const VINE_LEAF_FORMS=['ivy','heart','oval','five-lobed'];
 const VINE_LEAF_SHAPES=[3,6,7,8];
@@ -12,8 +12,7 @@ export function generateVine(seed,bounds) {
   const parameters={form:'vine',surface:'wall',leafHue:range(.24,.38),leafLight:range(.24,.4),
     leafSize:range(.1,.17),flowers:rng()<.38,flowerHue:flowerHue(rng()),flowerSaturation:range(.3,1),flowerBrightness:range(.35,1)};
   const leafIndex=Math.floor(rng()*VINE_LEAF_FORMS.length);parameters.leafForm=VINE_LEAF_FORMS[leafIndex];
-  const sphereForm=BLOOM_FORMS.findIndex(form=>form.volume);
-  parameters.bloomShape=[0,1,2,sphereForm][Math.floor(rng()*4)];
+  parameters.bloomShape=[0,1,2][Math.floor(rng()*3)];
   const parts=[];
   const add=p=>{if(parts.length>=MAX_COMPONENTS)return null;p.id=parts.length;parts.push(p);return p;};
   const width=bounds.maxX-bounds.minX,depth=bounds.wrapDepth;
@@ -106,7 +105,7 @@ export function generateVine(seed,bounds) {
         radius:.003,taper:.58,begin:Math.max(.65,previous.begin+previous.duration),duration:.06});
       if(!stalk)return;
       add({kind:'flower',parent:stalk.id,attachment:1,position:tip,yaw:range(0,6.283),normal,size:range(.045,.085),
-        petals:5+Math.floor(rng()*3),layers:1,shape:parameters.bloomShape,volume:BLOOM_FORMS[parameters.bloomShape].volume??false,centerScale:.2,hue:parameters.flowerHue,saturation:parameters.flowerSaturation,brightness:parameters.flowerBrightness,
+        petals:5+Math.floor(rng()*3),layers:1,shape:parameters.bloomShape,centerScale:.2,hue:parameters.flowerHue,saturation:parameters.flowerSaturation,brightness:parameters.flowerBrightness,
         begin:Math.max(.74,stalk.begin+stalk.duration),duration:.14});
     }
   }

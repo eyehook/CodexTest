@@ -1,6 +1,7 @@
-import {generateMushrooms} from './mushroom-generator.mjs?v=141';
+import {generateRosette} from './rosette-generator.mjs?v=176';
+import {generateMushrooms} from './mushroom-generator.mjs?v=176';
 import {flowerHue} from './flower-colors.mjs?v=82';
-import {generateShrub} from './shrub-generator.mjs?v=134';
+import {generateShrub} from './shrub-generator.mjs?v=176';
 import {placeCanopyFlowers} from './canopy-flowers.mjs?v=134';
 // Pure plant data: meters, local coordinates, explicit attachments, normalized time.
 export const GROWTH_SECONDS = 10;
@@ -19,13 +20,13 @@ export const BLOOM_FORMS = [
   {name:'bell', petals:[5,6], layers:1, width:.5, cup:1.05, center:.1},
   {name:'rosette', petals:[7,9], layers:3, width:.7, cup:.3, center:.13},
   {name:'star', petals:[5,7], layers:1, width:.22, cup:.18, center:.17},
-  {name:'hydrangea', petals:[0,0], layers:1, volume:true},
 ];
 const mix = (a,b,t) => a+(b-a)*t;
 export function generatePlant(seed) {
   seed >>>= 0;
   const rng = randomFor(seed), range = (a,b) => mix(a,b,rng()), integer = (a,b) => Math.floor(range(a,b+1));
-  const form = ['flower','bush','tree','grass','fern','mushroom'][integer(0,5)];
+  const form = ['flower','bush','tree','grass','fern','mushroom','rosette'][integer(0,6)];
+  if(form==='rosette')return {seed,...generateRosette(rng,BLOOM_FORMS)};
   if(form==='mushroom')return {seed,...generateMushrooms(rng)};
   if(form==='fern') {
     const parameters={form,height:range(.4,.8),count:integer(7,11),flowers:false,hue:range(.25,.35),light:range(.25,.36)};
@@ -176,7 +177,7 @@ export function generatePlant(seed) {
         }
         add({kind:'flower',...(canopy?{canopy:canopy.id}:{}),parent:flowerParent.id,attachment:1,position:flowerPosition,
           yaw:range(0,Math.PI*2),size:parameters.flowerSize*(form==='flower'?1:.65)*(clustered?range(.38,.56):1),
-          petals:parameters.petals,shape:bloomIndex,layers:bloom.layers,volume:bloom.volume??false,
+          petals:parameters.petals,shape:bloomIndex,layers:bloom.layers,
           normal,
           centerScale:bloom.center,hue:parameters.flowerHue,saturation:parameters.flowerSaturation,brightness:parameters.flowerBrightness,
           begin:Math.max(.69,flowerParent.begin+flowerParent.duration)+(clustered?range(0,.015):0),

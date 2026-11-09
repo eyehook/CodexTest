@@ -15,7 +15,7 @@ test('shrubs have 1–5 overlapping ellipsoid crowns, visible connecting stems a
   if(shrubs<12){for(const age of [1,3,5,7,10]){const growing=componentPose(p,age);for(const flower of flowers)assert.ok(growing[flower.id].anchor.every((v,i)=>Math.abs(v-growing[flower.parent].end[i])<1e-9),'flowers stay attached throughout growth');}
 const scene=new THREE.Scene(),r=new PlantRenderer(scene),instance={structure:p,visual:r.create(p,new THREE.Vector3(),seed)};r.update(instance,10);assert.ok(instance.visual.batches.some(batch=>batch.key.startsWith('stem')));assert.equal(instance.visual.batches.filter(batch=>batch.key.startsWith('stem')).reduce((sum,batch)=>sum+batch.entries.length,0),stems.length);r.mature(instance);r.flush();assert.ok([...r.matureBatches.pools.values()].some(pool=>pool.key.startsWith('stem')));r.remove(instance.visual);r.dispose();}
  }
- assert.deepEqual([...counts].sort(),[1,2,3,4,5]);assert.ok(shrubs>200&&flowering>30&&plain>100);
+ assert.deepEqual([...counts].sort(),[1,2,3,4,5]);assert.ok(shrubs>150&&flowering>30&&plain>80);
 });
 
 test('shrub branches rise 0–30 degrees and have random azimuths at least 30 degrees apart',()=>{

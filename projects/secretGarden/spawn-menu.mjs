@@ -1,5 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {SPAWN_MENU_ITEMS} from './spawn-plant-types.mjs?v=168';
+import {SPAWN_MENU_ITEMS} from './spawn-plant-types.mjs?v=176';
 export function leftPalmUp(q,wasOpen=false){return 2*(q.x*q.y+q.w*q.z)>(wasOpen ? .55 : .75);}
 export class SpawnMenu {
  constructor(scene,choose,items=SPAWN_MENU_ITEMS){
