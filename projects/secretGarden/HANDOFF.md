@@ -1,10 +1,10 @@
 # The Secret Garden — current handoff
 
-Updated 2026-11-08 for the Version 158 audio release, following `69cc074`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
+Updated 2026-11-08 for the Version 167 audio release, following `69cc074`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
 
 ## Status and working rules
 
-- Buildless static desktop/WebXR garden using local Three.js r180. Version 158 adds locally bundled rain and positional bee audio, the persisted Sound checkbox, flight fades and the XR listener coordinate fix. Mushroom tuning and the visible version label were released in `69cc074`.
+- Buildless static desktop/WebXR garden using local Three.js r180. Version 167 adds locally bundled rain and positional bee audio, the persisted Sound checkbox, flight fades and the XR listener coordinate fix. Mushroom tuning and the visible version label were released in `69cc074`.
 - Read [project instructions](AGENTS.md) and [repository instructions](../../AGENTS.md). Current source and Git state take precedence over documentation.
 - Starts empty unless the latest valid browser garden save autoloads. Plants mature in ten seconds; overlap is allowed and population is uncapped.
 - No plant maintenance, plant collision/spacing enforcement, vegetation wind, wet materials or puddles. Morels, oysters and puffballs are not implemented.
@@ -23,12 +23,12 @@ node --test projects/secretGarden/tests/*.mjs
 
 Open `/projects/secretGarden/`. No install or build is required. For USB Quest preview use [Start-VR.command](../../Start-VR.command), keeping its terminal and authorized USB connection active. WebXR requires trusted localhost or HTTPS.
 
-- Current audio change validation: **144 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating and voice cleanup; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
+- Current validation: **145 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating, voice cleanup and reset-button reactivation after garden edits; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
 - Last implementation validation: **136 garden tests pass**, plus the full root suite including Weather/shared tests, and `git diff --check`.
 - Isolated garden changes need relevant garden checks. Cross-project/shared runtime changes need affected consumers and the root suite per repository policy.
 - Documentation-only changes need content/link checks and `git diff --check`, not runtime tests.
 - If Node is missing from PATH, discover the bundled runtime using the workspace dependency tool. Do not hardcode runtime cache paths in repository scripts.
-- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **158**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 158); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
+- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **167**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 167); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
 
 ## Planting and selection
 
@@ -83,8 +83,9 @@ Rotate the left palm upward to show the menu; use the right ray/trigger to selec
 - Entrance is behind the starting viewer on the +Z wall. A 1.8288 m hallway leads to a roofed 3.6576 × 3.6576 m settings room.
 - Automatic double-action door sits at hallway midpoint `(0,0,7.7724)`, opens away from approach from either side, and closes when the viewer leaves.
 - Room/hall floors are non-plantable; doorway exclusions keep ivy clear. [garden-layout.mjs](garden-layout.mjs) owns layout/containment constants.
+- All three control-room panel boards are vertically centered on the 2.6 m walls (board center 1.3 m); headers show titles only, without subheads. `room-panel-layout.mjs` sizes each board to its rows with .125 m outer padding on every side and .04 m clear vertical gaps between all rows, including headers; controls remain 1.65 m wide within 1.9 m boards. Snap/smooth turn sliders share one row. All three panels and their control skin use `room-panel-theme.mjs` for background, control fill, text, muted text, gold accents, track/border colors and disabled opacity. Save/Load buttons match the other controls’ dark green fill, gold active text and 40% disabled opacity, with muted borders for separation. Save/Load has no footer; save/load feedback is sent to the desktop page status area.
 - Facing Garden Settings: Save/Load is on the left wall, VR Settings on the right.
-- Garden Settings: Shadows, Sound, Bees, Rain, Reset Garden. Sound defaults on and persists independently of garden saves. Reset clears plants and returns to random mode, preserving position, preferences and garden slots.
+- Garden Settings: Shadows, Sound, Bees, Rain, Reset Garden. Sound defaults on and persists independently of garden saves. Reset clears plants and returns to random mode, preserving position, preferences and garden slots. After activation the button reads Garden Reset and is disabled until a planting, deletion or load changes the garden revision; settings, movement and growth do not re-enable it.
 - Room UI reuses shared ControlModel/checkbox/slider mapping and the existing pointer. Hover highlights change material tint without canvas uploads.
 - Shadows default on, use a 1024-pixel map and refresh during shadow-casting growth, scene/door changes or reenable. Static scenes retain cached maps.
 - No explicit foveation control is installed; bundled Three.js keeps its default runtime request.

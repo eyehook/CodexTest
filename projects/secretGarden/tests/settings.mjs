@@ -28,3 +28,11 @@ test('panel faces into the room from the wall opposite the door and shares its m
   panel.checkbox.dispose();panel.beesSlider.dispose();panel.model.dispose();
  }finally{if(old===undefined)delete globalThis.document;else globalThis.document=old;}
 });
+
+test('reset stays disabled after activation until garden contents change',()=>{
+ let revision=5,resets=0;const settings=createShadowSettings(new Scene(),{shadowMap:{enabled:true}},{getGardenRevision:()=>revision,onReset:()=>{resets++;revision++;}}),d=settings.model.definition('reset');
+ assert.equal(settings.model.label(d),'Reset Garden');assert.equal(settings.model.activate('reset'),true);
+ assert.equal(settings.model.label(d),'Garden Reset');assert.equal(settings.model.disabled(d),true);assert.equal(settings.model.activate('reset'),false);assert.equal(resets,1);
+ settings.model.activate('shadows');settings.beginFrame(true);assert.equal(settings.model.disabled(d),true);
+ revision++;settings.beginFrame(false);assert.equal(settings.model.disabled(d),false);assert.equal(settings.model.label(d),'Reset Garden');assert.equal(settings.model.activate('reset'),true);assert.equal(resets,2);
+});

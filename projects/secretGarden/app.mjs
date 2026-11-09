@@ -3,7 +3,7 @@ import {RainAudio} from './rain-audio.mjs?v=142';
 import {GardenRain} from './garden-rain.mjs?v=137';
 import {HandPill} from './hand-pill.mjs?v=109';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {createSettingsPanel} from './settings-panel.mjs?v=142';
+import {createSettingsPanel} from './settings-panel.mjs?v=167';
 import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
@@ -21,8 +21,8 @@ import {GardenSaves} from './garden-saves.mjs?v=141';
 import {Teleport} from './teleport.mjs?v=113';
 import {SnapTurn} from './snap-turn.mjs?v=71';
 import {Preferences} from './preferences.mjs?v=142';
-import {createVRSettings,applyHeightOffset} from './vr-settings.mjs?v=84';
-import {createSavePanel} from './save-panel.mjs?v=84';
+import {createVRSettings,applyHeightOffset} from './vr-settings.mjs?v=166';
+import {createSavePanel} from './save-panel.mjs?v=166';
 document.querySelector('#version').textContent=`Version ${new URL(import.meta.url).searchParams.get('v')}`;
 const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.025,250);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
@@ -30,7 +30,7 @@ const rig=new THREE.Group();scene.add(rig);rig.add(camera);rig.position.z=2.1;ca
 const environment=createEnvironment(scene,renderer,{viewDistance:camera.far}),plants=new PlantManager(new PlantRenderer(scene));
 const bees=new Bees(scene),rain=new GardenRain(scene,environment.clouds,{lighting:environment.weatherLighting});
 const sound=new RainAudio(),beeAudio=new BeeAudio(),audioListenerPose=new THREE.Object3D();
-const settings=createSettingsPanel(scene,renderer,{bees,rain,sound,onReset:()=>{plants.reset();deleteHold.cancel();target=null;marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=deleteFill.visible=false;}});
+const settings=createSettingsPanel(scene,renderer,{bees,rain,sound,getGardenRevision:()=>plants.revision,onReset:()=>{plants.reset();deleteHold.cancel();target=null;marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=deleteFill.visible=false;}});
 const navigation=new Locomotion(rig,{moveSpeed:1,turnSpeed:Math.PI/4}),edges=new ButtonEdges(),frameState=new XRFrameState();
 const snapTurn=new SnapTurn(),teleport=new Teleport(scene),spawnMenu=new SpawnMenu(scene,id=>plants.chooseType(id));
 const pointer=new ControllerPointer({far:25}),desktopRay=new THREE.Raycaster(),mouse=new THREE.Vector2(0,0),keys=new Set();
@@ -65,7 +65,7 @@ function restoreGarden(save){
   plants.restore(save.plants,performance.now()/1000,environment.walls.map(w=>w.userData.wallSurface));
   clearGardenInteraction();const count=bees.count;bees.setCount(0);bees.setCount(count);bees.update(plants,performance.now()/1000);
 }
-const savePanel=createSavePanel(scene,saves,{
+const savePanel=createSavePanel(scene,saves,{onMessage:text=>{status.textContent=text;},
   onSave(index){try{saves.save(index,{plants:plants.snapshot(performance.now()/1000)});savePanel.setMessage('Saved to Slot '+(index+1));}catch{savePanel.setMessage('Save failed. Browser storage may be full or unavailable.');}},
   onLoad(index){try{if(!saves.slots[index])return;restoreGarden(saves.slots[index]);savePanel.setMessage('Loaded Slot '+(index+1));}catch{savePanel.setMessage('Could not load this save.');}}
 });
