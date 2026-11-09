@@ -31,6 +31,16 @@ Before implementing locomotion, controller input/pointers, XR frame/session hand
 
 Shared regression tests live in `tests/shared/` (`npm run test:shared`) and are included in the full root suite. For shared runtime edits, run that suite plus affected consumer checks, including Cloud tests when Clouds is affected. Documentation-only edits follow the link/content checks below.
 
+## XR coordinate-space pitfall
+
+Player movement/rotation and positional audio have both encountered reference-space versus world-space mistakes. Anticipate this when changing locomotion, teleport, head/controller tracking, camera-derived effects or audio listeners:
+
+- WebXR viewer/controller poses are relative to the selected XR reference space. Combine them with the current player rig world transform exactly once before comparing with world-space objects. For an unscaled rig, head world position is `rig.matrixWorld * headLocalPosition`; head world orientation is `rigWorldQuaternion * headLocalQuaternion`. Include physical head offset, rig yaw and configured height offset.
+- Do not assume `renderer.xr.getCamera().getWorldPosition()` / `getWorldQuaternion()` provides the desired player world pose. Three.js's internal XR camera is unparented and its world matrix is managed by the XR renderer; ordinary Object3D world-update methods can overwrite that matrix without the rig transform. Its render-time update can also lag application work. Prefer the current frame's viewer pose composed with the rig for gameplay and audio; use the normal camera world pose for desktop.
+- Update dependent world poses after that frame's movement, snap/smooth turning, containment and teleport actions. Do not use a pose captured before the rig moved or apply rig transforms twice. Use one consistent coordinate space for listener and sound sources, ray targets and destinations.
+- WebXR orientation values are plain `{x,y,z,w}` objects. Copy their components into a Three.js Quaternion before quaternion multiplication; do not pass them directly to methods that expect Three.js Quaternion internals.
+- Validate translated/rotated rigs, nonzero physical head offset, height offset, head rotation and same-frame teleport, plus the desktop fallback. Automated transform checks help catch regressions; headset checks are still required for spatial alignment and audio direction. Secret Garden's `updateAudioListenerPose` in `projects/secretGarden/bee-audio.mjs` and its tests illustrate this approach.
+
 ## Repository and publishing
 
 - Checkout: `/Users/mm/Documents/GitHub/CodexTest`; public remote: https://github.com/eyehook/CodexTest.

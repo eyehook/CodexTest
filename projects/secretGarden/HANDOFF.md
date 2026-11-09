@@ -1,13 +1,13 @@
 # The Secret Garden — current handoff
 
-Updated 2026-11-08 against implementation release `7d078ef`. Includes the current mushroom tuning and visible app version. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
+Updated 2026-11-08 for the Version 158 audio release, following `69cc074`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
 
 ## Status and working rules
 
-- Buildless static desktop/WebXR garden using local Three.js r180. Latest implementation release is `7d078ef` on `main`; current changes tune mushroom counts, spacing, size variation and cap brightness, and add a visible app version.
+- Buildless static desktop/WebXR garden using local Three.js r180. Version 158 adds locally bundled rain and positional bee audio, the persisted Sound checkbox, flight fades and the XR listener coordinate fix. Mushroom tuning and the visible version label were released in `69cc074`.
 - Read [project instructions](AGENTS.md) and [repository instructions](../../AGENTS.md). Current source and Git state take precedence over documentation.
 - Starts empty unless the latest valid browser garden save autoloads. Plants mature in ten seconds; overlap is allowed and population is uncapped.
-- No plant maintenance, plant collision/spacing enforcement, vegetation wind, wet materials, puddles or rain audio. Morels, oysters and puffballs are not implemented.
+- No plant maintenance, plant collision/spacing enforcement, vegetation wind, wet materials or puddles. Morels, oysters and puffballs are not implemented.
 - Implement locally, validate, allow user testing, and commit/push only with current authorization. A previous push request does not authorize later changes.
 - Preserve unrelated work and excluded Blender backups. Do not introduce permanent profiling loops/HUDs without a request.
 - Prior user instruction: do not check GitHub Pages deployment after pushing. Distinguish a verified push from deployment status.
@@ -23,11 +23,12 @@ node --test projects/secretGarden/tests/*.mjs
 
 Open `/projects/secretGarden/`. No install or build is required. For USB Quest preview use [Start-VR.command](../../Start-VR.command), keeping its terminal and authorized USB connection active. WebXR requires trusted localhost or HTTPS.
 
+- Current audio change validation: **144 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating and voice cleanup; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
 - Last implementation validation: **136 garden tests pass**, plus the full root suite including Weather/shared tests, and `git diff --check`.
 - Isolated garden changes need relevant garden checks. Cross-project/shared runtime changes need affected consumers and the root suite per repository policy.
 - Documentation-only changes need content/link checks and `git diff --check`, not runtime tests.
 - If Node is missing from PATH, discover the bundled runtime using the workspace dependency tool. Do not hardcode runtime cache paths in repository scripts.
-- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **141**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 141); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
+- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **158**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 158); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
 
 ## Planting and selection
 
@@ -83,7 +84,7 @@ Rotate the left palm upward to show the menu; use the right ray/trigger to selec
 - Automatic double-action door sits at hallway midpoint `(0,0,7.7724)`, opens away from approach from either side, and closes when the viewer leaves.
 - Room/hall floors are non-plantable; doorway exclusions keep ivy clear. [garden-layout.mjs](garden-layout.mjs) owns layout/containment constants.
 - Facing Garden Settings: Save/Load is on the left wall, VR Settings on the right.
-- Garden Settings: Shadows, Bees, Rain, Reset Garden. Reset clears plants and returns to random mode, preserving position, preferences and garden slots.
+- Garden Settings: Shadows, Sound, Bees, Rain, Reset Garden. Sound defaults on and persists independently of garden saves. Reset clears plants and returns to random mode, preserving position, preferences and garden slots.
 - Room UI reuses shared ControlModel/checkbox/slider mapping and the existing pointer. Hover highlights change material tint without canvas uploads.
 - Shadows default on, use a 1024-pixel map and refresh during shadow-casting growth, scene/door changes or reenable. Static scenes retain cached maps.
 - No explicit foveation control is installed; bundled Three.js keeps its default runtime request.
@@ -113,6 +114,9 @@ Random ground placement equally selects flowers, shrubs, trees, grass, ferns or 
 
 ## Bees and clouds
 
+- `bee-audio.mjs` plays a five-second mono loop derived only from seconds 6–9 of DrDufus's CC0 “Bee buzzing.wav”; see `assets/secretGarden/audio/README.md` for source, license and processing. The requested excerpt is repeated with 300 ms equal-power crossfades and a crossfaded loop boundary; a 120 Hz high-pass suppresses the recurring low-frequency source thump; natural pitch/speed are retained. One decoded buffer is shared by up to ten offset loops; asynchronous loading retries after five seconds on failure. HRTF panners follow bee world positions, with linear attenuation from .5 m to silence at 6 m. Listener pose composes current XR viewer and rig after movement/teleport, or desktop camera world pose. Peak flight gain is .0675, with .35-second takeoff and .65-second approach fades (bounded for short flights), plus 25 ms smoothing. Sound checkbox, hidden/inactive muting, and removed-voice cleanup apply. Synthetic generation is removed. Listening validation is still required for the edited sample seam, loudness and headset positioning.
+
+
 - Bees are an exact population of 0–10, default 3, independent of bloom count. Zero hides both batches and skips animation.
 - Bees prefer mature flowers, otherwise random inward-facing wall spots outside the doorway. Flight is curved/darting, touchdown aligns to surfaces, rests last 2–5 s. Object intersection is allowed.
 - Body/wing batches use two instanced draws without cast/received shadows. Plant reset/deletion preserves population and updates targets.
@@ -120,6 +124,9 @@ Random ground placement equally selects flowers, shrubs, trees, grass, ferns or 
 - Phases, tracks, sizes and heights vary. Clouds lower fully behind walls at path ends before recycling; motion continues during rain.
 
 ## Rain and lighting
+
+- `rain-audio.mjs` loops the locally bundled CC0 Rainfall recording by colorsCrimsonTears; source/license in `assets/secretGarden/audio/README.md`. One Web Audio buffer source loops continuously; gain follows rain intensity (0–1) with 80 ms smoothing. Sound off or inactive/hidden rendering mutes it. Click, keypress or XR entry unlocks audio; failed loads retry on the next gesture. Desktop/Quest listening and loop seam review remain manual checks. Settings version 6 discards obsolete settings under development policy; garden version remains 29.
+
 
 Five-stop room slider, default Sometimes. Fresh default sessions start clear.
 
@@ -154,13 +161,13 @@ Light changes affect uniforms only; sun pose and shadow policy stay fixed. Effec
 
 ## Saves and preferences
 
-- Current **SAVE_VERSION=29**, **SETTINGS_VERSION=5**. Sources: [garden-saves.mjs](garden-saves.mjs), [preferences.mjs](preferences.mjs).
+- Current **SAVE_VERSION=29**, **SETTINGS_VERSION=6**. Sources: [garden-saves.mjs](garden-saves.mjs), [preferences.mjs](preferences.mjs).
 - Support current versions only. Bump the relevant version for incompatible changes; retain stable keys, delete only mismatched records, and do not add legacy generators/deserializers/migrations.
 - User authorizes development bumps and obsolete-record deletion without further approval until explicitly requesting save compatibility tracking; see AGENTS.md.
 - Three slots store plant seeds, placement/surface constraints, yaw, clone scale and growth age. Latest saved valid slot autoloads. Manual Load preserves viewer position; Empty cannot load. Reset does not delete slots.
 - Garden prefix `secretGarden.save.v1.`; settings key `secretGarden.settings.v1`. Payload-version bumps do not rename keys.
-- Preferences independently store Shadows, Bees, Rain and VR comfort/movement. Debounce 250 ms, flush on page exit. Garden Save/Load/Reset does not change preferences.
-- Defaults: shadows on, bees 3, rain Sometimes, height offset 0, move speed 1, turn speed 45, teleport on, snap on, snap angle 30.
+- Preferences independently store Shadows, Sound, Bees, Rain and VR comfort/movement. Debounce 250 ms, flush on page exit. Garden Save/Load/Reset does not change preferences.
+- Defaults: shadows on, sound on, bees 3, rain Sometimes, height offset 0, move speed 1, turn speed 45, teleport on, snap on, snap angle 30.
 - Storage is local to browser/device/origin; preview and Pages are separate. Errors preserve existing durable data and show panel feedback.
 
 ## Architecture and performance

@@ -1,7 +1,9 @@
+import {BeeAudio,updateAudioListenerPose} from './bee-audio.mjs?v=158';
+import {RainAudio} from './rain-audio.mjs?v=142';
 import {GardenRain} from './garden-rain.mjs?v=137';
 import {HandPill} from './hand-pill.mjs?v=109';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {createSettingsPanel} from './settings-panel.mjs?v=133';
+import {createSettingsPanel} from './settings-panel.mjs?v=142';
 import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
@@ -18,7 +20,7 @@ import {SpawnMenu} from './spawn-menu.mjs?v=141';
 import {GardenSaves} from './garden-saves.mjs?v=141';
 import {Teleport} from './teleport.mjs?v=113';
 import {SnapTurn} from './snap-turn.mjs?v=71';
-import {Preferences} from './preferences.mjs?v=127';
+import {Preferences} from './preferences.mjs?v=142';
 import {createVRSettings,applyHeightOffset} from './vr-settings.mjs?v=84';
 import {createSavePanel} from './save-panel.mjs?v=84';
 document.querySelector('#version').textContent=`Version ${new URL(import.meta.url).searchParams.get('v')}`;
@@ -27,7 +29,8 @@ const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(
 const rig=new THREE.Group();scene.add(rig);rig.add(camera);rig.position.z=2.1;camera.position.set(0,1.6,0);camera.rotation.x=-.22;
 const environment=createEnvironment(scene,renderer,{viewDistance:camera.far}),plants=new PlantManager(new PlantRenderer(scene));
 const bees=new Bees(scene),rain=new GardenRain(scene,environment.clouds,{lighting:environment.weatherLighting});
-const settings=createSettingsPanel(scene,renderer,{bees,rain,onReset:()=>{plants.reset();deleteHold.cancel();target=null;marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=deleteFill.visible=false;}});
+const sound=new RainAudio(),beeAudio=new BeeAudio(),audioListenerPose=new THREE.Object3D();
+const settings=createSettingsPanel(scene,renderer,{bees,rain,sound,onReset:()=>{plants.reset();deleteHold.cancel();target=null;marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=deleteFill.visible=false;}});
 const navigation=new Locomotion(rig,{moveSpeed:1,turnSpeed:Math.PI/4}),edges=new ButtonEdges(),frameState=new XRFrameState();
 const snapTurn=new SnapTurn(),teleport=new Teleport(scene),spawnMenu=new SpawnMenu(scene,id=>plants.chooseType(id));
 const pointer=new ControllerPointer({far:25}),desktopRay=new THREE.Raycaster(),mouse=new THREE.Vector2(0,0),keys=new Set();
@@ -51,11 +54,11 @@ const status=document.querySelector('#status');
 const storage={getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value),removeItem:key=>localStorage.removeItem(key)};
 const preferences=new Preferences(storage),saves=new GardenSaves(storage);
 const vrValues={...preferences.value},vrSettings=createVRSettings(scene,vrValues,navigation);
-settings.model.set('shadows',preferences.value.shadows);settings.model.set('bees',preferences.value.bees);settings.model.set('rain',preferences.value.rain);
+settings.model.set('sound',preferences.value.sound);settings.model.set('shadows',preferences.value.shadows);settings.model.set('bees',preferences.value.bees);settings.model.set('rain',preferences.value.rain);
 let settingsTimer=null;
-function persistSettings(){clearTimeout(settingsTimer);settingsTimer=null;try{preferences.save({...vrValues,shadows:renderer.shadowMap.enabled,bees:bees.count,rain:rain.level});}catch{savePanel.setMessage('Settings could not be saved');}}
+function persistSettings(){clearTimeout(settingsTimer);settingsTimer=null;try{preferences.save({...vrValues,shadows:renderer.shadowMap.enabled,sound:sound.enabled,bees:bees.count,rain:rain.level});}catch{savePanel.setMessage('Settings could not be saved');}}
 function scheduleSettingsSave(){clearTimeout(settingsTimer);settingsTimer=setTimeout(persistSettings,250);}
-settings.model.onChange=id=>{if(id==='shadows'||id==='bees'||id==='rain')scheduleSettingsSave();};vrSettings.model.onChange=id=>{if(id==='teleport')teleport.reset();snapTurn.reset();scheduleSettingsSave();};
+settings.model.onChange=id=>{if(id==='sound'||id==='shadows'||id==='bees'||id==='rain')scheduleSettingsSave();};vrSettings.model.onChange=id=>{if(id==='teleport')teleport.reset();snapTurn.reset();scheduleSettingsSave();};
 window.addEventListener('pagehide',()=>{if(settingsTimer!==null)persistSettings();});
 function clearGardenInteraction(){deleteHold.cancel();target=null;desktopSlider=vrSlider=null;marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=deleteFill.visible=false;}
 function restoreGarden(save){
@@ -100,13 +103,16 @@ renderer.domElement.addEventListener('pointercancel',()=>{drag=null;desktopSlide
 window.addEventListener('keydown',e=>{if(e.target.closest('button'))return;keys.add(e.code);if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();if(!e.repeat&&!renderer.xr.isPresenting){if(e.code==='KeyB')perform('copy',target);if(e.code==='KeyX')perform('delete',target);if(e.code==='Space'){e.preventDefault();perform('plant',target);};}});
 window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=null;desktopSlider=null;});
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-renderer.xr.addEventListener('sessionstart',()=>{document.body.classList.add('xr');edges.reset();spawnMenu.hide();teleport.reset();snapTurn.reset();desktopSlider=vrSlider=null;activeController.hand='right';activeController.enabled=true;deleteHold.cancel();keys.clear();marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=false;});
+window.addEventListener('pointerdown',()=>sound.unlock());
+window.addEventListener('keydown',()=>sound.unlock());
+document.addEventListener('visibilitychange',()=>{if(document.hidden){sound.update(rain.cycle.intensity,false);beeAudio.mute();}});
+renderer.xr.addEventListener('sessionstart',()=>{sound.unlock();document.body.classList.add('xr');edges.reset();spawnMenu.hide();teleport.reset();snapTurn.reset();desktopSlider=vrSlider=null;activeController.hand='right';activeController.enabled=true;deleteHold.cancel();keys.clear();marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=false;});
 renderer.xr.addEventListener('sessionend',()=>{document.body.classList.remove('xr');edges.reset();spawnMenu.hide();teleport.reset();snapTurn.reset();rig.position.y=0;vrSlider=null;deleteHold.cancel();deleteFill.visible=false;camera.position.set(0,1.6,0);camera.rotation.set(-.22,0,0);for(const c of controllers){c.line.visible=false;c.hand.update(null,false);}});
 try{document.body.append(VRButton.createButton(renderer));}catch(error){status.textContent=`VR unavailable: ${error.message}`;}
 renderer.setAnimationLoop((time,frame)=>{
   const dt=last?Math.min((time-last)/1000,.05):0;last=time;now=time/1000;
   const session=renderer.xr.getSession(),state=frameState.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden);
-  if(!state.active){spawnMenu.hide();teleport.reset();snapTurn.reset();vrSlider=null;desktopSlider=null;deleteHold.cancel();deleteFill.visible=false;for(const c of controllers){c.line.visible=false;c.hand.update(null,false);}marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=false;return;}
+  if(!state.active){beeAudio.mute();sound.update(rain.cycle.intensity,false);spawnMenu.hide();teleport.reset();snapTurn.reset();vrSlider=null;desktopSlider=null;deleteHold.cancel();deleteFill.visible=false;for(const c of controllers){c.line.visible=false;c.hand.update(null,false);}marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=false;return;}
   applyHeightOffset(rig,vrValues,!!session);
   if(session){
     const viewer=state.pose.transform;let palmPose=null;for(const source of session.inputSources)if(source.handedness==='left'&&source.gamepad?.mapping==='xr-standard'&&source.gripSpace)palmPose=frame.getPose(source.gripSpace,renderer.xr.getReferenceSpace());spawnMenu.update(palmPose,rig,viewer.position);
@@ -117,7 +123,7 @@ renderer.setAnimationLoop((time,frame)=>{
   const viewerPosition=viewerWorld.copy(session?state.pose.transform.position:camera.position);
   rig.updateMatrixWorld(true);viewerPosition.applyMatrix4(rig.matrixWorld);
   const doorChanged=environment.room.update(dt,viewerPosition);
-  environment.clouds.update(dt);rain.update(dt,viewerPosition);
+  environment.clouds.update(dt);rain.update(dt,viewerPosition);sound.update(rain.cycle.intensity);
   settings.beginFrame(doorChanged||plants.hasGrowingShadows||shadowRevision!==plants.shadowRevision);shadowRevision=plants.shadowRevision;plants.update(now);bees.update(plants,now);scene.updateMatrixWorld();target=null;
   if(session){
     edges.retain(session.inputSources);
@@ -162,7 +168,7 @@ renderer.setAnimationLoop((time,frame)=>{
     deleteFill.visible=deleteHold.progress>0&&target?.kind==='plant';
     if(deleteFill.visible){const selected=plants.instances.get(target.id);placeIndicator(deleteFill,selected.position,selected.support?.normal??groundNormal,.014);deleteFill.geometry.setDrawRange(0,Math.floor(deleteHold.progress*64)*3);}
   }else{deleteHold.cancel();deleteFill.visible=false;for(const c of controllers){c.line.visible=false;c.hand.update(null,false);}desktopRay.setFromCamera(mouse,camera);target=targetFrom(desktopRay);}
-  settings.setHover(target?.kind==='control'?target.control:null);savePanel.setHover(target?.kind==='control'?target.control:null);vrSettings.setHover(target?.kind==='control'?target.control:null);showTarget(target);updateHUD();renderer.render(scene,camera);
+  settings.setHover(target?.kind==='control'?target.control:null);savePanel.setHover(target?.kind==='control'?target.control:null);vrSettings.setHover(target?.kind==='control'?target.control:null);showTarget(target);updateHUD();updateAudioListenerPose(audioListenerPose,camera,rig,session?state.pose.transform:null);beeAudio.update(sound.context,bees.bees,audioListenerPose,sound.enabled,true,now);renderer.render(scene,camera);
 });
 // Read-only diagnostic access for local acceptance checks.
-window.secretGarden={scene,renderer,camera,rig,plants,environment,settings,bees,rain,saves,savePanel,vrSettings,vrValues,preferences,teleport,spawnMenu,spawnIcon,cloneIcon,controllers};
+window.secretGarden={scene,renderer,camera,rig,plants,environment,settings,bees,rain,sound,beeAudio,saves,savePanel,vrSettings,vrValues,preferences,teleport,spawnMenu,spawnIcon,cloneIcon,controllers};

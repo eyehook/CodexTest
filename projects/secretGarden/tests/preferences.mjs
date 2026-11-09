@@ -53,3 +53,5 @@ test('Teleport checkbox disables movement speed without changing its saved value
 test('fresh VR defaults enable teleport and 30-degree snap turning while saved choices remain authoritative',()=>{
  const d=disk(),prefs=new Preferences(d);assert.equal(prefs.value.teleport,true);assert.equal(prefs.value.snapTurn,true);assert.equal(prefs.value.snapAngle,30);prefs.save({...prefs.value,teleport:false,snapTurn:false});const saved=new Preferences(d);assert.equal(saved.value.teleport,false);assert.equal(saved.value.snapTurn,false);
 });
+
+test('sound preference persists and requires a boolean',()=>{const d=disk(),prefs=new Preferences(d);assert.equal(prefs.value.sound,true);prefs.save({...prefs.value,sound:false});assert.equal(new Preferences(d).value.sound,false);assert.throws(()=>prefs.save({...prefs.value,sound:1}));});
