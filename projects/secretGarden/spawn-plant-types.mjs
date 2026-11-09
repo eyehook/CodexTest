@@ -1,9 +1,10 @@
-import {generatePlant} from './generator.mjs?v=176';
+import {generatePlant} from './generator.mjs?v=198';
 export const SPAWN_MENU_ITEMS=[
  {id:'flower',label:'Flowers',form:'flower'}, {id:'bush',label:'Shrubs',form:'bush'},
  {label:'Grass',children:[{id:'grass',label:'Grass',form:'grass',seedHeads:false}, {id:'seed-grass',label:'Seeded grass',form:'grass',seedHeads:true}]}, {id:'fern',label:'Ferns',form:'fern'}, {id:'rosette',label:'Rosettes',form:'rosette'}, {id:'vine',label:'Ivy',surface:'wall'},
  {label:'Mushrooms',children:[['bolete','Bolete'],['fly-agaric','Fly agaric'],['chanterelle','Chanterelle']].map(([mushroomForm,label])=>({id:mushroomForm,label,form:'mushroom',mushroomForm}))},
- {label:'Trees',children:[['rounded','Rounded'],['pine','Pine'],['columnar','Cypress'],['umbrella','Umbrella']].map(([treeForm,label])=>({id:treeForm,label,form:'tree',treeForm}))}
+ {label:'Trees',children:[['rounded','Rounded'],['pine','Pine'],['columnar','Cypress'],['umbrella','Umbrella']].map(([treeForm,label])=>({id:treeForm,label,form:'tree',treeForm}))},
+ {id:'random',label:'Random'}
 ];
 export function flattenSpawnItems(items){return items.flatMap(item=>item.children?flattenSpawnItems(item.children):[item]);}
 export const SPAWN_PLANT_TYPES=flattenSpawnItems(SPAWN_MENU_ITEMS);

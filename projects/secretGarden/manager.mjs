@@ -1,8 +1,8 @@
 import {GardenPicker} from './garden-picker.mjs?v=97';
 import {Vector3} from '../../shared/vendor/three-r180/three.module.js';
-import {selectPlantSeed,SPAWN_PLANT_TYPES} from './spawn-plant-types.mjs?v=176';
-import {generatePlant,GROWTH_SECONDS} from './generator.mjs?v=176';
-import {generateVine} from './vine-generator.mjs?v=176';
+import {selectPlantSeed,SPAWN_PLANT_TYPES} from './spawn-plant-types.mjs?v=198';
+import {generatePlant,GROWTH_SECONDS} from './generator.mjs?v=198';
+import {generateVine} from './vine-generator.mjs?v=198';
 import {doorwayPlantingBlocked,gardenGroundContains,vineDoorExclusion} from './garden-layout.mjs?v=182';
 export class PlantManager {
   constructor(renderer,randomSeed=()=>crypto.getRandomValues(new Uint32Array(1))[0],randomRotation=()=>Math.random()*Math.PI*2,randomScale=()=>.8+Math.random()*.4) {
@@ -12,9 +12,11 @@ export class PlantManager {
   canSpawn(surface='ground'){return this.spawnType!==null&&(this.spawnType==='vine'?'wall':'ground')===surface;}
   canClone(surface='ground') {return this.clonedSeed!==null&&(this.clonedSurface??'ground')===surface;}
   plant(position,now,surface=null) {
-    const type=surface?.type??'ground',cloning=this.canClone(type),spawning=this.canSpawn(type);
-    if(this.spawnType!==null&&!spawning)return null;
+    const type=surface?.type??'ground';
     if(type==='ground'&&!gardenGroundContains(position)||type==='wall'&&doorwayPlantingBlocked(position)||!['ground','wall'].includes(type))return null;
+    if(type==='wall'&&this.spawnType!=='vine'&&!this.canClone(type))this.chooseType('random');
+    else if(type==='ground'&&(this.spawnType==='vine'||this.clonedSurface==='wall'))this.chooseType('random');
+    const cloning=this.canClone(type),spawning=this.canSpawn(type);
     const seed=spawning?selectPlantSeed(this.spawnType,this.randomSeed,this.lastSpawnSeed).seed:cloning?this.clonedSeed:this.randomSeed(),id=this.nextId++;
     let structure,rotationY,scale,placement=position.clone();
     if(type==='wall') {

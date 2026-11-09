@@ -1,10 +1,10 @@
 # The Secret Garden — current handoff
 
-Updated 2026-11-09 for Version 192 hallway/frame update, following stone/audio release `067e726`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
+Updated 2026-11-09 for Version 203 spawn-menu header removal, following stone/audio release `067e726`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
 
 ## Status and working rules
 
-- Buildless static desktop/WebXR garden using local Three.js r180. Version 192 shortens the hallway to two feet with its door centered and gives the exterior frame brown wooden trim. Stone walls and Quest audio recovery were released in `067e726`; garden saves remain at version 37. Rosettes and spherical-bloom removal were released in `efdccf3`. Vine leaf varieties were released in `4ca165d`. Open leaf tree removal was released in `3f2e3b5`. Panel updates were released in `cb68928`; audio was released in `ba18b7d`.
+- Buildless static desktop/WebXR garden using local Three.js r180. Version 193 replaces shrubs with single-trunk sphere/rounded-teardrop canopies. Version 192 shortens the hallway to two feet with its door centered and gives the exterior frame brown wooden trim. Stone walls and Quest audio recovery were released in `067e726`; garden saves are now version 40. Rosettes and spherical-bloom removal were released in `efdccf3`. Vine leaf varieties were released in `4ca165d`. Open leaf tree removal was released in `3f2e3b5`. Panel updates were released in `cb68928`; audio was released in `ba18b7d`.
 - Read [project instructions](AGENTS.md) and [repository instructions](../../AGENTS.md). Current source and Git state take precedence over documentation.
 - Starts empty unless the latest valid browser garden save autoloads. Plants mature in ten seconds; overlap is allowed and population is uncapped.
 - No plant maintenance, plant collision/spacing enforcement, vegetation wind, wet materials or puddles. Morels, oysters and puffballs are not implemented.
@@ -23,12 +23,12 @@ node --test projects/secretGarden/tests/*.mjs
 
 Open `/projects/secretGarden/`. No install or build is required. For USB Quest preview use [Start-VR.command](../../Start-VR.command), keeping its terminal and authorized USB connection active. WebXR requires trusted localhost or HTTPS.
 
-- Current validation: **155 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating, voice cleanup, rosette generation/spike-only flowers/cloning/batching/bee landings and reset-button reactivation after garden edits; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
+- Current validation: **156 garden tests pass**, including replacement shrub determinism, both mesh varieties, surface flower placement, growth attachment, raycasting and mature batching, plus rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating, voice cleanup, rosette generation/spike-only flowers/cloning/batching/bee landings and reset-button reactivation after garden edits; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
 - Last implementation validation: **136 garden tests pass**, plus the full root suite including Weather/shared tests, and `git diff --check`.
 - Isolated garden changes need relevant garden checks. Cross-project/shared runtime changes need affected consumers and the root suite per repository policy.
 - Documentation-only changes need content/link checks and `git diff --check`, not runtime tests.
 - If Node is missing from PATH, discover the bundled runtime using the workspace dependency tool. Do not hardcode runtime cache paths in repository scripts.
-- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **192**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 192); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
+- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **203**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 203); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
 
 ## Planting and selection
 
@@ -58,12 +58,13 @@ Rotate the left palm upward to show the menu; use the right ray/trigger to selec
 | Ivy | Wall-only placement |
 | Mushrooms > | Bolete, Fly agaric, Chanterelle |
 | Trees > | Rounded, Pine, Cypress, Umbrella |
+| Random | Fresh random ground plant per placement |
 
-- Every submenu ends with **< Back**. No Random option appears; normal controls return to random planting.
+- Every submenu ends with **< Back**. Random is the last root item; normal controls also return to random planting.
 - [spawn-plant-types.mjs](spawn-plant-types.mjs) defines generic nested `children` arrays and derives flattened selectable types for seed matching and validation.
 - [spawn-menu.mjs](spawn-menu.mjs) supports arbitrary nesting, parent navigation, panel resizing and disposal of superseded textures/geometries. Its lower edge stays one inch above the controller pill top.
-- Navigation does not spawn or change selection. Selecting a type produces a fresh matching seed on each placement.
-- Incompatible surfaces preserve spawn selection without planting. Copying a plant switches to clone mode.
+- Navigation does not spawn or change selection. Selecting a type produces a fresh matching seed on each placement. The current item highlights directly; there is no current-mode header or reserved header space. On opening, it reveals the selected item, navigating directly into its submenu when needed; current selection updates after automatic mode changes, copying, clearing and resetting. Hover remains a material overlay without texture uploads.
+- Planting a selected ground type on a wall changes the mode to Random and plants a random vine immediately. Random remains surface-aware and plants vines on walls or random ground plants on ground. Planting in Ivy mode on ground changes to Random and plants a random ground plant immediately. Merely aiming does not change modes. Copying a plant switches to clone mode.
 - Menu interaction takes priority over world actions, locomotion and teleport, then restores normal pointer behavior.
 
 ## Movement, controllers and teleport
@@ -97,6 +98,9 @@ Rotate the left palm upward to show the menu; use the right ray/trigger to selec
 
 ## Plants and generation
 
+- Version 193 replaces the old multi-canopy shrub generator. `shrub-profile.mjs` shares the analytic profile between flower placement and two reusable 120-triangle lathed canopy meshes (10 radial sides × 6 profile segments). Shrubs retain the lathe mesh’s smooth normals; all ellipsoid tree crowns (rounded, umbrella and cypress) preserve radial sphere normals for smooth lighting, transformed correctly by their instance scales. Both varieties retain ten-second growth, cloning, exact mesh picking and mature instancing. SAVE_VERSION=40 invalidates obsolete garden records; settings remain version 6. New shrub appearance and sustained Quest performance need headset review.
+
+
 - Spherical hydrangea blooms and their specialized rendering/bee-target code are removed. Six petal-based bloom forms remain across generators. Save version 37 invalidates obsolete garden saves under development policy.
 
 
@@ -116,7 +120,7 @@ Random ground placement equally selects flowers, shrubs, trees, grass, ferns, mu
 | Family | Current behavior |
 | --- | --- |
 | Flowers | Daisy, buttercup, lily, bell, rosette and star. Single/clustered blooms; terminal stalks flower. Bloom axes and bee landing normals follow supporting stems. |
-| Shrubs | 1–5 overlapping ellipsoids, visible trunks/branches/flower stalks, no individual leaves. Initial stalk 2–6 inches; foliage may intersect ground. Branch azimuths differ by at least 30° and rise 0–30° above horizontal. |
+| Shrubs | One upright central trunk and one continuous canopy, equally seeded as a sphere or rounded teardrop. Mature ground-to-canopy-top height: sphere 2–3 ft (.6096–.9144 m), teardrop 2.5–3.5 ft (.762–1.0668 m), excluding blossom protrusion. Height is sampled directly, then canopy radius is derived; teardrop vertical half-height remains 1.35× radius. Clone scaling remains 80–120% of nominal size. Foliage clears the ground by .08–.16 m. A 30% flowering chance places 8–14 outward-facing blooms on the actual curved surface, with supporting flower stalks. Trunk and flower stalks use the same brown #6e5940 as tree stems. No woody side branches or individual leaves. |
 | Trees | Rounded/umbrella ellipsoids, layered pine and stacked rounded-tier cypress. Cypress trunks and ellipsoids have zero tilt. Pine/cypress do not flower. |
 | Grass | Irregular rounded 320–460-blade patches with taller centers. Half add 6–12 seeded stalks .65–1.05 m tall. No grass components cast/receive shadows. |
 | Ferns | 7–11 radial arching fronds, one shared 120-triangle mesh each with twelve leaflet pairs. Fixed orientation throughout growth; stalk ends at the last pair. No curled-fiddlehead simulation. |
@@ -127,7 +131,7 @@ Random ground placement equally selects flowers, shrubs, trees, grass, ferns, mu
 - Flower colors exclude greenish hues 70–170° across flowers/shrubs/trees/ivy. Mushroom colors cover the full range.
 - Standalone flower leaves attach at their sharp base, point 0–60° from the supporting stem, and range .0748125–.149625 m before scaling.
 - Single flower stalk lean is 0–10°. Multiple stalks use correlated lean/radial spacing. Tree flower budget is 30 blooms; petals are bounded to thirteen per ring and three layers.
-- Rounded/umbrella tree and shrub flowers occupy exposed canopy surfaces, accounting for overlap. If the final ellipsoid belongs to another branch, the flower stalk adopts that branch's attachment/start/timing. Parent/canopy IDs are reordered afterward to preserve growth dependencies.
+- Rounded/umbrella tree flowers occupy exposed canopy surfaces, accounting for overlap. Shrub flowers use the shared sphere/teardrop profile and its surface normals. If the final ellipsoid belongs to another branch, the flower stalk adopts that branch's attachment/start/timing. Parent/canopy IDs are reordered afterward to preserve growth dependencies.
 - Mushroom cluster base hue/saturation sample uniformly from [0,1] and brightness from [.20,1]; specimen variations are ±.07 hue, ±.18 saturation and ±.20 brightness. Hue wraps; saturation/brightness reflect at boundaries. Cap brightness is clamped to a minimum of 20% after specimen variation. Stalks/spots remain pale accents.
 - Mushroom stalk height is nominally .10–.30 m before per-specimen size variation of .48–1.48×. Mushroom caps/spots use shared geometry; mushrooms are not bee flower targets.
 
@@ -139,12 +143,13 @@ Random ground placement equally selects flowers, shrubs, trees, grass, ferns, mu
 - Bees are an exact population of 0–10, default 3, independent of bloom count. Zero hides both batches and skips animation.
 - Bees prefer mature flowers, otherwise random inward-facing wall spots outside the doorway. Flight is curved/darting, touchdown aligns to surfaces, rests last 2–5 s. Object intersection is allowed.
 - Body/wing batches use two instanced draws without cast/received shadows. Plant reset/deletion preserves population and updates targets.
+- Cloud lobes use smooth ellipsoid normals and smoothly interpolated baked lighting. Mushroom spots and flower centers also use smooth normals; pine foliage remains flat shaded. Triangle counts and geometry silhouettes are unchanged.
 - Ten clouds share one instanced draw, have no shadows and traverse west to east over thirty minutes.
 - Phases, tracks, sizes and heights vary. Clouds lower fully behind walls at path ends before recycling; motion continues during rain.
 
 ## Rain and lighting
 
-- `rain-audio.mjs` loops the locally bundled CC0 Rainfall recording by colorsCrimsonTears; source/license in `assets/secretGarden/audio/README.md`. One Web Audio buffer source loops continuously; gain follows rain intensity (0–1) with 80 ms smoothing. Sound off or inactive/hidden rendering mutes it. Click, keypress, XR entry, controller select/squeeze, Sound reenable and return to visible state retry audio unlock; active suspended/interrupted contexts also retry resume at most once per second. XR event listeners are removed on session end; failed loads retry on the next gesture. User reported both sounds returned after restarting the Quest browser; the original silence was not confirmed as an application bug, and the new recovery paths still need headset validation. Desktop/Quest listening and loop seam review remain manual checks. Settings version 6 discards obsolete settings under development policy; garden version is 37.
+- `rain-audio.mjs` loops the locally bundled CC0 Rainfall recording by colorsCrimsonTears; source/license in `assets/secretGarden/audio/README.md`. One Web Audio buffer source loops continuously; gain follows rain intensity (0–1) with 80 ms smoothing. Sound off or inactive/hidden rendering mutes it. Click, keypress, XR entry, controller select/squeeze, Sound reenable and return to visible state retry audio unlock; active suspended/interrupted contexts also retry resume at most once per second. XR event listeners are removed on session end; failed loads retry on the next gesture. User reported both sounds returned after restarting the Quest browser; the original silence was not confirmed as an application bug, and the new recovery paths still need headset validation. Desktop/Quest listening and loop seam review remain manual checks. Settings version 6 discards obsolete settings under development policy; garden version is 40.
 
 
 Five-stop room slider, default Sometimes. Fresh default sessions start clear.
@@ -180,7 +185,7 @@ Light changes affect uniforms only; sun pose and shadow policy stay fixed. Effec
 
 ## Saves and preferences
 
-- Current **SAVE_VERSION=37**, **SETTINGS_VERSION=6**. Sources: [garden-saves.mjs](garden-saves.mjs), [preferences.mjs](preferences.mjs).
+- Current **SAVE_VERSION=40**, **SETTINGS_VERSION=6**. Sources: [garden-saves.mjs](garden-saves.mjs), [preferences.mjs](preferences.mjs).
 - Support current versions only. Bump the relevant version for incompatible changes; retain stable keys, delete only mismatched records, and do not add legacy generators/deserializers/migrations.
 - User authorizes development bumps and obsolete-record deletion without further approval until explicitly requesting save compatibility tracking; see AGENTS.md.
 - Three slots store plant seeds, placement/surface constraints, yaw, clone scale and growth age. Latest saved valid slot autoloads. Manual Load preserves viewer position; Empty cannot load. Reset does not delete slots.

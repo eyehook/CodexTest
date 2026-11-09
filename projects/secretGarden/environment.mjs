@@ -1,7 +1,7 @@
 import {createStoneFacing} from './stone-wall.mjs?v=182';
 import {WeatherLighting} from './weather-lighting.mjs?v=129';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {CloudSky} from './cloud-sky.mjs?v=95';
+import {CloudSky} from './cloud-sky.mjs?v=202';
 import {mergeGeometries} from '../../shared/vendor/three-r180/addons/BufferGeometryUtils.js';
 import {createGardenRoom} from './garden-room.mjs?v=192';
 import {HALF_WIDTH,HALF_DEPTH,WALL_HEIGHT,DOOR_WIDTH,DOOR_HEIGHT,DOOR_WALL_ID,constrainPosition} from './garden-layout.mjs?v=182';

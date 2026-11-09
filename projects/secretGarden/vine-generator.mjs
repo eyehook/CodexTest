@@ -1,5 +1,5 @@
 import {flowerHue} from './flower-colors.mjs?v=82';
-import {randomFor,MAX_COMPONENTS,BLOOM_FORMS} from './generator.mjs?v=176';
+import {randomFor,MAX_COMPONENTS,BLOOM_FORMS} from './generator.mjs?v=198';
 
 export const VINE_LEAF_FORMS=['ivy','heart','oval','five-lobed'];
 const VINE_LEAF_SHAPES=[3,6,7,8];

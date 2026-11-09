@@ -9,15 +9,15 @@ import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
 import {ControllerPointer,createPointerLine} from '../../shared/xr/pointer.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=192';
-import {PlantRenderer} from './renderer.mjs?v=177';
+import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=202';
+import {PlantRenderer} from './renderer.mjs?v=202';
 import {DeleteHold} from './delete-hold.mjs?v=13';
 import {ActiveController} from './controller-actions.mjs?v=19';
 import {doorwayPlantingBlocked} from './garden-layout.mjs?v=182';
-import {Bees} from './bees.mjs?v=182';
-import {PlantManager} from './manager.mjs?v=182';
-import {SpawnMenu} from './spawn-menu.mjs?v=176';
-import {GardenSaves} from './garden-saves.mjs?v=176';
+import {Bees} from './bees.mjs?v=198';
+import {PlantManager} from './manager.mjs?v=198';
+import {SpawnMenu} from './spawn-menu.mjs?v=203';
+import {GardenSaves} from './garden-saves.mjs?v=198';
 import {Teleport} from './teleport.mjs?v=182';
 import {SnapTurn} from './snap-turn.mjs?v=71';
 import {Preferences} from './preferences.mjs?v=142';
@@ -115,7 +115,7 @@ renderer.setAnimationLoop((time,frame)=>{
   if(!state.active){beeAudio.mute();sound.update(rain.cycle.intensity,false);spawnMenu.hide();teleport.reset();snapTurn.reset();vrSlider=null;desktopSlider=null;deleteHold.cancel();deleteFill.visible=false;for(const c of controllers){c.line.visible=false;c.hand.update(null,false);}marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=false;return;}
   applyHeightOffset(rig,vrValues,!!session);
   if(session){
-    const viewer=state.pose.transform;let palmPose=null;for(const source of session.inputSources)if(source.handedness==='left'&&source.gamepad?.mapping==='xr-standard'&&source.gripSpace)palmPose=frame.getPose(source.gripSpace,renderer.xr.getReferenceSpace());spawnMenu.update(palmPose,rig,viewer.position);
+    const viewer=state.pose.transform;let palmPose=null;for(const source of session.inputSources)if(source.handedness==='left'&&source.gamepad?.mapping==='xr-standard'&&source.gripSpace)palmPose=frame.getPose(source.gripSpace,renderer.xr.getReferenceSpace());spawnMenu.setMode(plants.clonedSeed!==null?'clone':plants.spawnType??'random');spawnMenu.update(palmPose,rig,viewer.position);
     if(spawnMenu.visible){teleport.reset();snapTurn.reset();}else {if(vrValues.teleport)teleport.sampleSources(session.inputSources,state.resumed,source=>state.isTracked(source.targetRaySpace));else teleport.reset();if(state.resumed)snapTurn.reset();snapTurn.update(navigation,dt,session.inputSources,viewer,vrValues,source=>state.isTracked(source.targetRaySpace));}constrainViewer(rig,viewer.position,environment.room.passable);
   }else{
     spawnMenu.hide();navigation.move(dt,Number(keys.has('KeyD'))-Number(keys.has('KeyA')),Number(keys.has('KeyS'))-Number(keys.has('KeyW')),Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),{position:camera.position,orientation:camera.quaternion});constrainViewer(rig,camera.position,environment.room.passable);

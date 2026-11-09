@@ -1,10 +1,10 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {SPAWN_MENU_ITEMS} from './spawn-plant-types.mjs?v=176';
+import {SPAWN_MENU_ITEMS} from './spawn-plant-types.mjs?v=198';
 export function leftPalmUp(q,wasOpen=false){return 2*(q.x*q.y+q.w*q.z)>(wasOpen ? .55 : .75);}
 export class SpawnMenu {
  constructor(scene,choose,items=SPAWN_MENU_ITEMS){
-  this.path=[];this.rows=items;
-  this.choose=choose;this.selected=null;this.group=new THREE.Group();this.group.name='palm-spawn-menu';scene.add(this.group);this.group.visible=false;
+  this.rootItems=items;this.path=[];this.rows=items;
+  this.choose=choose;this.selected='random';this.group=new THREE.Group();this.group.name='palm-spawn-menu';scene.add(this.group);this.group.visible=false;
   this.canvas=document.createElement('canvas');this.canvas.width=768;this.canvas.height=16+this.rows.length*64;
   this.texture=new THREE.CanvasTexture(this.canvas);this.texture.colorSpace=THREE.SRGBColorSpace;
   this.width=.48;this.height=this.width*this.canvas.height/768;
@@ -20,6 +20,15 @@ export class SpawnMenu {
   this.highlight.visible=false;
   this.position.set(0,(this.height-previousHeight)/2,0).applyQuaternion(this.group.quaternion);this.group.position.add(this.position);this.group.updateMatrixWorld(true);this.draw();
  }
+ setMode(id){
+  if(this.selected===id)return;
+  this.selected=id;
+  if(this.visible)this.revealSelection();else this.draw();
+ }
+ revealSelection(){
+  const find=(items,path=[])=>{if(items.some(item=>item.id===this.selected))return {items,path};for(const item of items)if(item.children){const found=find(item.children,[...path,items]);if(found)return found;}};
+  const found=find(this.rootItems)??{items:this.rootItems,path:[]};this.path=found.path;this.setRows(found.items);
+ }
  get visible(){return this.group.visible;}
  get targets(){return this.visible?[this.mesh]:[];}
  hide(){this.group.visible=false;this.highlight.visible=false;this.justOpened=false;}
@@ -27,7 +36,7 @@ export class SpawnMenu {
   const wasOpen=this.visible;if(!pose){this.hide();return;}
   rig.updateMatrixWorld(true);rig.getWorldQuaternion(this.rigQuaternion);this.localQuaternion.copy(pose.transform.orientation);this.quaternion.copy(this.rigQuaternion).multiply(this.localQuaternion);
   if(!leftPalmUp(this.quaternion,wasOpen)){this.hide();return;}
-  this.group.visible=true;this.justOpened=!wasOpen;
+  if(!wasOpen)this.revealSelection();this.group.visible=true;this.justOpened=!wasOpen;
   this.position.copy(pose.transform.position).applyMatrix4(rig.matrixWorld);this.position.y+=.03+.0254;this.group.position.copy(this.position);
   this.head.copy(headPosition).applyMatrix4(rig.matrixWorld);this.group.lookAt(this.head);
   // Anchor the lower edge one inch above the 3 cm-radius hand pill.

@@ -13,10 +13,10 @@ export function mushroomCapGeometry(form){
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return g;
 }
 export function mushroomSpotGeometry(){
- const positions=[],spot=new THREE.IcosahedronGeometry(1,0).toNonIndexed(),source=spot.attributes.position;
+ const positions=[],normals=[],normal=new THREE.Vector3(),spot=new THREE.IcosahedronGeometry(1,0),source=spot.attributes.position;
  for(let i=0;i<19;i++){
   const radius=Math.sqrt((i+.5)/19)*.9,angle=i*2.399963,x=Math.cos(angle)*radius,z=Math.sin(angle)*radius,y=.65*Math.sqrt(1-radius*radius)+.012;
-  for(let j=0;j<source.count;j++)positions.push(x+source.getX(j)*.047,y+source.getY(j)*.018,z+source.getZ(j)*.047);
+  for(let j=0;j<source.count;j++){positions.push(x+source.getX(j)*.047,y+source.getY(j)*.018,z+source.getZ(j)*.047);normal.set(source.getX(j)/.047,source.getY(j)/.018,source.getZ(j)/.047).normalize();normals.push(normal.x,normal.y,normal.z);}
  }
- spot.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.computeVertexNormals();return g;
+ spot.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));return g;
 }

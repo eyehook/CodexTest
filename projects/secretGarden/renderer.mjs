@@ -1,12 +1,17 @@
+import {shrubProfile} from './shrub-profile.mjs?v=193';
 import {rosetteLeafGeometry} from './rosette-geometry.mjs?v=171';
 import {vineLeafGeometry} from './vine-leaf-geometry.mjs?v=177';
-import {mushroomCapGeometry,mushroomSpotGeometry} from './mushroom-geometry.mjs?v=122';
+import {mushroomCapGeometry,mushroomSpotGeometry} from './mushroom-geometry.mjs?v=202';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {installPlantPicker} from './plant-picker.mjs?v=40';
 import {installGrassPicker} from './grass-picker.mjs?v=35';
 import {MatureBatches} from './mature-batches.mjs?v=97';
-import {componentPose,BLOOM_FORMS} from './generator.mjs?v=176';
+import {componentPose,BLOOM_FORMS} from './generator.mjs?v=198';
 const up=new THREE.Vector3(0,1,0);
+function shrubGeometry(shape){
+ const points=Array.from({length:7},(_,i)=>{const p=shrubProfile(shape,i*Math.PI/6);return new THREE.Vector2(i===0||i===6?0:p.radius,p.y);});
+ return new THREE.LatheGeometry(points,10);
+}
 function leafGeometry(shape,pointedBase=false) {
   const widths=[.48,.8,.24],w=widths[shape]*(pointedBase?.5:1),shoulder=pointedBase?.65:.45,ridge=pointedBase?.58:.42;
   const g=new THREE.BufferGeometry();
@@ -76,7 +81,10 @@ export class PlantRenderer {
     this.geometries={stemPoint:new THREE.CylinderGeometry(0,1,1,5,1),stem0:new THREE.CylinderGeometry(.48,1,1,5,1),stem1:new THREE.CylinderGeometry(.58,1,1,5,1),stem2:new THREE.CylinderGeometry(.67,1,1,5,1),leaf0:leafGeometry(0),leaf1:leafGeometry(1),leaf2:leafGeometry(2),leafFlower0:leafGeometry(0,true),leafFlower1:leafGeometry(1,true),leafFlower2:leafGeometry(2,true),leaf9:rosetteLeafGeometry(),leaf3:ivyGeometry(),leaf6:vineLeafGeometry('heart'),leaf7:vineLeafGeometry('oval'),leaf8:vineLeafGeometry('five-lobed'),leaf4:grassGeometry(),leaf5:fernGeometry(),seedHead:seedHeadGeometry(),crown:new THREE.IcosahedronGeometry(1,1),pine:new THREE.ConeGeometry(1,1,7,1).translate(0,.5,0),center:new THREE.IcosahedronGeometry(1,0)};
     for(const form of ['bolete','fly-agaric','chanterelle'])this.geometries['mushroom-'+form]=mushroomCapGeometry(form);
     this.geometries['mushroom-spots']=mushroomSpotGeometry();
-    this.geometries.crown.computeVertexNormals();
+    this.geometries.shrubSphere=shrubGeometry('shrubSphere');
+    this.geometries.shrubDrop=shrubGeometry('shrubDrop');
+    this.geometries.center.setAttribute('normal',this.geometries.center.attributes.position.clone());this.geometries.center.normalizeNormals();
+    // Preserve IcosahedronGeometry radial normals for smooth ellipsoid lighting.
     this.geometries.spire=this.geometries.crown.clone();
     const spirePositions=this.geometries.spire.attributes.position;
     for(let i=0;i<spirePositions.count;i++){
@@ -105,7 +113,7 @@ export class PlantRenderer {
       mesh.castShadow=!['grass','vine'].includes(structure.parameters.form);mesh.receiveShadow=structure.parameters.form!=='grass';mesh.frustumCulled=true;mesh.matrixAutoUpdate=false;
       entries.forEach(({part:p},i)=>{const color=new THREE.Color();
         if(key.startsWith('stem')&&p.hue!==undefined)color.setHSL(p.hue,.2,p.light);
-        else if(key.startsWith('stem'))color.set(structure.parameters.form==='tree'?0x6e5940:0x507044);
+        else if(key.startsWith('stem'))color.set(['tree','bush'].includes(structure.parameters.form)?0x6e5940:0x507044);
         else if(key==='center')color.set(p.shape===0?0x79512d:0xe6ba55);
         else if(key.startsWith('petal')||p.brightness!==undefined) {
           // Seeded HSV brightness, converted to HSL in display (sRGB) space.
@@ -151,7 +159,7 @@ export class PlantRenderer {
           d.scale.set(p.radius*g,length,p.radius*g);
         } else if(key.startsWith('mushroom-')) {
           d.quaternion.setFromUnitVectors(up,this.direction.fromArray(p.direction).normalize());d.rotateY(p.yaw);d.scale.fromArray(p.scale).multiplyScalar(g);
-        } else if(key==='crown'||key==='pine'||key==='spire'||key==='seedHead') {
+        } else if(key==='shrubSphere'||key==='shrubDrop'||key==='crown'||key==='pine'||key==='spire'||key==='seedHead') {
           d.rotation.set(p.tilt,p.yaw,p.tilt*.6);d.scale.fromArray(p.scale).multiplyScalar(g);
         } else if(key.startsWith('leaf')) {
           if(p.direction)d.quaternion.setFromUnitVectors(up,this.direction.fromArray(p.direction).normalize());else if(p.orientation)d.rotation.fromArray(p.orientation);else d.rotation.set(.5+p.tilt,p.yaw,.7);

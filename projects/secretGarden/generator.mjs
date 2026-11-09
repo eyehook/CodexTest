@@ -1,7 +1,7 @@
 import {generateRosette} from './rosette-generator.mjs?v=176';
 import {generateMushrooms} from './mushroom-generator.mjs?v=176';
 import {flowerHue} from './flower-colors.mjs?v=82';
-import {generateShrub} from './shrub-generator.mjs?v=176';
+import {generateShrub} from './shrub-generator.mjs?v=198';
 import {placeCanopyFlowers} from './canopy-flowers.mjs?v=134';
 // Pure plant data: meters, local coordinates, explicit attachments, normalized time.
 export const GROWTH_SECONDS = 10;

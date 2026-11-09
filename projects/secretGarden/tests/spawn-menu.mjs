@@ -23,11 +23,18 @@ test('spawn mode creates a fresh matching seed for every placement and clone mod
  const renderer={create:()=>({}),update(){},flush(){}},manager=new PlantManager(renderer,()=>99);manager.chooseType('bush');const a=manager.plant(new THREE.Vector3(0,0,0),0),b=manager.plant(new THREE.Vector3(1,0,0),0);assert.notEqual(a.seed,b.seed);assert.equal(a.structure.parameters.form,'bush');assert.equal(b.structure.parameters.form,'bush');assert.equal(manager.spawnType,'bush');assert.equal(manager.clonedSeed,null);assert.equal(a.scale,1);
  manager.copy(a.id);assert.equal(manager.spawnType,null);const clone=manager.plant(new THREE.Vector3(-1,0,0),0);assert.equal(clone.seed,a.seed);manager.chooseType('pine');assert.equal(manager.clonedSeed,null);manager.copy(null);assert.equal(manager.spawnType,null);
 });
-test('spawn mode rejects incompatible surfaces without clearing selection or acquiring a seed',()=>{
- let calls=0;const manager=new PlantManager({},()=>{calls++;return 1;});manager.chooseType('vine');assert.equal(calls,0);assert.equal(manager.plant(new THREE.Vector3(),0),null);assert.equal(manager.spawnType,'vine');assert.equal(calls,0);manager.chooseType('random');assert.equal(manager.spawnType,null);
+test('opposite surfaces switch to random and immediately plant for that surface',()=>{
+ const renderer={create:()=>({}),update(){}},manager=new PlantManager(renderer,()=>123);
+ const wall={type:'wall',yaw:Math.PI,halfLength:4.572,height:3.048,normal:new THREE.Vector3(0,0,-1)};
+ for(const choice of ['bush','pine','random']){
+  manager.chooseType(choice);const vine=manager.plant(new THREE.Vector3(1,1,6.858),0,wall);assert.equal(vine.structure.parameters.form,'vine');assert.equal(manager.spawnType,null);
+  manager.chooseType('vine');
+  const ground=manager.plant(new THREE.Vector3(1,0,0),1);assert.ok(ground);assert.notEqual(ground.structure.parameters.form,'vine');assert.equal(manager.spawnType,null);
+ }
+ manager.chooseType('pine');assert.equal(manager.plant(new THREE.Vector3(100,0,0),2),null);assert.equal(manager.spawnType,'pine');
 });
 
-test('spawn menu includes only specific plant types and tree forms',()=>{assert.deepEqual(SPAWN_PLANT_TYPES.map(type=>type.id),['flower','bush','grass','seed-grass','fern','rosette','vine','bolete','fly-agaric','chanterelle','rounded','pine','columnar','umbrella']);});
+test('spawn menu includes only specific plant types and tree forms',()=>{assert.deepEqual(SPAWN_PLANT_TYPES.map(type=>type.id),['flower','bush','grass','seed-grass','fern','rosette','vine','bolete','fly-agaric','chanterelle','rounded','pine','columnar','umbrella','random']);});
 
 test('Trees submenu resizes with a fixed lower edge and returns without spawning',()=>{
  const old=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>new Proxy({}, {get:()=>()=>{}})})};
@@ -35,10 +42,10 @@ test('Trees submenu resizes with a fixed lower edge and returns without spawning
   const chosen=[],menu=new SpawnMenu(new THREE.Scene(),id=>chosen.push(id));menu.group.visible=true;
   const click=i=>menu.activate({uv:{x:.5,y:1-(8+i*64+32)/menu.canvas.height}});
   const lower=()=>menu.group.position.clone().add(new THREE.Vector3(0,-menu.height/2,0).applyQuaternion(menu.group.quaternion));
-  const before=lower();assert.equal(menu.rows.at(-1).label,'Trees');assert.ok(click(menu.rows.length-1));
+  const before=lower();assert.equal(menu.rows.at(-1).label,'Random');assert.ok(click(menu.rows.length-2));
   assert.deepEqual(menu.rows.map(r=>r.label),['Rounded','Pine','Cypress','Umbrella','< Back']);assert.ok(lower().distanceTo(before)<1e-9);assert.deepEqual(chosen,[]);
   assert.ok(click(1));assert.deepEqual(chosen,['pine']);assert.equal(menu.selected,'pine');
-  assert.ok(click(menu.rows.length-1));assert.equal(menu.rows.at(-1).label,'Trees');assert.equal(menu.path.length,0);assert.ok(lower().distanceTo(before)<1e-9);assert.deepEqual(chosen,['pine']);
+  assert.ok(click(menu.rows.length-1));assert.equal(menu.rows.at(-1).label,'Random');assert.equal(menu.path.length,0);assert.ok(lower().distanceTo(before)<1e-9);assert.deepEqual(chosen,['pine']);
  }finally{if(old===undefined)delete globalThis.document;else globalThis.document=old;}
 });
 test('generic submenus support multiple levels and navigate back one level at a time',()=>{
@@ -48,5 +55,15 @@ test('generic submenus support multiple levels and navigate back one level at a 
   const click=i=>menu.activate({uv:{x:.5,y:1-(8+i*64+32)/menu.canvas.height}});
   click(0);click(0);assert.equal(menu.path.length,2);assert.equal(menu.rows.at(-1).label,'< Back');click(0);assert.deepEqual(chosen,['fern']);
   click(menu.rows.length-1);assert.equal(menu.path.length,1);assert.equal(menu.rows[0].label,'Nested');assert.equal(menu.rows.at(-1).label,'< Back');click(menu.rows.length-1);assert.equal(menu.path.length,0);assert.equal(menu.rows[0].label,'Group');
+ }finally{if(old===undefined)delete globalThis.document;else globalThis.document=old;}
+});
+
+test('menu reveals the actual current mode on reopen and syncs external changes',()=>{
+ const old=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>new Proxy({}, {get:()=>()=>{}})})};
+ try{
+  const menu=new SpawnMenu(new THREE.Scene(),()=>{});assert.equal(menu.selected,'random');
+  menu.setMode('pine');menu.revealSelection();assert.equal(menu.selected,'pine');assert.ok(menu.rows.some(row=>row.id===menu.selected));assert.equal(menu.path.length,1);
+  menu.group.visible=true;menu.setMode('vine');assert.equal(menu.path.length,0);assert.ok(menu.rows.some(row=>row.id==='vine'));assert.equal(menu.selected,'vine');
+  menu.setMode('random');assert.equal(menu.rows.at(-1).id,menu.selected);menu.setMode('clone');assert.equal(menu.selected,'clone');
  }finally{if(old===undefined)delete globalThis.document;else globalThis.document=old;}
 });

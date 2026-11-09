@@ -1,15 +1,15 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 
 const CLOUD_SCALE=8;
-// A single faceted cloud geometry shared by ten moving instances.
+// A single smooth-shaded cloud geometry shared by ten moving instances.
 function cloudGeometry() {
   const lobe=new THREE.IcosahedronGeometry(1,0),source=lobe.attributes.position;
-  const positions=[];
+  const positions=[],smoothNormals=[],normal=new THREE.Vector3();
   const lobes=[[-2,0,0,1.5,.65,1.05],[-.8,.2,0,1.6,.95,1.2],[.4,.65,0,1.5,1.15,1.15],[1.6,.15,.1,1.5,.8,1.05],[.4,0,-.8,1.6,.6,1.1]];
-  for(const [x,y,z,sx,sy,sz] of lobes)for(let i=0;i<source.count;i++)positions.push(x+source.getX(i)*sx,y+source.getY(i)*sy,z+source.getZ(i)*sz);
+  for(const [x,y,z,sx,sy,sz] of lobes)for(let i=0;i<source.count;i++){positions.push(x+source.getX(i)*sx,y+source.getY(i)*sy,z+source.getZ(i)*sz);normal.set(source.getX(i)/sx,source.getY(i)/sy,source.getZ(i)/sz).normalize();smoothNormals.push(normal.x,normal.y,normal.z);}
   lobe.dispose();
-  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.computeVertexNormals();
-  // Baked facet shading keeps cloud undersides cool and light without ground tint.
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('normal',new THREE.Float32BufferAttribute(smoothNormals,3));
+  // Baked smooth shading keeps cloud undersides cool and light without ground tint.
   const normals=geometry.attributes.normal,colors=[];
   for(let i=0;i<normals.count;i++) {
     const shade=.8+.18*(-.4*normals.getX(i)+.75*normals.getY(i)+.5*normals.getZ(i));
