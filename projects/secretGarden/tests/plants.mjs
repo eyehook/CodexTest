@@ -52,21 +52,6 @@ test('blooms vary in silhouette, depth, orientation and clustered arrangement',(
   assert.equal(forms.size,7);assert.ok(clustered>0&&single>0&&nodding>0);
 });
 
-test('trees retain a full branched crown without exhausting the component budget',()=>{
-  let trees=0;
-  for(let seed=0;seed<1600;seed++){
-    const p=generatePlant(seed);if(p.parameters.form!=='tree'||p.parameters.treeForm!=='open')continue;trees++;
-    const stems=p.parts.filter(x=>x.kind==='stem'),leaves=p.parts.filter(x=>x.kind==='leaf');
-    const root=stems.find(x=>x.parent===null);
-    const scaffold=stems.filter(x=>x.parent===root.id);
-    assert.ok(scaffold.length>=4&&scaffold.length<=5);
-    assert.ok(stems.length>=53);assert.ok(leaves.length>=252);
-    assert.ok(p.parts.length<MAX_COMPONENTS,'crown must fit without truncation');
-    assert.ok(scaffold.some(s=>s.attachment>.85));assert.ok(scaffold.some(s=>s.attachment<.5));
-  }
-  assert.ok(trees>25);
-});
-
 test('clones sample independent uniform scale without changing the seed structure or compounding parent scale',()=>{
   const received=[],values=[.8,1.2];let samples=0;
   const renderer={create:(_s,_p,_id,_yaw,scale)=>{received.push(scale);return {};},update:()=>{},remove:()=>{}};
@@ -83,7 +68,7 @@ test('clones sample independent uniform scale without changing the seed structur
   assert.deepEqual(received,[1,.8,1.2,1]);assert.equal(samples,2);
 });
 
-test('all five active tree families have bounded foliage and distinct crown proportions',()=>{
+test('all four active tree families have bounded foliage and distinct crown proportions',()=>{
   const forms=new Set();
   for(let seed=0;seed<1500;seed++){
     const p=generatePlant(seed);if(p.parameters.form!=='tree')continue;
@@ -92,7 +77,6 @@ test('all five active tree families have bounded foliage and distinct crown prop
     if(form==='pine'||form==='columnar')assert.equal(trunk.taper,0);else assert.ok(trunk.taper>0);
     const foliage=p.parts.filter(x=>x.kind==='foliage');
     assert.ok(p.parts.length<MAX_COMPONENTS);
-    if(form==='open'){assert.equal(foliage.length,0);continue;}
     assert.ok(foliage.length>0);
     for(const f of foliage){
       assert.ok(f.scale.every(v=>Number.isFinite(v)&&v>0));
@@ -108,7 +92,7 @@ test('all five active tree families have bounded foliage and distinct crown prop
       assert.ok(foliage.at(-1).attachment>foliage[0].attachment);
     }
   }
-  assert.deepEqual([...forms].sort(),['columnar','open','pine','rounded','umbrella']);
+  assert.deepEqual([...forms].sort(),['columnar','pine','rounded','umbrella']);
 });
 
 test('cypress starts with spherical foliage then stacks narrower taller ellipsoids',()=>{

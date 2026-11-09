@@ -11,7 +11,7 @@ export function randomFor(seed) {
   let state = seed >>> 0;
   return () => { state += 0x6D2B79F5; let t = state; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }
-export const TREE_FORMS=['rounded','open','pine','columnar','umbrella'];
+export const TREE_FORMS=['rounded','pine','columnar','umbrella'];
 export const BLOOM_FORMS = [
   {name:'daisy', petals:[9,13], layers:1, width:.32, cup:.08, center:.27},
   {name:'buttercup', petals:[5,6], layers:1, width:.85, cup:.38, center:.2},
@@ -96,8 +96,8 @@ export function generatePlant(seed) {
     const duration=level===0?.32:.15;
     const node=add({kind:'stem',parent:parent?.id??null,attachment,start,end,radius:thickness,taper:level===0&&(treeForm==='pine'||treeForm==='columnar')?0:parameters.taper,begin,duration});
     if(!node) return;
-    const leafy=form!=='tree'||treeForm==='open'&&level>=2;
-    const leafCount=form==='tree'&&level===2?Math.ceil(parameters.leafDensity*.5):parameters.leafDensity;
+    const leafy=form!=='tree';
+    const leafCount=parameters.leafDensity;
     if(leafy) for(let i=0;i<leafCount;i++) {
       const t=range(.28,.96), yaw=azimuth+i*2.399+range(-.3,.3),tilt=range(-.4,.6);
       const inclination=(tilt+.4)*Math.PI/3;
@@ -108,7 +108,7 @@ export function generatePlant(seed) {
         light:parameters.leafLight+range(-.04,.06),begin:begin+duration*t+.035,duration:.14});
     }
     let canopy=null;
-    if(form==='tree'&&treeForm!=='open') {
+    if(form==='tree') {
       if(treeForm==='columnar'&&level===0) {
         const tiers=integer(5,7),baseRadius=parameters.height*range(.14,.19);
         for(let tier=0;tier<tiers;tier++){

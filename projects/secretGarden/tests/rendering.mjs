@@ -55,7 +55,7 @@ test('new foliage volumes grow, clone identically, and resolve ray hits to the p
   const scene=new THREE.Scene(),renderer=new PlantRenderer(scene),seen=new Set();
   for(let seed=0;seen.size<4&&seed<500;seed++){
     const structure=generatePlant(seed),form=structure.parameters.treeForm;
-    if(!form||form==='open'||seen.has(form))continue;seen.add(form);
+    if(!form||seen.has(form))continue;seen.add(form);
     const first={structure,visual:renderer.create(structure,new THREE.Vector3(),101)};
     const clone={structure,visual:renderer.create(structure,new THREE.Vector3(),102)};
     renderer.update(first,0);

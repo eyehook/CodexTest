@@ -27,7 +27,7 @@ test('spawn mode rejects incompatible surfaces without clearing selection or acq
  let calls=0;const manager=new PlantManager({},()=>{calls++;return 1;});manager.chooseType('vine');assert.equal(calls,0);assert.equal(manager.plant(new THREE.Vector3(),0),null);assert.equal(manager.spawnType,'vine');assert.equal(calls,0);manager.chooseType('random');assert.equal(manager.spawnType,null);
 });
 
-test('spawn menu includes only specific plant types and tree forms',()=>{assert.deepEqual(SPAWN_PLANT_TYPES.map(type=>type.id),['flower','bush','grass','seed-grass','fern','vine','bolete','fly-agaric','chanterelle','rounded','open','pine','columnar','umbrella']);});
+test('spawn menu includes only specific plant types and tree forms',()=>{assert.deepEqual(SPAWN_PLANT_TYPES.map(type=>type.id),['flower','bush','grass','seed-grass','fern','vine','bolete','fly-agaric','chanterelle','rounded','pine','columnar','umbrella']);});
 
 test('Trees submenu resizes with a fixed lower edge and returns without spawning',()=>{
  const old=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>new Proxy({}, {get:()=>()=>{}})})};
@@ -36,8 +36,8 @@ test('Trees submenu resizes with a fixed lower edge and returns without spawning
   const click=i=>menu.activate({uv:{x:.5,y:1-(8+i*64+32)/menu.canvas.height}});
   const lower=()=>menu.group.position.clone().add(new THREE.Vector3(0,-menu.height/2,0).applyQuaternion(menu.group.quaternion));
   const before=lower();assert.equal(menu.rows.at(-1).label,'Trees');assert.ok(click(menu.rows.length-1));
-  assert.deepEqual(menu.rows.map(r=>r.label),['Rounded','Open leaf','Pine','Cypress','Umbrella','< Back']);assert.ok(lower().distanceTo(before)<1e-9);assert.deepEqual(chosen,[]);
-  assert.ok(click(2));assert.deepEqual(chosen,['pine']);assert.equal(menu.selected,'pine');
+  assert.deepEqual(menu.rows.map(r=>r.label),['Rounded','Pine','Cypress','Umbrella','< Back']);assert.ok(lower().distanceTo(before)<1e-9);assert.deepEqual(chosen,[]);
+  assert.ok(click(1));assert.deepEqual(chosen,['pine']);assert.equal(menu.selected,'pine');
   assert.ok(click(menu.rows.length-1));assert.equal(menu.rows.at(-1).label,'Trees');assert.equal(menu.path.length,0);assert.ok(lower().distanceTo(before)<1e-9);assert.deepEqual(chosen,['pine']);
  }finally{if(old===undefined)delete globalThis.document;else globalThis.document=old;}
 });

@@ -1,10 +1,10 @@
 # The Secret Garden — current handoff
 
-Updated 2026-11-08 for the Version 167 audio release, following `69cc074`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
+Updated 2026-11-09 for Version 168, following panel release `cb68928`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
 
 ## Status and working rules
 
-- Buildless static desktop/WebXR garden using local Three.js r180. Version 167 adds locally bundled rain and positional bee audio, the persisted Sound checkbox, flight fades and the XR listener coordinate fix. Mushroom tuning and the visible version label were released in `69cc074`.
+- Buildless static desktop/WebXR garden using local Three.js r180. Version 168 removes Open leaf trees from random generation and the Trees menu, removes their generator branches, and advances garden saves to version 30. Panel updates were released in `cb68928`; audio was released in `ba18b7d`.
 - Read [project instructions](AGENTS.md) and [repository instructions](../../AGENTS.md). Current source and Git state take precedence over documentation.
 - Starts empty unless the latest valid browser garden save autoloads. Plants mature in ten seconds; overlap is allowed and population is uncapped.
 - No plant maintenance, plant collision/spacing enforcement, vegetation wind, wet materials or puddles. Morels, oysters and puffballs are not implemented.
@@ -23,12 +23,12 @@ node --test projects/secretGarden/tests/*.mjs
 
 Open `/projects/secretGarden/`. No install or build is required. For USB Quest preview use [Start-VR.command](../../Start-VR.command), keeping its terminal and authorized USB connection active. WebXR requires trusted localhost or HTTPS.
 
-- Current validation: **145 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating, voice cleanup and reset-button reactivation after garden edits; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
+- Current validation: **144 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating, voice cleanup and reset-button reactivation after garden edits; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
 - Last implementation validation: **136 garden tests pass**, plus the full root suite including Weather/shared tests, and `git diff --check`.
 - Isolated garden changes need relevant garden checks. Cross-project/shared runtime changes need affected consumers and the root suite per repository policy.
 - Documentation-only changes need content/link checks and `git diff --check`, not runtime tests.
 - If Node is missing from PATH, discover the bundled runtime using the workspace dependency tool. Do not hardcode runtime cache paths in repository scripts.
-- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **167**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 167); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
+- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **168**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 168); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
 
 ## Planting and selection
 
@@ -56,7 +56,7 @@ Rotate the left palm upward to show the menu; use the right ray/trigger to selec
 | Ferns | Fresh fern seed per placement |
 | Ivy | Wall-only placement |
 | Mushrooms > | Bolete, Fly agaric, Chanterelle |
-| Trees > | Rounded, Open leaf, Pine, Cypress, Umbrella |
+| Trees > | Rounded, Pine, Cypress, Umbrella |
 
 - Every submenu ends with **< Back**. No Random option appears; normal controls return to random planting.
 - [spawn-plant-types.mjs](spawn-plant-types.mjs) defines generic nested `children` arrays and derives flattened selectable types for seed matching and validation.
@@ -92,6 +92,9 @@ Rotate the left palm upward to show the menu; use the right ray/trigger to selec
 
 ## Plants and generation
 
+- Open leaf trees are removed from generation and the menu. Save version 30 invalidates obsolete garden saves under the explicitly authorized development policy.
+
+
 [generator.mjs](generator.mjs) uses a pure uint32 seeded PRNG. Seed acquisition, placement yaw and clone scale live outside generation. Parts have ordered parent IDs, attachment fractions and normalized growth timings. No generator uses unseeded randomness.
 
 Random ground placement equally selects flowers, shrubs, trees, grass, ferns or mushrooms; wall placement uses ivy. All complete growth within ten seconds. Parts are capped at 600 per planting; woody recursion is bounded to three levels.
@@ -100,7 +103,7 @@ Random ground placement equally selects flowers, shrubs, trees, grass, ferns or 
 | --- | --- |
 | Flowers | Daisy, buttercup, lily, bell, rosette, star and single-sphere hydrangea. Single/clustered blooms; terminal stalks flower. Bloom axes and bee landing normals follow supporting stems. |
 | Shrubs | 1–5 overlapping ellipsoids, visible trunks/branches/flower stalks, no individual leaves. Initial stalk 2–6 inches; foliage may intersect ground. Branch azimuths differ by at least 30° and rise 0–30° above horizontal. |
-| Trees | Rounded/umbrella ellipsoids, open-leaf branches, layered pine and stacked rounded-tier cypress. Cypress trunks and ellipsoids have zero tilt. Pine/cypress do not flower. |
+| Trees | Rounded/umbrella ellipsoids, layered pine and stacked rounded-tier cypress. Cypress trunks and ellipsoids have zero tilt. Pine/cypress do not flower. |
 | Grass | Irregular rounded 320–460-blade patches with taller centers. Half add 6–12 seeded stalks .65–1.05 m tall. No grass components cast/receive shadows. |
 | Ferns | 7–11 radial arching fronds, one shared 120-triangle mesh each with twelve leaflet pairs. Fixed orientation throughout growth; stalk ends at the last pair. No curled-fiddlehead simulation. |
 | Mushrooms | Bolete, spotted fly agaric, wavy-funnel chanterelle. Single (45%) or 2–5 specimen cluster (55%). Cluster spacing increases with planting height, using radial distance `sqrt(i) * (height * .95 + .06) * .5`; individual stalk heights and cap widths vary. Pale stalks rise before caps expand. Entire planting is one selectable/cloneable unit. |
@@ -126,7 +129,7 @@ Random ground placement equally selects flowers, shrubs, trees, grass, ferns or 
 
 ## Rain and lighting
 
-- `rain-audio.mjs` loops the locally bundled CC0 Rainfall recording by colorsCrimsonTears; source/license in `assets/secretGarden/audio/README.md`. One Web Audio buffer source loops continuously; gain follows rain intensity (0–1) with 80 ms smoothing. Sound off or inactive/hidden rendering mutes it. Click, keypress or XR entry unlocks audio; failed loads retry on the next gesture. Desktop/Quest listening and loop seam review remain manual checks. Settings version 6 discards obsolete settings under development policy; garden version remains 29.
+- `rain-audio.mjs` loops the locally bundled CC0 Rainfall recording by colorsCrimsonTears; source/license in `assets/secretGarden/audio/README.md`. One Web Audio buffer source loops continuously; gain follows rain intensity (0–1) with 80 ms smoothing. Sound off or inactive/hidden rendering mutes it. Click, keypress or XR entry unlocks audio; failed loads retry on the next gesture. Desktop/Quest listening and loop seam review remain manual checks. Settings version 6 discards obsolete settings under development policy; garden version is 30.
 
 
 Five-stop room slider, default Sometimes. Fresh default sessions start clear.
@@ -162,7 +165,7 @@ Light changes affect uniforms only; sun pose and shadow policy stay fixed. Effec
 
 ## Saves and preferences
 
-- Current **SAVE_VERSION=29**, **SETTINGS_VERSION=6**. Sources: [garden-saves.mjs](garden-saves.mjs), [preferences.mjs](preferences.mjs).
+- Current **SAVE_VERSION=30**, **SETTINGS_VERSION=6**. Sources: [garden-saves.mjs](garden-saves.mjs), [preferences.mjs](preferences.mjs).
 - Support current versions only. Bump the relevant version for incompatible changes; retain stable keys, delete only mismatched records, and do not add legacy generators/deserializers/migrations.
 - User authorizes development bumps and obsolete-record deletion without further approval until explicitly requesting save compatibility tracking; see AGENTS.md.
 - Three slots store plant seeds, placement/surface constraints, yaw, clone scale and growth age. Latest saved valid slot autoloads. Manual Load preserves viewer position; Empty cannot load. Reset does not delete slots.
