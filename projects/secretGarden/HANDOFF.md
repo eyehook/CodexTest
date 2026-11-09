@@ -1,10 +1,10 @@
 # The Secret Garden — current handoff
 
-Updated 2026-11-09 for Version 177 rosettes and spherical-bloom removal, following vine-leaf release `4ca165d`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
+Updated 2026-11-09 for Version 181 stacked-stone walls, following plant release `efdccf3`. This is a current-state reference; update its relevant sections as behavior changes instead of appending a development journal. Git history preserves previous implementations and release notes.
 
 ## Status and working rules
 
-- Buildless static desktop/WebXR garden using local Three.js r180. Version 177 adds ground rosettes with optional separate flower spikes with all existing bloom types and advances garden saves to version 37. Vine leaf varieties were released in `4ca165d`. Open leaf tree removal was released in `3f2e3b5`. Panel updates were released in `cb68928`; audio was released in `ba18b7d`.
+- Buildless static desktop/WebXR garden using local Three.js r180. Version 181 adds Quest shared-audio recovery and replaces regular brick facing with one static irregular stacked-stone mesh; garden saves remain at version 37. Rosettes and spherical-bloom removal were released in `efdccf3`. Vine leaf varieties were released in `4ca165d`. Open leaf tree removal was released in `3f2e3b5`. Panel updates were released in `cb68928`; audio was released in `ba18b7d`.
 - Read [project instructions](AGENTS.md) and [repository instructions](../../AGENTS.md). Current source and Git state take precedence over documentation.
 - Starts empty unless the latest valid browser garden save autoloads. Plants mature in ten seconds; overlap is allowed and population is uncapped.
 - No plant maintenance, plant collision/spacing enforcement, vegetation wind, wet materials or puddles. Morels, oysters and puffballs are not implemented.
@@ -23,12 +23,12 @@ node --test projects/secretGarden/tests/*.mjs
 
 Open `/projects/secretGarden/`. No install or build is required. For USB Quest preview use [Start-VR.command](../../Start-VR.command), keeping its terminal and authorized USB connection active. WebXR requires trusted localhost or HTTPS.
 
-- Current validation: **147 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating, voice cleanup, rosette generation/spike-only flowers/cloning/batching/bee landings and reset-button reactivation after garden edits; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
+- Current validation: **151 garden tests pass**, including rain loop/intensity/mute/retry, Sound settings persistence, recorded bee loop duration/boundary and asynchronous load/retry, positional listener tracking, flight gating, voice cleanup, rosette generation/spike-only flowers/cloning/batching/bee landings and reset-button reactivation after garden edits; `git diff --check` passes. Rain asset is mono 44.1 kHz MP3 (~21.58 seconds); bee asset is mono 48 kHz 16-bit WAV (5 seconds). Browser/headset listening and updated panel appearance remain unverified.
 - Last implementation validation: **136 garden tests pass**, plus the full root suite including Weather/shared tests, and `git diff --check`.
 - Isolated garden changes need relevant garden checks. Cross-project/shared runtime changes need affected consumers and the root suite per repository policy.
 - Documentation-only changes need content/link checks and `git diff --check`, not runtime tests.
 - If Node is missing from PATH, discover the bundled runtime using the workspace dependency tool. Do not hardcode runtime cache paths in repository scripts.
-- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **177**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 177); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
+- Advance changed module queries and importing chains when browser/headset caching would hide changes. Current entry query: **181**. Individual dependency queries need not match it. The desktop header displays the loaded app module version (currently Version 181); the mushroom generator/import chain and garden-save import were refreshed for the current mushroom changes.
 
 ## Planting and selection
 
@@ -80,7 +80,10 @@ Rotate the left palm upward to show the menu; use the right ray/trigger to selec
 
 ## Garden, room and settings
 
-- Dirt interior: 9.144 × 13.716 m (30 × 45 ft); stone walls 3.048 m high, with instanced running-bond masonry.
+- `stone-wall.mjs` generates deterministic varied-width/height chamfered stones with faceted fronts, narrow gaps and darker warm honey/buff limestone colors with taupe backing/mortar (Cotswold-inspired, saturation reduced 25% to .165–.255, authored in sRGB), merged into one static mesh/draw (538 stones, 12,912 triangles). Relief stays within the previous .0255 m projection. No hidden backs, textures or added shadow passes; four backing walls retain targeting and shadow casting. Door opening is excluded geometrically. Headset sustained performance requires user review.
+
+
+- Dirt interior: 9.144 × 13.716 m (30 × 45 ft); stone walls 3.048 m high, with a single merged, vertex-colored irregular stacked-stone facing.
 - Entrance is behind the starting viewer on the +Z wall. A 1.8288 m hallway leads to a roofed 3.6576 × 3.6576 m settings room.
 - Automatic double-action door sits at hallway midpoint `(0,0,7.7724)`, opens away from approach from either side, and closes when the viewer leaves.
 - Room/hall floors are non-plantable; doorway exclusions keep ivy clear. [garden-layout.mjs](garden-layout.mjs) owns layout/containment constants.
@@ -140,7 +143,7 @@ Random ground placement equally selects flowers, shrubs, trees, grass, ferns, mu
 
 ## Rain and lighting
 
-- `rain-audio.mjs` loops the locally bundled CC0 Rainfall recording by colorsCrimsonTears; source/license in `assets/secretGarden/audio/README.md`. One Web Audio buffer source loops continuously; gain follows rain intensity (0–1) with 80 ms smoothing. Sound off or inactive/hidden rendering mutes it. Click, keypress or XR entry unlocks audio; failed loads retry on the next gesture. Desktop/Quest listening and loop seam review remain manual checks. Settings version 6 discards obsolete settings under development policy; garden version is 37.
+- `rain-audio.mjs` loops the locally bundled CC0 Rainfall recording by colorsCrimsonTears; source/license in `assets/secretGarden/audio/README.md`. One Web Audio buffer source loops continuously; gain follows rain intensity (0–1) with 80 ms smoothing. Sound off or inactive/hidden rendering mutes it. Click, keypress, XR entry, controller select/squeeze, Sound reenable and return to visible state retry audio unlock; active suspended/interrupted contexts also retry resume at most once per second. XR event listeners are removed on session end; failed loads retry on the next gesture. User reported both sounds returned after restarting the Quest browser; the original silence was not confirmed as an application bug, and the new recovery paths still need headset validation. Desktop/Quest listening and loop seam review remain manual checks. Settings version 6 discards obsolete settings under development policy; garden version is 37.
 
 
 Five-stop room slider, default Sometimes. Fresh default sessions start clear.

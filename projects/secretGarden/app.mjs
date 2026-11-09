@@ -1,5 +1,5 @@
 import {BeeAudio,updateAudioListenerPose} from './bee-audio.mjs?v=158';
-import {RainAudio} from './rain-audio.mjs?v=142';
+import {RainAudio,bindXRAudio} from './rain-audio.mjs?v=181';
 import {GardenRain} from './garden-rain.mjs?v=137';
 import {HandPill} from './hand-pill.mjs?v=109';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
@@ -9,7 +9,7 @@ import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
 import {ControllerPointer,createPointerLine} from '../../shared/xr/pointer.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=129';
+import {createEnvironment,constrainViewer,HALF_WIDTH,HALF_DEPTH} from './environment.mjs?v=180';
 import {PlantRenderer} from './renderer.mjs?v=177';
 import {DeleteHold} from './delete-hold.mjs?v=13';
 import {ActiveController} from './controller-actions.mjs?v=19';
@@ -58,7 +58,7 @@ settings.model.set('sound',preferences.value.sound);settings.model.set('shadows'
 let settingsTimer=null;
 function persistSettings(){clearTimeout(settingsTimer);settingsTimer=null;try{preferences.save({...vrValues,shadows:renderer.shadowMap.enabled,sound:sound.enabled,bees:bees.count,rain:rain.level});}catch{savePanel.setMessage('Settings could not be saved');}}
 function scheduleSettingsSave(){clearTimeout(settingsTimer);settingsTimer=setTimeout(persistSettings,250);}
-settings.model.onChange=id=>{if(id==='sound'||id==='shadows'||id==='bees'||id==='rain')scheduleSettingsSave();};vrSettings.model.onChange=id=>{if(id==='teleport')teleport.reset();snapTurn.reset();scheduleSettingsSave();};
+settings.model.onChange=id=>{if(id==='sound'&&sound.enabled)sound.unlock();if(id==='sound'||id==='shadows'||id==='bees'||id==='rain')scheduleSettingsSave();};vrSettings.model.onChange=id=>{if(id==='teleport')teleport.reset();snapTurn.reset();scheduleSettingsSave();};
 window.addEventListener('pagehide',()=>{if(settingsTimer!==null)persistSettings();});
 function clearGardenInteraction(){deleteHold.cancel();target=null;desktopSlider=vrSlider=null;marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=deleteFill.visible=false;}
 function restoreGarden(save){
@@ -105,8 +105,8 @@ window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener(
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 window.addEventListener('pointerdown',()=>sound.unlock());
 window.addEventListener('keydown',()=>sound.unlock());
-document.addEventListener('visibilitychange',()=>{if(document.hidden){sound.update(rain.cycle.intensity,false);beeAudio.mute();}});
-renderer.xr.addEventListener('sessionstart',()=>{sound.unlock();document.body.classList.add('xr');edges.reset();spawnMenu.hide();teleport.reset();snapTurn.reset();desktopSlider=vrSlider=null;activeController.hand='right';activeController.enabled=true;deleteHold.cancel();keys.clear();marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=false;});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){sound.update(rain.cycle.intensity,false);beeAudio.mute();}else sound.unlock();});
+renderer.xr.addEventListener('sessionstart',()=>{bindXRAudio(renderer.xr.getSession(),sound);sound.unlock();document.body.classList.add('xr');edges.reset();spawnMenu.hide();teleport.reset();snapTurn.reset();desktopSlider=vrSlider=null;activeController.hand='right';activeController.enabled=true;deleteHold.cancel();keys.clear();marker.visible=selection.visible=cloneIcon.visible=spawnIcon.visible=false;});
 renderer.xr.addEventListener('sessionend',()=>{document.body.classList.remove('xr');edges.reset();spawnMenu.hide();teleport.reset();snapTurn.reset();rig.position.y=0;vrSlider=null;deleteHold.cancel();deleteFill.visible=false;camera.position.set(0,1.6,0);camera.rotation.set(-.22,0,0);for(const c of controllers){c.line.visible=false;c.hand.update(null,false);}});
 try{document.body.append(VRButton.createButton(renderer));}catch(error){status.textContent=`VR unavailable: ${error.message}`;}
 renderer.setAnimationLoop((time,frame)=>{
