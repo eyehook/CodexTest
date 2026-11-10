@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="A procedural mountain hike for desktop and Meta Quest 3.">
+<link rel="icon" href="data:,">
+<title>The Hike · CodexTest</title>
+<link rel="stylesheet" href="../../shared/ui/desktop.css">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<canvas id="world" aria-label="Procedural mountain hiking world"></canvas>
+<header><a href="../../">CodexTest</a><span>01 / THE MOUNTAIN</span></header>
+<section id="intro"><p class="eyebrow">A LONG WAY UP</p><h1>The Hike</h1><p>One mountain. A winding trail.<br>Take your time getting there.</p><button id="explore">Start walking</button><p class="hint">WASD · mouse to look · R to reset<br>Esc releases mouse · P toggles diagnostics<br>Quest: left stick walk · right stick turn · B / Y panel</p></section>
+<aside id="diagnostics" hidden><h2>Field notes <button id="close" aria-label="Close diagnostics">×</button></h2><div id="error" role="alert" hidden></div><button id="random-seed" type="button">Random seed</button><p id="route-info"></p><div id="controls"></div><p class="hint">FPS is application cadence, not GPU timing.<br>Seed changes regenerate the world on reload.</p><form id="seed-form"><label>World seed <input id="seed" type="number" step="1"></label><button>Regenerate</button></form></aside>
+<footer><span id="status" role="status">Shaping the mountain…</span><button id="panel-toggle">Diagnostics</button></footer>
+<script type="module" src="./app.mjs?v=10"></script>
+</body></html>

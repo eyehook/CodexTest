@@ -349,3 +349,11 @@ Secret Garden also reuses locomotion, per-source button edges, controller pointe
 `ui/checkbox.mjs` exports `VRCheckbox(model, id, {width, height, theme})` for an existing `ControlModel` toggle. Add `.mesh` to your scene and ray targets; route the host’s click/trigger to `.activate({source})` and hover changes to `.setHover(boolean)`. Model refreshes redraw the texture; `.dispose()` releases the subscription and GPU resources. Hidden or disabled controls reject activation. It creates no controller listeners or raycasts. Current consumer: Secret Garden’s room settings panel (Shadows). Desktop control panels already render model toggles as native HTML checkboxes.
 
 Secret Garden’s project-owned `bee-slider.mjs` also uses `sliderValue` for its four-position Bees density control. Its existing single pointer provides hit UVs; desktop/active-hand drag ownership remains in `projects/secretGarden/app.mjs`. No shared panel/controller listeners are added.
+
+## The Hike consumer — Milestone 1
+
+The Hike reuses `xr/locomotion.mjs`, `xr/session.mjs`, `xr/input.mjs`
+(ButtonEdges), `performance/frame-rate.mjs`, `ui/controls.mjs`, `ui/desktop.mjs`
+and `ui/vr-panel.mjs`. Terrain collision, height following, settings and panel
+placement remain project-owned; see its [handoff](../projects/hike/HANDOFF.md).
+No shared runtime changes were needed. Quest acceptance remains pending.

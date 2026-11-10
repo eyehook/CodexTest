@@ -158,3 +158,11 @@ work. Physical Quest retesting of the new UI remains outstanding.
 ## Scene Test Milestone 2 release review — 2026-10-29
 
 Reviewed before the authorized Scene Test objects/materials/duplication release as required by repository guidance. Space Race runtime and shared runtime are unchanged. The complete root suite, including Space Race and 31 shared regressions, passed before publication. Existing physical-headset validation limits remain unchanged.
+
+## The Hike initial release review — 2026-11-10
+
+Reviewed before the user-authorized Hike push, as required by repository guidance.
+Space Race runtime/settings and all shared runtime modules are unchanged. The
+new Hike project reuses shared helpers and adds a directory entry, documentation
+and root test registration. The complete root suite, including Space Race and
+18 Hike regressions, passed. No new Space Race headset validation is claimed.

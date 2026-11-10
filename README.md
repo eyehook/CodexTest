@@ -6,6 +6,8 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
+- [The Hike](projects/hike/): procedural mountain hiking for desktop and Quest, with a seeded 1.6 km trail and persistent adaptive terrain; [handoff](projects/hike/HANDOFF.md).
+
 - [Secret Garden](projects/secretGarden/): procedural flower, bush and tree sandbox with ten-second growth, seed cloning and removal; [controls and validation](projects/secretGarden/HANDOFF.md).
 
 - [Scene Test](projects/sceneTest/): interactive Quest 3 objects, materials and lighting laboratory; [controls, architecture and validation](projects/sceneTest/HANDOFF.md).
