@@ -1,5 +1,5 @@
 // Arcade flight in world-space floor coordinates. Angles are radians.
-export const GLIDE_DEFAULTS=Object.freeze({launchHeight:.9,launchSpeed:4,minSpeed:2,maxSpeed:60,gravity:9.81,climbDeceleration:.5,drag:.018,glideRatio:8,yawDeadZone:5*Math.PI/180,pitchDeadZone:5*Math.PI/180,maxTurnRate:Math.PI/3,yawGain:1.5,turnResponse:4,pitchResponse:2.5,maxPitchRate:45*Math.PI/180,maxClimb:35*Math.PI/180,maxDive:65*Math.PI/180,stallSpeed:3,fullLiftSpeed:7,stallDive:25*Math.PI/180,bankMax:0,bankResponse:5,bankEnabled:true,maxDelta:.05,maxStep:1/120,collisionStep:.25});
+export const GLIDE_DEFAULTS=Object.freeze({launchHeight:.9,launchSpeed:4,minSpeed:2,maxSpeed:60,gravity:9.81,climbDeceleration:.5,drag:.018,glideRatio:8,tiltDeadZone:2.5*Math.PI/180,pitchDeadZone:5*Math.PI/180,maxTurnRate:Math.PI/3,tiltGain:4.5,turnResponse:4,pitchResponse:2.5,maxPitchRate:45*Math.PI/180,maxClimb:35*Math.PI/180,maxDive:65*Math.PI/180,stallSpeed:3,fullLiftSpeed:7,stallDive:25*Math.PI/180,bankMax:0,bankResponse:5,bankEnabled:true,maxDelta:.05,maxStep:1/120,collisionStep:.25});
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),wrap=x=>Math.atan2(Math.sin(x),Math.cos(x));
 const ease=(x,a,b)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 export class Glider {
@@ -29,7 +29,7 @@ export class Glider {
   for(let i=0;i<12;i++){const t=(lo+hi)/2,x=x0+(x1-x0)*t,z=z0+(z1-z0)*t,y=y0+(y1-y0)*t;if(y<=world.height(x,z))hi=t;else lo=t;}
   const x=x0+(x1-x0)*hi,z=z0+(z1-z0)*hi;this.land(x,world.height(x,z),z);return true;
  }
- update(dt,x,y,z,headYaw,headPitch){
+ update(dt,x,y,z,headTilt,headPitch){
   this.landed=false;const p=this.position;if(!this.active)return p;
   p.x=x;p.y=y;p.z=z;if(!Number.isFinite(dt)||dt<=0)return p;
   const c=this.settings,v=this.velocity;
@@ -37,7 +37,7 @@ export class Glider {
   let remaining=Math.min(dt,c.maxDelta),steps=0;
   while(remaining>1e-8&&this.active&&steps++<64){
    const speed=this.speed,h=Math.min(remaining,c.maxStep,c.collisionStep/Math.max(1,speed),this.boostTime>1e-8?this.boostTime:Infinity),oldX=v.x,oldY=v.y,oldZ=v.z;
-   const error=wrap(headYaw-this.heading),outside=Math.sign(error)*Math.max(0,Math.abs(error)-c.yawDeadZone),targetRate=clamp(outside*c.yawGain,-c.maxTurnRate,c.maxTurnRate);
+   const outside=Math.sign(headTilt)*Math.max(0,Math.abs(headTilt)-c.tiltDeadZone),targetRate=clamp(outside*c.tiltGain,-c.maxTurnRate,c.maxTurnRate);
    this.turnRate+=(targetRate-this.turnRate)*(1-Math.exp(-c.turnResponse*h));this.heading=wrap(this.heading+this.turnRate*h);
    if(this.boostTime>1e-8){
     const horizontal=Math.hypot(v.x,v.z),next=horizontal/(1+c.drag*horizontal*h);

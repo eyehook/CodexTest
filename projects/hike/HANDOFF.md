@@ -6,12 +6,13 @@ Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Current release: **v0.7.5**, adding momentum-based gliding. The user reported
-“Looks good” after testing and authorized publication on 2026-11-11. All **68 Hike
-tests pass** on the final release; app syntax and `git diff --check` pass.
+Current release: **v0.8.2**, with gravity-relative head-tilt flight steering.
+The user reported “Better” after tuning and authorized publication on 2026-11-11.
+All **69 Hike tests pass** on the final code; app syntax and `git diff --check` pass.
+Previous release: v0.7.5, commit `2972a3b`.
 
-Final defaults: 60 m/s glide speed cap, 60 deg/s flight turn cap, yaw gain 1.5,
-5-degree yaw dead zone, no banking, half-rate climb deceleration and 8 m/s² landing
+Final defaults: 60 m/s glide speed cap, 60 deg/s flight turn cap, tilt gain 4.5,
+2.5-degree tilt dead zone, no banking, half-rate climb deceleration and 8 m/s² landing
 friction. Movement takes over when requested walking speed reaches slide speed.
 Startup and Reset are at the trailhead; the temporary summit spawn is removed.
 Formal sustained Quest profiling remains unrecorded. Sections below retain
@@ -32,7 +33,7 @@ collisions remain unimplemented.
 - Quest: left stick walks relative to horizontal headset heading; right stick
   turns smoothly at 90°/s about the physical headset. B/Y opens field notes 45°
   right at 2.1 m; controller ray + trigger adjusts controls. Panel stays world locked.
-  A/X launches gliding. In flight, headset yaw/pitch steers; both sticks are ignored.
+  A/X launches gliding. In flight, head tilt turns and headset pitch controls climb/dive; both sticks are ignored.
   Landing restores walking. A fresh press is required for another launch.
 - Testing speed is **14 m/s**, ten times normal walking. Desktop/VR share the same
   0.7–30 m/s range and 0.1 m/s step.
@@ -699,3 +700,35 @@ Handoff follows the player's requested direction, including sideways/backward.
 The temporary summit spawn has been removed. Startup, XR entry and Reset again
 place the player at the canonical trailhead facing up the trail. Initial terrain
 and pine visibility use that same trailhead position.
+
+
+### Head-tilt steering — local v0.8.0
+
+Flight turn input is now ear-to-shoulder head tilt relative to gravity, rather
+than headset yaw. `FlightView` projects world up onto tracked-head right/up axes
+and uses atan2 to measure signed tilt independently of compass facing. Gameplay
+orientation excludes optional presentation bank. At near-vertical gaze, steering
+fades to neutral (horizontal forward magnitude 0.15 to 0.05) because gravity
+cannot define roll there. Positive/left tilt turns left; right tilt turns right.
+
+`Glider.update` now accepts signed tilt directly; defaults are `tiltDeadZone`
+5 degrees, `tiltGain` 1.5, 60 deg/s cap and response 4/s. Upright head eases turn
+rate to zero. Head yaw remains free for looking around, walking and stationary
+launch direction; moving launch still preserves momentum. Pitch still controls
+climb/dive. Rig rotation follows trajectory yaw around the live head pivot.
+Bank defaults to zero; all landing behavior and trailhead spawn remain unchanged.
+Desktop mouse look supports pitch/yaw but has no roll input, so flight turning
+with this experiment requires a tracked headset (or test pose).
+
+Tilt steering validation: all **69 Hike tests pass**, including tilt sign, upright
+neutral at multiple headset yaw/pitch and rig yaw combinations, sideways-facing
+launches, head-pivot preservation, and near-vertical gaze. App syntax and
+`git diff --check` pass. Physical Quest tilt feel/comfort remains untested.
+
+
+Tilt sensitivity doubled in local v0.8.1: `tiltGain` is now **3** (was 1.5).
+The 5-degree dead zone, 60 deg/s cap and 4/s smoothing remain unchanged.
+
+
+Local v0.8.2 increases `tiltGain` another 50% to **4.5** and halves
+`tiltDeadZone` to **2.5 degrees**. The 60 deg/s cap and 4/s smoothing remain.

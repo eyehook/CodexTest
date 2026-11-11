@@ -1,6 +1,6 @@
-import {Glider,LandingRunout} from './gliding.mjs?v=glide-8';
-import {FlightButtons} from './flight-input.mjs?v=glide-8';
-import {FlightView} from './flight-view.mjs?v=glide-8';
+import {Glider,LandingRunout} from './gliding.mjs?v=glide-11';
+import {FlightButtons} from './flight-input.mjs?v=glide-11';
+import {FlightView} from './flight-view.mjs?v=glide-11';
 import {Flora} from './flora.mjs?v=3d-fade-2';
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
@@ -12,7 +12,7 @@ import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
 import {createWorldAsync} from './world-async.mjs?v=pines-dense-1';
-import {APP_VERSION} from './version.mjs?v=0.7.5';
+import {APP_VERSION} from './version.mjs?v=0.8.2';
 import {Terrain} from './terrain.mjs?v=summit-async-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 

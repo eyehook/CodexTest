@@ -4,7 +4,7 @@ import * as T from '../../../shared/vendor/three-r180/three.module.js';
 import {Glider,LandingRunout,GLIDE_DEFAULTS} from '../gliding.mjs';
 import {FlightButtons} from '../flight-input.mjs';
 import {FlightView} from '../flight-view.mjs';
-const flat={height:()=>0},advance=(g,seconds,pitch=0,yaw=0,hz=120)=>{for(let i=0;i<Math.round(seconds*hz)&&g.active;i++)g.update(1/hz,g.position.x,g.position.y,g.position.z,yaw,pitch);};
+const flat={height:()=>0},advance=(g,seconds,pitch=0,tilt=0,hz=120)=>{for(let i=0;i<Math.round(seconds*hz)&&g.active;i++)g.update(1/hz,g.position.x,g.position.y,g.position.z,tilt,pitch);};
 function airborne(speed=14,options={}){const g=new Glider(flat,options);g.launch(0,300,0,0,0,-speed);return g;}
 test('stationary launch gains about 0.9 m with modest forward speed and no relaunch boost',()=>{
  const g=new Glider(flat);assert.equal(g.launch(0,0,0,0),true);assert.equal(g.velocity.z,-4);const velocity=g.velocity,position=g.position,vy=g.velocity.y;
@@ -14,7 +14,7 @@ test('stationary launch gains about 0.9 m with modest forward speed and no relau
 });
 test('walking momentum, including uphill rise, carries smoothly into launch',()=>{
  const world={height:x=>x*.3},g=new Glider(world);g.launch(0,0,0,-Math.PI/2,14,0,4.2);
- assert.equal(g.velocity.x,14);assert.equal(g.velocity.z,0);advance(g,.4,0,-Math.PI/2);assert.equal(g.active,true);assert.ok(g.position.y-world.height(g.position.x,g.position.z)>.7);
+ assert.equal(g.velocity.x,14);assert.equal(g.velocity.z,0);advance(g,.4,0,0);assert.equal(g.active,true);assert.ok(g.position.y-world.height(g.position.x,g.position.z)>.7);
 });
 test('level flight approaches an 8:1 descent and naturally sheds fast launch speed',()=>{
  const g=airborne();advance(g,25);assert.equal(g.active,true);assert.ok(g.position.y<300);assert.ok(g.speed<14);
@@ -28,10 +28,10 @@ test('dives build retained momentum; climbs trade speed for height and cannot ho
  const height=climb.position.y;advance(climb,40,.8);assert.ok(climb.position.y<height);assert.ok(climb.velocity.y<0);
  const capped=airborne(10,{maxSpeed:12});advance(capped,20,-1.2);assert.ok(capped.speed<=12+1e-8);
 });
-test('head yaw steering is proportional, inertial, dead-zoned and capped; bank returns and can be disabled',()=>{
+test('head tilt steering is proportional, inertial, dead-zoned and capped; bank returns and can be disabled',()=>{
  const small=airborne(),large=airborne(14,{bankMax:5*Math.PI/180}),neutral=airborne();advance(small,.4,0,.2);advance(large,.4,0,1.2);advance(neutral,.4,0,.04);
  assert.ok(large.heading>small.heading&&small.heading>0);assert.equal(neutral.heading,0);assert.ok(large.turnRate<GLIDE_DEFAULTS.maxTurnRate);assert.ok(large.position.x<0);assert.ok(large.bank<0);assert.ok(Math.abs(large.bank)<=large.settings.bankMax);
- const rate=large.turnRate;for(let i=0;i<240;i++)large.update(1/120,large.position.x,large.position.y,large.position.z,large.heading,0);assert.ok(Math.abs(large.turnRate)<rate*.001);
+ const rate=large.turnRate;for(let i=0;i<240;i++)large.update(1/120,large.position.x,large.position.y,large.position.z,0,0);assert.ok(Math.abs(large.turnRate)<rate*.001);
  for(let i=0;i<240;i++)large.settle(1/120);assert.ok(Math.abs(large.bank)<1e-5);
  large.bank=.08;large.settings.bankEnabled=false;large.settle(.01);assert.equal(large.bank,0);large.settings.bankEnabled=true;large.settings.bankMax=0;large.bank=.08;large.settle(.01);assert.equal(large.bank,0);
 });
@@ -72,15 +72,15 @@ test('landing beneath a translated, yawed, banked head preserves live standing h
   const world={height:(x,z)=>x*.04+z*.02},rig=new T.Group(),bank=new T.Group(),camera=new T.Object3D();rig.add(bank);bank.add(camera);rig.position.set(100,20,40);rig.rotation.y=.7;
   const viewer={position:new T.Vector3(1.2,height,.6),orientation:new T.Quaternion()},view=new FlightView(bank),g=new Glider(world);camera.position.copy(viewer.position);view.sample(rig,viewer);
   g.launch(view.head.x,rig.position.y,view.head.z,view.heading,0,-8);g.boostTime=0;g.pathPitch=-1;Object.assign(g.velocity,{x:0,y:-20,z:-8});
-  for(let i=0;i<500&&g.active;i++){view.sample(rig,viewer);const p=g.update(1/72,view.head.x,rig.position.y,view.head.z,view.heading,-1);rig.position.x+=p.x-view.head.x;rig.position.z+=p.z-view.head.z;rig.position.y=p.y;view.bank(viewer,.05);rig.updateMatrixWorld(true);}
+  for(let i=0;i<500&&g.active;i++){view.sample(rig,viewer);const p=g.update(1/72,view.head.x,rig.position.y,view.head.z,0,-1);rig.position.x+=p.x-view.head.x;rig.position.z+=p.z-view.head.z;rig.position.y=p.y;view.bank(viewer,.05);rig.updateMatrixWorld(true);}
   view.sample(rig,viewer);const ground=world.height(view.head.x,view.head.z),actual=camera.getWorldPosition(new T.Vector3());assert.equal(g.active,false);assert.ok(Math.abs(rig.position.y-ground)<1e-8);assert.ok(Math.abs(actual.y-ground-height)<1e-8);
  }
 });
 
-test('flight yaw rotates the body with travel, pivots at the head, and settles on looking forward',()=>{
+test('head tilt rotates the body with travel, pivots at the head, and settles when upright',()=>{
  for(const side of [-1,1]){
   const rig=new T.Group(),bank=new T.Group();rig.add(bank);rig.position.set(120,300,-70);rig.rotation.y=3.1;
-  const viewer={position:new T.Vector3(1.2,1.65,-.6),orientation:new T.Quaternion().setFromEuler(new T.Euler(-.2,side*.5,0,'YXZ'))};
+  const viewer={position:new T.Vector3(1.2,1.65,-.6),orientation:new T.Quaternion().setFromEuler(new T.Euler(-.2,1.1,side*.5,'YXZ'))};
   const view=new FlightView(bank),g=new Glider(flat);view.sample(rig,viewer);g.launch(view.head.x,300,view.head.z,3.1,-Math.sin(3.1)*14,-Math.cos(3.1)*14);
   const startYaw=rig.rotation.y,raw=viewer.orientation.clone();
   for(let i=0;i<240;i++){
@@ -124,4 +124,19 @@ test('movement takes over landing once requested walking speed matches or exceed
  r.start(5,0);assert.equal(r.takeOver(14),true);
  r.start(12,0);r.update(.05,0,0);assert.equal(r.takeOver(11.5),false);assert.equal(r.takeOver(11.6),true);
  r.start(.01,0);assert.equal(r.takeOver(0),false);
+});
+
+test('gravity-relative tilt ignores head yaw and pitch, including sideways launches and yawed rigs',()=>{
+ for(const rigYaw of [-2,0,2])for(const yaw of [-2.8,-1,0,1,2.8])for(const pitch of [-.8,0,.8]){
+  const rig=new T.Group(),bank=new T.Group();rig.add(bank);rig.rotation.y=rigYaw;rig.position.set(100,300,-40);
+  const viewer={position:new T.Vector3(1,1.7,-.4),orientation:new T.Quaternion()},view=new FlightView(bank);
+  for(const tilt of [-.3,0,.3]){
+   viewer.orientation.setFromEuler(new T.Euler(pitch,yaw,tilt,'YXZ'));view.sample(rig,viewer);assert.ok(Math.abs(view.tilt-tilt)<1e-10);
+  }
+  viewer.orientation.setFromEuler(new T.Euler(pitch,yaw,0,'YXZ'));view.sample(rig,viewer);
+  const g=new Glider(flat);g.launch(view.head.x,300,view.head.z,view.heading);const heading=g.heading;
+  for(let i=0;i<30;i++)view.advance(g,rig,viewer,1/120);
+  assert.ok(Math.abs(g.heading-heading)<1e-10);assert.equal(g.turnRate,0);
+  viewer.orientation.setFromEuler(new T.Euler(Math.PI/2,yaw,.3,'YXZ'));view.sample(rig,viewer);assert.equal(view.tilt,0);
+ }
 });
