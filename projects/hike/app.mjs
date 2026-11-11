@@ -1,6 +1,6 @@
-import {Glider,LandingRunout} from './gliding.mjs?v=glide-11';
-import {FlightButtons} from './flight-input.mjs?v=glide-11';
-import {FlightView} from './flight-view.mjs?v=glide-11';
+import {Glider,LandingRunout} from './gliding.mjs?v=glide-17';
+import {FlightButtons} from './flight-input.mjs?v=glide-17';
+import {FlightView} from './flight-view.mjs?v=glide-17';
 import {Flora} from './flora.mjs?v=3d-fade-2';
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
@@ -12,7 +12,7 @@ import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
 import {createWorldAsync} from './world-async.mjs?v=pines-dense-1';
-import {APP_VERSION} from './version.mjs?v=0.8.2';
+import {APP_VERSION} from './version.mjs?v=0.10.2';
 import {Terrain} from './terrain.mjs?v=summit-async-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -48,7 +48,8 @@ try {
 showProgress(0,'Starting mountain generation');
 const world=await createWorldAsync({seed},{onProgress:showProgress,signal:generationAbort.signal});
 showProgress(.93,'Preparing the landscape view');
-const spawn=world.start;
+// Temporary summit spawn for flight testing.
+const spawn=world.summit;
 const settings={speed:14,slideSlope:35};
 const scene=new T.Scene();scene.background=new T.Color(0x9fbac6);scene.fog=new T.Fog(0x9fbac6,650,950);
 const camera=new T.PerspectiveCamera(70,innerWidth/innerHeight,.08,1200);camera.position.y=1.7;camera.rotation.order='YXZ';camera.rotation.x=.18;
@@ -75,8 +76,8 @@ const stats={triangles:0,fps:0,elevation:0,remaining:world.totalLength,along:0};
 let walk=false,last=0,uiElapsed=0,frameCount=0,launchQueued=false;
 const keys=new Set();
 function reset() {
-  // Start at the trailhead, facing up the route.
-  const ahead=world.route[12];
+  // Face downhill from the summit for flight testing.
+  const ahead=world.route[world.route.length-13];
   sliding.reset();glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;rig.rotation.set(0,Math.atan2(spawn.x-ahead.x,spawn.z-ahead.z),0);rig.position.set(spawn.x,spawn.y,spawn.z);
   if(renderer.xr.isPresenting&&state.pose){head.copy(viewer.position).applyQuaternion(rig.quaternion);rig.position.x-=head.x;rig.position.z-=head.z;}
   camera.rotation.set(.18,0,0);rig.updateMatrixWorld(true);
@@ -85,10 +86,10 @@ const defs=[
   {id:'speed',kind:'number',label:'Walk speed (m/s)',min:.7,max:30,step:.1,get:()=>settings.speed,set:v=>settings.speed=v},
   {id:'slope',kind:'number',label:'Slide above (degrees)',min:20,max:50,step:1,get:()=>settings.slideSlope,set:v=>settings.slideSlope=v},
   {id:'glideBank',kind:'number',label:'Glide bank (degrees, 0 = off)',min:0,max:5,step:.5,get:()=>glider.settings.bankMax*180/Math.PI,set:v=>glider.settings.bankMax=v*Math.PI/180},
-  {id:'glideSpeed',kind:'number',label:'Maximum glide speed (m/s)',min:8,max:60,step:1,get:()=>glider.settings.maxSpeed,set:v=>glider.settings.maxSpeed=v},
+  {id:'glideSpeed',kind:'number',label:'Maximum glide speed (m/s)',min:8,max:90,step:1,get:()=>glider.settings.maxSpeed,set:v=>glider.settings.maxSpeed=v},
   {id:'glideRatio',kind:'number',label:'Level glide ratio',min:4,max:16,step:.5,get:()=>glider.settings.glideRatio,set:v=>glider.settings.glideRatio=v},
   ...[['movement','Movement',()=>glider.active?'Gliding':runout.active?'Landing runout':'Walking'],['airspeed','Glide speed (m/s)',()=>glider.speed.toFixed(1)],['fps','FPS',()=>stats.fps.toFixed(0)],['triangles','Rendered triangles (~)',()=>stats.triangles.toLocaleString()],['update','Snap apply CPU (ms)',()=>terrain.updateMs.toFixed(1)],['sample','Snap worker (ms)',()=>terrain.sampleMs.toFixed(1)],['latency','Snap latency (ms)',()=>terrain.latencyMs.toFixed(1)],['generation','Generation (ms)',()=>(terrain.generationMs+world.generationMs+world.flora.generationMs).toFixed(0)],['vertices','Terrain vertices',()=>terrain.vertexCount.toLocaleString()],['snaps','Terrain snaps',()=>terrain.snapCount],['elevation','Elevation (m)',()=>stats.elevation.toFixed(1)],['remaining','Trail remaining (m)',()=>stats.remaining.toFixed(0)],['trees','Generated pines',()=>flora.total.toLocaleString()],['trees3d','3D pine instances',()=>flora.instanceCount],['floraCalls','Vegetation batches',()=>flora.drawCalls],['pineSamples','Tree fade MSAA samples',()=>flora.coverageSamples],['floraMs','Vegetation slice (ms)',()=>flora.updateMs.toFixed(2)],['floraPeak','Vegetation peak (ms)',()=>flora.peakUpdateMs.toFixed(2)]].map(([id,label,get])=>({id,label,kind:'readout',get})),
-  {id:'reset',kind:'action',label:'Reset to trailhead',run:reset}
+  {id:'reset',kind:'action',label:'Reset to summit',run:reset}
 ];
 const model=new ControlModel(defs);
 const desktop=new DesktopControls($('#controls'),model);
@@ -134,7 +135,8 @@ function stepFrame(time,frame){
   if(glider.active){
     // The collision floor is beneath the current physical head X/Z. Its world
     // height is rig.y, preserving the live standing/headset height above it.
-    flightView.advance(glider,rig,viewer,dt);
+    const turn=session?readMovementAxes(session.inputSources,locomotion.axes).turn:walk&&!panelOpen?Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')):0;
+    flightView.advance(glider,rig,viewer,dt,turn);
     if(glider.landed){sliding.reset();runout.start(glider.landingVelocity.x,glider.landingVelocity.z);walkVelocity.set(0,0,0);}
   }else if(inputLocked){
     const point=runout.update(dt,head.x,head.z);

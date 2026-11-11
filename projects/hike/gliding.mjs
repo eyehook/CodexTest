@@ -1,5 +1,6 @@
+import {deadzone} from '../../shared/xr/input.mjs';
 // Arcade flight in world-space floor coordinates. Angles are radians.
-export const GLIDE_DEFAULTS=Object.freeze({launchHeight:.9,launchSpeed:4,minSpeed:2,maxSpeed:60,gravity:9.81,climbDeceleration:.5,drag:.018,glideRatio:8,tiltDeadZone:2.5*Math.PI/180,pitchDeadZone:5*Math.PI/180,maxTurnRate:Math.PI/3,tiltGain:4.5,turnResponse:4,pitchResponse:2.5,maxPitchRate:45*Math.PI/180,maxClimb:35*Math.PI/180,maxDive:65*Math.PI/180,stallSpeed:3,fullLiftSpeed:7,stallDive:25*Math.PI/180,bankMax:0,bankResponse:5,bankEnabled:true,maxDelta:.05,maxStep:1/120,collisionStep:.25});
+export const GLIDE_DEFAULTS=Object.freeze({launchHeight:.9,launchSpeed:4,minSpeed:2,maxSpeed:90,gravity:9.81,climbDeceleration:.5,drag:.018,glideRatio:8,turnDeadZone:.15,pitchDeadZone:5*Math.PI/180,maxTurnRate:Math.PI/3,turnResponse:3,pitchResponse:2.5,maxPitchRate:45*Math.PI/180,maxClimb:35*Math.PI/180,maxDive:75*Math.PI/180,stallSpeed:3,fullLiftSpeed:7,stallDive:25*Math.PI/180,bankMax:0,bankResponse:5,bankEnabled:true,maxDelta:.05,maxStep:1/120,collisionStep:.25});
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),wrap=x=>Math.atan2(Math.sin(x),Math.cos(x));
 const ease=(x,a,b)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 export class Glider {
@@ -29,7 +30,7 @@ export class Glider {
   for(let i=0;i<12;i++){const t=(lo+hi)/2,x=x0+(x1-x0)*t,z=z0+(z1-z0)*t,y=y0+(y1-y0)*t;if(y<=world.height(x,z))hi=t;else lo=t;}
   const x=x0+(x1-x0)*hi,z=z0+(z1-z0)*hi;this.land(x,world.height(x,z),z);return true;
  }
- update(dt,x,y,z,headTilt,headPitch){
+ update(dt,x,y,z,turnInput,headPitch){
   this.landed=false;const p=this.position;if(!this.active)return p;
   p.x=x;p.y=y;p.z=z;if(!Number.isFinite(dt)||dt<=0)return p;
   const c=this.settings,v=this.velocity;
@@ -37,8 +38,11 @@ export class Glider {
   let remaining=Math.min(dt,c.maxDelta),steps=0;
   while(remaining>1e-8&&this.active&&steps++<64){
    const speed=this.speed,h=Math.min(remaining,c.maxStep,c.collisionStep/Math.max(1,speed),this.boostTime>1e-8?this.boostTime:Infinity),oldX=v.x,oldY=v.y,oldZ=v.z;
-   const outside=Math.sign(headTilt)*Math.max(0,Math.abs(headTilt)-c.tiltDeadZone),targetRate=clamp(outside*c.tiltGain,-c.maxTurnRate,c.maxTurnRate);
-   this.turnRate+=(targetRate-this.turnRate)*(1-Math.exp(-c.turnResponse*h));this.heading=wrap(this.heading+this.turnRate*h);
+   // Same stick direction/dead zone as walking, with flight angular inertia.
+   const targetRate=-deadzone(turnInput,c.turnDeadZone,true)*c.maxTurnRate||0;
+   this.turnRate+=(targetRate-this.turnRate)*(1-Math.exp(-c.turnResponse*h));
+   if(targetRate===0&&Math.abs(this.turnRate)<1e-4)this.turnRate=0;
+   this.heading=wrap(this.heading+this.turnRate*h)||0;
    if(this.boostTime>1e-8){
     const horizontal=Math.hypot(v.x,v.z),next=horizontal/(1+c.drag*horizontal*h);
     v.x=-Math.sin(this.heading)*next;v.z=-Math.cos(this.heading)*next;v.y-=c.gravity*h;this.boostTime=Math.max(0,this.boostTime-h);this.pathPitch=Math.atan2(v.y,next);

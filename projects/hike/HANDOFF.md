@@ -6,15 +6,19 @@ Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Current release: **v0.8.2**, with gravity-relative head-tilt flight steering.
-The user reported “Better” after tuning and authorized publication on 2026-11-11.
-All **69 Hike tests pass** on the final code; app syntax and `git diff --check` pass.
-Previous release: v0.7.5, commit `2972a3b`.
+Current release: **v0.10.2**, with thumbstick flight steering, angular inertia
+and summit spawn. The user accepted the current behavior and authorized GitHub
+publication on 2026-11-11. All **69 Hike tests pass** on the final code; app syntax
+and `git diff --check` pass. Previous release: v0.8.2, commit `10fd2a6`.
 
-Final defaults: 60 m/s glide speed cap, 60 deg/s flight turn cap, tilt gain 4.5,
-2.5-degree tilt dead zone, no banking, half-rate climb deceleration and 8 m/s² landing
-friction. Movement takes over when requested walking speed reaches slide speed.
-Startup and Reset are at the trailhead; the temporary summit spawn is removed.
+Final defaults: **90 m/s** total glide speed cap, **75-degree** maximum dive,
+**60 deg/s** flight turn cap, stick dead zone 0.15 with rescaling, and turn
+response 3/s (about 95% angular deceleration after one second of release).
+Right stick steers; head pitch controls climb/descent; head yaw/roll do not steer.
+Desktop arrow keys turn in flight. Banking is disabled by default; climb
+deceleration remains halved, and landing friction is 8 m/s² with movement-speed
+handoff. Ground turning remains 90 deg/s. Startup and Reset use the summit facing
+downhill, retaining the user's temporary flight-testing spawn.
 Formal sustained Quest profiling remains unrecorded. Sections below retain
 implementation history; these release settings take precedence.
 
@@ -732,3 +736,38 @@ The 5-degree dead zone, 60 deg/s cap and 4/s smoothing remain unchanged.
 
 Local v0.8.2 increases `tiltGain` another 50% to **4.5** and halves
 `tiltDeadZone` to **2.5 degrees**. The 60 deg/s cap and 4/s smoothing remain.
+
+
+### Thumbstick flight turning — local v0.10.0
+
+Head tilt steering is removed. Right-stick X turns the rig and flight trajectory
+with the same direction, shared rescaled 0.15 dead zone and immediate 90 deg/s
+full-deflection response as ground Locomotion. Release stops turning immediately.
+Desktop left/right arrows provide equivalent flight turning. Head yaw/roll are
+free look; head pitch still controls climb/dive. Left-stick walking remains
+disabled during flight. Landing friction/input handoff remains unchanged. Startup
+and Reset stay at the trailhead; banking defaults to zero.
+
+User additionally requested summit spawn: startup, XR entry and Reset now use
+`world.summit`, facing back downhill along the trail. Terrain and pine visibility
+initialize there. This supersedes the trailhead note above.
+
+Validation: all **69 Hike tests pass**, including 90 deg/s full-stick and 45 deg/s
+half-effective-stick turns, release-to-stop, head yaw/roll independence, retained
+pitch sampling and physical head pivot. App syntax and `git diff --check` pass.
+Quest flight-control feel remains for user testing. Local and unpushed.
+
+
+### Gliding turn inertia — local v0.10.1
+
+Flight turn cap is now **60 deg/s**. Thumbstick input sets a target angular
+velocity; actual turn rate eases toward it with `turnResponse:3` per second
+(time constant 0.33 s). Release removes about 78% of turn rate after 0.5 s and
+95% after 1 s; tiny residuals below 0.0001 rad/s become exactly zero. The same
+response smooths turn onset and reversal. Ground turning stays 90 deg/s with its
+existing immediate response. Pitch control, landing and summit spawn remain.
+
+
+Local v0.10.2 raises the total glide speed cap to **90 m/s** and maximum dive
+angle to **75 degrees**. Diagnostics maximum-speed range now extends to 90 m/s.
+Drag remains unchanged, so sustained terminal descent can stay below the cap.

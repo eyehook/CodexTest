@@ -28,10 +28,13 @@ test('dives build retained momentum; climbs trade speed for height and cannot ho
  const height=climb.position.y;advance(climb,40,.8);assert.ok(climb.position.y<height);assert.ok(climb.velocity.y<0);
  const capped=airborne(10,{maxSpeed:12});advance(capped,20,-1.2);assert.ok(capped.speed<=12+1e-8);
 });
-test('head tilt steering is proportional, inertial, dead-zoned and capped; bank returns and can be disabled',()=>{
+test('flight thumbstick steering is capped and inertial; release coasts to rest and bank can be disabled',()=>{
  const small=airborne(),large=airborne(14,{bankMax:5*Math.PI/180}),neutral=airborne();advance(small,.4,0,.2);advance(large,.4,0,1.2);advance(neutral,.4,0,.04);
- assert.ok(large.heading>small.heading&&small.heading>0);assert.equal(neutral.heading,0);assert.ok(large.turnRate<GLIDE_DEFAULTS.maxTurnRate);assert.ok(large.position.x<0);assert.ok(large.bank<0);assert.ok(Math.abs(large.bank)<=large.settings.bankMax);
- const rate=large.turnRate;for(let i=0;i<240;i++)large.update(1/120,large.position.x,large.position.y,large.position.z,0,0);assert.ok(Math.abs(large.turnRate)<rate*.001);
+ assert.ok(large.heading<small.heading&&small.heading<0);assert.equal(neutral.heading,0);assert.ok(Math.abs(large.turnRate)<=GLIDE_DEFAULTS.maxTurnRate);assert.ok(large.position.x>0);assert.ok(large.bank>0);assert.ok(Math.abs(large.bank)<=large.settings.bankMax);
+ const rate=Math.abs(large.turnRate),heading=large.heading;
+ large.update(.05,large.position.x,large.position.y,large.position.z,0,0);
+ assert.ok(Math.abs(large.turnRate)>rate*.8&&Math.abs(large.turnRate)<rate);assert.ok(large.heading<heading);
+ for(let i=0;i<480;i++)large.update(1/120,large.position.x,large.position.y,large.position.z,0,0);assert.equal(large.turnRate,0);
  for(let i=0;i<240;i++)large.settle(1/120);assert.ok(Math.abs(large.bank)<1e-5);
  large.bank=.08;large.settings.bankEnabled=false;large.settle(.01);assert.equal(large.bank,0);large.settings.bankEnabled=true;large.settings.bankMax=0;large.bank=.08;large.settle(.01);assert.equal(large.bank,0);
 });
@@ -77,20 +80,20 @@ test('landing beneath a translated, yawed, banked head preserves live standing h
  }
 });
 
-test('head tilt rotates the body with travel, pivots at the head, and settles when upright',()=>{
+test('thumbstick rotates the body with travel around the head and eases out on release',()=>{
  for(const side of [-1,1]){
   const rig=new T.Group(),bank=new T.Group();rig.add(bank);rig.position.set(120,300,-70);rig.rotation.y=3.1;
   const viewer={position:new T.Vector3(1.2,1.65,-.6),orientation:new T.Quaternion().setFromEuler(new T.Euler(-.2,1.1,side*.5,'YXZ'))};
   const view=new FlightView(bank),g=new Glider(flat);view.sample(rig,viewer);g.launch(view.head.x,300,view.head.z,3.1,-Math.sin(3.1)*14,-Math.cos(3.1)*14);
   const startYaw=rig.rotation.y,raw=viewer.orientation.clone();
   for(let i=0;i<240;i++){
-   view.advance(g,rig,viewer,1/120);view.bank(viewer,g.bank);view.sample(rig,viewer);
+   view.advance(g,rig,viewer,1/120,-side);view.bank(viewer,g.bank);view.sample(rig,viewer);
    assert.ok(Math.hypot(view.head.x-g.position.x,view.head.z-g.position.z)<1e-9);
    assert.ok(Math.abs(Math.atan2(Math.sin(g.heading-rig.rotation.y),Math.cos(g.heading-rig.rotation.y)))<1e-9);
   }
   assert.ok(side*(rig.rotation.y-startYaw)>.7);assert.deepEqual(viewer.orientation,raw);
   const rate=Math.abs(g.turnRate);viewer.orientation.identity();for(let i=0;i<240;i++)view.advance(g,rig,viewer,1/120);
-  assert.ok(Math.abs(g.turnRate)<rate*.001);
+  assert.ok(Math.abs(g.turnRate)<rate*.003);
   const yaw=rig.rotation.y;view.advance(g,rig,viewer,0);assert.equal(rig.rotation.y,yaw);
  }
 });
@@ -126,17 +129,15 @@ test('movement takes over landing once requested walking speed matches or exceed
  r.start(.01,0);assert.equal(r.takeOver(0),false);
 });
 
-test('gravity-relative tilt ignores head yaw and pitch, including sideways launches and yawed rigs',()=>{
- for(const rigYaw of [-2,0,2])for(const yaw of [-2.8,-1,0,1,2.8])for(const pitch of [-.8,0,.8]){
-  const rig=new T.Group(),bank=new T.Group();rig.add(bank);rig.rotation.y=rigYaw;rig.position.set(100,300,-40);
-  const viewer={position:new T.Vector3(1,1.7,-.4),orientation:new T.Quaternion()},view=new FlightView(bank);
-  for(const tilt of [-.3,0,.3]){
-   viewer.orientation.setFromEuler(new T.Euler(pitch,yaw,tilt,'YXZ'));view.sample(rig,viewer);assert.ok(Math.abs(view.tilt-tilt)<1e-10);
-  }
-  viewer.orientation.setFromEuler(new T.Euler(pitch,yaw,0,'YXZ'));view.sample(rig,viewer);
-  const g=new Glider(flat);g.launch(view.head.x,300,view.head.z,view.heading);const heading=g.heading;
-  for(let i=0;i<30;i++)view.advance(g,rig,viewer,1/120);
-  assert.ok(Math.abs(g.heading-heading)<1e-10);assert.equal(g.turnRate,0);
-  viewer.orientation.setFromEuler(new T.Euler(Math.PI/2,yaw,.3,'YXZ'));view.sample(rig,viewer);assert.equal(view.tilt,0);
+test('head yaw and roll never steer without thumbstick; pitch continues to control flight',()=>{
+ for(const rigYaw of [-2,0,2])for(const yaw of [-2.8,0,2.8]){
+  const rig=new T.Group(),bank=new T.Group();rig.add(bank);rig.rotation.y=rigYaw;rig.position.y=300;
+  const viewer={position:new T.Vector3(1,1.7,-.4),orientation:new T.Quaternion()},view=new FlightView(bank),g=new Glider(flat);
+  view.sample(rig,viewer);g.launch(view.head.x,300,view.head.z,view.heading);const heading=g.heading;
+  for(const roll of [-.5,0,.5]){viewer.orientation.setFromEuler(new T.Euler(0,yaw,roll,'YXZ'));view.advance(g,rig,viewer,1/120);assert.ok(Math.abs(g.heading-heading)<1e-10);assert.equal(g.turnRate,0);}
+  viewer.orientation.setFromEuler(new T.Euler(-.6,yaw,0,'YXZ'));view.sample(rig,viewer);assert.ok(Math.abs(view.pitch+.6)<1e-9);
  }
+ const left=airborne(),right=airborne();advance(left,1,0,-1);advance(right,1,0,1);
+ assert.ok(Math.abs(left.heading+right.heading)<1e-9);assert.ok(left.heading>0&&left.heading<Math.PI/3);assert.ok(Math.abs(right.turnRate)<Math.PI/3);
+ const partial=airborne();advance(partial,1,0,.575);assert.ok(Math.abs(partial.heading-right.heading*.5)<1e-9);
 });
