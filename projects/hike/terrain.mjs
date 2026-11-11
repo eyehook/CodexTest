@@ -28,16 +28,15 @@ export class Terrain {
  update(x,z){
   if(this.disposed||this.error)return false;
   const ox=Math.floor(x/CELL_SIZE)*CELL_SIZE,oz=Math.floor(z/CELL_SIZE)*CELL_SIZE;
-  // During a distant teleport, never display an old coarse patch underfoot.
-  // Ordinary walking stays within the old 48 m core while the worker finishes.
-  this.mesh.visible=this.snapCount>0&&x>=this.originX-16&&x<=this.originX+32&&z>=this.originZ-16&&z<=this.originZ+32;
+  // Keep the last completed terrain visible while the worker catches up.
+  this.mesh.visible=this.snapCount>0;
   if(ox===this.requestedX&&oz===this.requestedZ)return false;
   this.requestedX=ox;this.requestedZ=oz;this.requestedAt=performance.now();
   if(!this.inFlight&&(ox!==this.originX||oz!==this.originZ))this.request();
   return true;
  }
  request(){
-  this.inFlight=true;
+  this.inFlight=true;this.jobRequestedAt=this.requestedAt;
   if(this.worker){const buffer=this.buffer.buffer;this.buffer=null;this.worker.postMessage({type:'sample',originX:this.requestedX,originZ:this.requestedZ,buffer},[buffer]);}
   else {const result=this.samples.fill(this.requestedX,this.requestedZ,this.buffer);this.receive({...result,buffer:this.buffer.buffer});}
  }
@@ -45,8 +44,9 @@ export class Terrain {
   if(this.disposed||this.error)return;
   if(data.error){this.fail(new Error(data.error));return;}
   this.inFlight=false;this.buffer=new Float32Array(data.buffer);
-  // Coalesce rapid moves. A late response must never move the mesh backwards.
-  if(data.originX===this.requestedX&&data.originZ===this.requestedZ)this.apply(data);
+  // One job is in flight: display its completed grid, then catch up to the
+  // latest desired cell without queuing all intervening cells.
+  this.apply(data);
   if(this.originX!==this.requestedX||this.originZ!==this.requestedZ)this.request();
  }
  apply(data){
@@ -58,7 +58,7 @@ export class Terrain {
   // X/Z bounds/topology never change; only the sampled height extent does.
   const box=this.geometry.boundingBox,sphere=this.geometry.boundingSphere;
   box.min.y=data.min;box.max.y=data.max;sphere.center.set(8,(data.min+data.max)/2,8);sphere.radius=Math.hypot(TERRAIN_RADIUS+Math.SQRT2*8,(data.max-data.min)/2);
-  this.sampledVertices=data.sampled;this.sampleMs=data.sampleMs;this.snapCount++;this.updateMs=performance.now()-began;this.latencyMs=performance.now()-this.requestedAt;
+  this.sampledVertices=data.sampled;this.sampleMs=data.sampleMs;this.snapCount++;this.updateMs=performance.now()-began;this.latencyMs=performance.now()-this.jobRequestedAt;
   if(this.snapCount===1){this.generationMs=performance.now()-this.began;this.resolveReady();}
  }
  fail(error){this.error=error;this.inFlight=false;this.mesh.visible=false;this.worker?.terminate();this.rejectReady(error);this.onError?.(error);}

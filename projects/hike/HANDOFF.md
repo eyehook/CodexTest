@@ -147,8 +147,9 @@ Profiling found synchronous snaps too expensive, so browsers use
 `terrain-worker.mjs`. It receives one read-only world snapshot and samples only on
 snap requests. There is no erosion, pathfinding or clipping in the worker. The
 transfer buffer is returned/reused; the worker keeps one previous-sample buffer.
-Only one job is in flight and newer requested origins replace obsolete requests.
-Late responses never move the mesh back to an old origin.
+Only one job is in flight. Every completed result is applied, then a new job
+targets the latest desired origin, skipping intermediate requests. A completed
+grid can briefly represent an earlier position while the next job catches up.
 
 A snap is **committed atomically when its worker result is ready**. The existing
 position, normal, color and UV buffers are updated in place; index data is untouched.
@@ -157,14 +158,16 @@ height extent and the fixed horizontal footprint. The terrain update in the main
 checks the snap cell; it performs no mesh-height sampling, reconstruction or
 interpolation. Gameplay still queries the ground for player collision.
 
-There is a short worker latency after crossing a cell boundary. The prior grid
-remains stationary during that interval. Its 48 m core has room for normal walking;
-if a teleport or a severely delayed job takes the player outside that core, the old
-terrain is hidden until the new grid arrives rather than showing coarse ground
-underfoot. This temporary absence on distant teleports is a known tradeoff. Startup
-awaits the first result behind the existing loading card. Worker failures stop the
-render loop and open seed-recovery diagnostics. Node tests use a synchronous adapter
-for the same sampling implementation; browser execution uses the worker.
+There is worker latency after crossing a cell boundary. The prior grid remains
+stationary and visible until a completed result arrives, even outside its fine
+core. Completed grids are applied even when the player has requested a newer
+cell; the worker then samples the latest desired origin. This prevents repeated
+result discards and deliberate whole-terrain hiding during walking. Ground can
+briefly be coarser than the collision surface outside the old fine core; a distant
+teleport can leave the old grid outside the viewer's area until sampling completes.
+Startup awaits the first result behind the existing loading card. Worker failures
+stop the render loop and open seed-recovery diagnostics. Node tests use a
+synchronous adapter for the same sampling implementation; browsers use the worker.
 
 The world snapshot is cloned once into the worker; this deliberately duplicates CPU
 query data to keep sampling off the render thread. There is only one rendered
@@ -310,3 +313,23 @@ checks passed. `git diff --check` passed. No browser visual review or Quest test
 has been performed by the agent for this change. The user tested the change,
 reported “Much better,” and authorized publication on 2026-11-11. Formal Quest
 performance measurements remain outstanding. This release includes adaptive banks.
+
+
+### Visible terrain catch-up — local change, 2026-11-11
+
+The user reported a roughly half-second terrain disappearance during ascent.
+Code inspection found an explicit hide outside the last committed 48 m core;
+this is a plausible cause, not a measured headset diagnosis or GC finding.
+At the user's request, `terrain.mjs` now retains the old mesh visibility while
+sampling and applies every completed result before requesting the latest cell.
+Only one job remains in flight and pending destinations are still coalesced.
+Startup, failure and disposal behavior remain guarded. Latency uses the applied
+job's request timestamp, rather than a newer pending destination's timestamp.
+Entry/import cache versions are advanced. Regression coverage checks delayed
+startup, visible old terrain outside the core, intermediate-result application,
+latest-cell catch-up without input, returning to a prior cell and disposal.
+Validation: all 33 Hike tests passed in 7.07 seconds with warm fixtures;
+`git diff --check` passed. The user reported that this appears to fix the
+disappearance and authorized pushing to GitHub on 2026-11-11. This release
+includes visible terrain catch-up; formal headset performance profiling remains
+outstanding.

@@ -46,13 +46,23 @@ class FakeWorker {
  messages=[];postMessage(message){this.messages.push(message);}terminate(){this.terminated=true;}
  finish(){const m=this.messages.filter(m=>m.type==='sample').at(-1);this.onmessage({data:{...m,min:0,max:0,sampled:0,sampleMs:1}});}
 }
-test('worker results commit atomically; stale snaps coalesce and disposal terminates work',async()=>{
+test('completed worker results stay visible and apply before catching up to the latest cell',async()=>{
  const worker=new FakeWorker(),terrain=new Terrain(new T.Scene(),syntheticWorld(),{workerFactory:()=>worker});
  terrain.update(20,1);terrain.update(200,-100);assert.equal(terrain.snapCount,0);assert.equal(terrain.mesh.visible,false);assert.equal(worker.messages.length,2);
- worker.finish();assert.equal(terrain.snapCount,0);assert.equal(worker.messages.length,3);worker.finish();await terrain.ready;
- assert.equal(terrain.originX,192);assert.equal(terrain.originZ,-112);assert.equal(terrain.mesh.visible,true);assert.equal(terrain.snapCount,1);
- terrain.update(208,-100);terrain.update(200,-100);worker.finish();assert.equal(terrain.snapCount,1,'return to current cell discards obsolete response');
- terrain.dispose();worker.finish();assert.equal(worker.terminated,true);assert.equal(terrain.snapCount,1);
+ worker.finish();await terrain.ready;
+ assert.equal(terrain.snapCount,1);assert.equal(terrain.originX,0);assert.equal(terrain.mesh.visible,true);assert.equal(worker.messages.length,3);
+ assert.equal(worker.messages.at(-1).originX,192);assert.equal(worker.messages.at(-1).originZ,-112);
+ terrain.update(400,-200);assert.equal(terrain.mesh.visible,true,'old grid remains visible outside its fine core');
+ worker.finish();assert.equal(terrain.snapCount,2);assert.equal(terrain.originX,192);assert.equal(terrain.originZ,-112);assert.equal(terrain.mesh.visible,true);
+ assert.equal(worker.messages.at(-1).originX,400);assert.equal(worker.messages.at(-1).originZ,-208);
+ // No more input is needed for the latest pending result to appear.
+ worker.finish();assert.equal(terrain.snapCount,3);assert.equal(terrain.originX,400);assert.equal(terrain.inFlight,false);
+ // Returning to the displayed cell still applies the completed excursion and
+ // requests the return cell, with neither response discarded or hidden.
+ terrain.update(416,-200);terrain.update(400,-200);worker.finish();
+ assert.equal(terrain.snapCount,4);assert.equal(terrain.originX,416);assert.equal(terrain.mesh.visible,true);assert.equal(terrain.inFlight,true);
+ worker.finish();assert.equal(terrain.snapCount,5);assert.equal(terrain.originX,400);assert.equal(terrain.inFlight,false);
+ terrain.update(800,0);terrain.dispose();const snaps=terrain.snapCount;worker.finish();assert.equal(worker.terminated,true);assert.equal(terrain.snapCount,snaps);
 });
 test('worker failure rejects startup and reports the error',async()=>{
  const worker=new FakeWorker(),terrain=new Terrain(new T.Scene(),syntheticWorld(),{workerFactory:()=>worker});
