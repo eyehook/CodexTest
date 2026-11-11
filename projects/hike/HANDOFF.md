@@ -6,19 +6,19 @@ Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Last published baseline: `79ba73c` (2026-11-11), the single snapped grid with
-205,332 triangles. This release adds **300k-budget ring tuning and cached test mountains**.
-The user authorized this release on 2026-11-11 and previously
-confirmed that the earlier version functions on Quest, with slow generation;
-this denser layout still needs headset timing and appearance checks. Vegetation,
-wildlife, collectibles and bridges remain unimplemented.
+Current release: **v0.6.0** (2026-11-11), with dense all-3D pine forests,
+a 450–500 m distance fade and incremental vegetation updates. The user reported
+“Performance is good” and authorized pushing this release on 2026-11-11. This is
+user test feedback, not a formal standalone Quest frame-time benchmark. Previous
+published baseline: `0083fbc` / v0.4.0. Wildlife, collectibles, bridges and tree
+collisions remain unimplemented.
 
 ## Controls and gameplay
 
 - Desktop: Start walking, WASD / up/down arrows, mouse look after clicking the
   world, left/right arrows turn. Esc releases mouse, P toggles diagnostics, R resets.
 - Quest: left stick walks relative to horizontal headset heading; right stick
-  turns smoothly at 60°/s about the physical headset. B/Y opens field notes 45°
+  turns smoothly at 90°/s about the physical headset. B/Y opens field notes 45°
   right at 2.1 m; controller ray + trigger adjusts controls. Panel stays world locked.
 - Testing speed is **14 m/s**, ten times normal walking. Desktop/VR share the same
   0.7–30 m/s range and 0.1 m/s step.
@@ -453,3 +453,98 @@ The earlier averaged-heightmap enhancement is included in this release. The user
 reported “Works well” and authorized publication to GitHub on 2026-11-11. All 43
 Hike tests passed on the final code; `git diff --check` passed. Formal Quest
 loading-latency, memory-pressure and performance measurements remain outstanding.
+
+
+### Pine forests — v0.6.0
+
+`flora-placement.mjs` generates deterministic world-space pines in the startup
+worker after detailed terrain/trail creation. Its typed tree/cell arrays are
+transferred with the world snapshot. No terrain, route or movement algorithms are
+changed; trees have no collision. Startup reports “Planting pine clusters” at
+90–91.5%, then topology at 91.8%. The loading card awaits the initial budgeted
+visibility pass. `hike.flora` exposes inspection and disposal.
+
+`PINE_RULES` defines seeded, jittered, rotated elliptical clusters targeting 5–20
+accepted trees; undersized groups are removed. Spacing is enforced across cells.
+Suitability uses actual geology min/max: low-elevation fade at 3–12% of that range,
+treeline fade at 64–82%, slope fade at 24–32 degrees. Trail clearance is half the
+trail width +3.5 m, and the outer 120 m of the finite world is excluded. Planting
+queries authoritative finished ground. Locations with more than 0.65 m difference
+between detailed and averaged heights are rejected to reduce floating/buried roots;
+trunks extend below planting height. Root positions never follow terrain snaps.
+Coarse rendered interpolation can still differ from these planting queries.
+
+The density factor is **11.5**, calibrated to **129,978 trees in 12,311 clusters**
+on seed 41729: 10.09× the original 12,885-tree population. Counts vary by seed.
+Cell spacing, cluster radii and minimum trunk spacing scale inversely with the
+square root of this factor. Effective cell spacing is about 21.2 m and minimum
+trunk spacing 1.62 m; overlapping crowns are expected. Passing
+`{densityMultiplier:1}` restores the original layout. Returned rules preserve base
+input values, while `cellSize`/`minSpacing` give effective dimensions. Packed
+arrays occupy about 4.94 MB; one desktop placement observation took 2.44 seconds.
+These are not Quest timings. Shared suitability/rule helpers support later flora;
+no grasses, other species, wind or seasonal behavior are implemented.
+
+`pine-geometry.mjs` creates four reusable variants: five-sided brown trunks and
+3–5 overlapping six-sided green cones, with flat normals and 56–80 triangles each.
+Instance width, height, yaw and tint vary deterministically. All trees use full
+3D geometry in four InstancedMeshes with one shared Lambert material. There is no
+billboard geometry, atlas, capture pass, texture lookup or 200 m representation
+switch. The earlier unpublished billboard experiments have been removed.
+
+`FLORA_RENDER` exposes **450 m fade start / 500 m invisible boundary**. Trees are
+fully visible inside 450 m, fade out from 450–500 m, and are invisible at/beyond
+500 m; approaching reverses the fade. The GPU measures horizontal root distance
+from the same composed world-space head center for both XR eyes. No instance
+rewrite is needed for fading. MSAA alpha-to-coverage retains depth writing and
+opaque ordering. A stable tree-anchored pattern, used only inside the fade band,
+smooths MSAA's few coverage levels; without MSAA it gives a dithered cutout fade.
+The pattern has no time or per-eye screen coordinate. Conventional alpha blending
+is not used. Actual framebuffer sample counts are queried once on startup and
+on each XR session's first tracked frame; the desktop count is restored on exit.
+
+CPU membership prefetches to 516 m and retains members to 524 m to hide update lag
+and reduce churn. The shader discards those extra instances outside 500 m, so
+assigned counts can include an invisible preload ring. There are at most four
+vegetation batches per eye. Diagnostics show generated/assigned 3D counts,
+vegetation batches, fade MSAA samples, current work-slice time and lifetime peak.
+
+Persistent tree-to-slot mappings retain matrices/colors for unchanged members.
+Arrivals compose one transform; removals swap the last slot into the hole, copying
+matrix/color data and fixing the mapping. Uploads cover changed spans and reuse
+range objects, combining pending writes when several CPU slices precede a render.
+Visibility passes snapshot only active IDs, then scan nearby cells for arrivals.
+A pass's target remains fixed until completion; newer positions coalesce into the
+next pass. Moves over 64 m replace unfinished work from current live membership.
+The soft budget is **0.75 ms**, checked every 64 items, with a **2,048-item cap**
+per frame. Small snapshot/finalization costs are outside the inner checks, so this
+is not a hard duration guarantee. Very slow devices/rapid travel can leave
+membership a few frames behind, while fade distance uses the current viewer.
+
+Conservative bounds use static planting-height limits and geometry padding,
+enclosing previous/new member regions during a pass and shrinking in constant
+time on completion. No per-update full instance bounds scans are needed. Spatial
+chunk batches were not added, avoiding unmeasured extra draw-call costs. The loop
+defers vegetation work on terrain-apply frames and avoids diagnostic-control
+refreshes while both panels are hidden. The native status text still updates.
+`update(viewer,true)` is a synchronous inspection/test adapter, not normal walking.
+Turn speed is **90 degrees/second** (PI/2 rad/s), shared by Quest right-stick and
+desktop arrow turning.
+
+Validation: all **54 Hike tests pass**, covering deterministic placement and density,
+spacing/suitability/trail exclusion, all-3D yaw/height through the fade band,
+texture-free four-batch rendering, prefetch/hysteresis, shared fade uniforms,
+coverage/fallback paths, incremental/reference membership parity, buffer reuse,
+bounds and movement/teleports. Existing world/terrain/XR checks pass. Chrome
+confirmed 129,978 generated / 6,287 assigned 3D trees, four vegetation batches,
+no atlas/material map and 709,752 submitted scene triangles including terrain in
+one trailhead view. Higher triangle counts do not alone predict GPU performance.
+
+Actual-render pixel comparisons showed full contribution at 440/450 m, about
+51% at 475 m, a faint contribution at 490 m and zero at 500/510 m. The non-MSAA
+fallback also gave a partial fade at 475 m. These include lighting/coverage effects,
+not exact linear opacity. Stereo ArrayCamera rendering shared viewer/range
+uniforms with no shader/page errors; screenshots were reviewed. `git diff --check`
+and runtime module-link checks pass. The user subsequently reported good
+performance and authorized publication. Formal sustained Quest CPU/GPU frame-time,
+memory and binocular/fade-quality measurements remain unrecorded.

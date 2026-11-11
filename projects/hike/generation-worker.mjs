@@ -1,3 +1,4 @@
+import {generatePines} from './flora-placement.mjs?v=dense-1';
 import {createWorld} from './world.mjs?v=async-1';
 import {createTerrainGrid} from './terrain-grid.mjs?v=rings-300k-1';
 import {snapshotWorld} from './world-snapshot.mjs';
@@ -5,10 +6,11 @@ self.onmessage=({data})=>{
  if(data.type!=='generate')return;
  try{
   const world=createWorld(data.options,(value,label)=>self.postMessage({type:'progress',value,label}));
-  self.postMessage({type:'progress',value:.91,label:'Building terrain topology'});
+  world.flora=generatePines(world,{},value=>self.postMessage({type:'progress',value:.9+value*.015,label:'Planting pine clusters'}));
+  self.postMessage({type:'progress',value:.918,label:'Building terrain topology'});
   const snapshot=snapshotWorld(world);snapshot.renderGrid=createTerrainGrid();
   self.postMessage({type:'progress',value:.92,label:'Preparing the landscape view'});
   // The geology array is shared by snapshot fields: transfer its storage once.
-  self.postMessage({type:'ready',snapshot},[snapshot.landscape.heights.buffer,snapshot.renderGrid.coordinates.buffer,snapshot.renderGrid.indices.buffer]);
+  self.postMessage({type:'ready',snapshot},[snapshot.landscape.heights.buffer,snapshot.renderGrid.coordinates.buffer,snapshot.renderGrid.indices.buffer,snapshot.flora.trees.buffer,snapshot.flora.cells.buffer]);
  }catch(error){self.postMessage({type:'error',message:error.message});}
 };

@@ -1,3 +1,4 @@
+import {Flora} from './flora.mjs?v=3d-fade-2';
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {VRButton} from '../../shared/vendor/three-r180/addons/VRButton.js';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
@@ -7,8 +8,8 @@ import {FrameRateCounter} from '../../shared/performance/frame-rate.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
-import {createWorldAsync} from './world-async.mjs?v=async-1';
-import {APP_VERSION} from './version.mjs?v=0.4.0';
+import {createWorldAsync} from './world-async.mjs?v=pines-dense-1';
+import {APP_VERSION} from './version.mjs?v=0.6.0';
 import {Terrain} from './terrain.mjs?v=async-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -55,11 +56,14 @@ scene.add(new T.HemisphereLight(0xe2edf0,0x665644,1.2));const sun=new T.Directio
 const terrain=new Terrain(scene,world,{onProgress:value=>showProgress(.93+value*.06,'Sampling detailed and distant terrain')});
 terrain.onError=error=>{renderer.setAnimationLoop(null);document.body.classList.remove('loading');$('#error').hidden=false;$('#error').textContent=error.message+' · Choose another seed to reload.';setPanel(true);};
 await terrain.ready;
-showProgress(.99,'Preparing to walk');
+showProgress(.99,'Preparing pine visibility');
+const flora=new Flora(scene,world.flora,renderer);
+await flora.initialize(world.start);
+let lastTerrainSnap=terrain.snapCount;
 const marker=new T.Group();marker.position.set(world.summit.x,world.summit.y,world.summit.z);scene.add(marker);
 const mast=new T.Mesh(new T.CylinderGeometry(.2,.25,9,6),new T.MeshLambertMaterial({color:0x302b24}));mast.position.y=4.5;marker.add(mast);
 const pennant=new T.Mesh(new T.BoxGeometry(3.4,1.6,.08),new T.MeshLambertMaterial({color:0xeab04c}));pennant.position.set(1.6,8,0);marker.add(pennant);
-const locomotion=new Locomotion(rig,{moveSpeed:settings.speed,turnSpeed:Math.PI/3});
+const locomotion=new Locomotion(rig,{moveSpeed:settings.speed,turnSpeed:Math.PI/2});
 const sliding=new SlopeSlide(world);
 const state=new XRFrameState(),edges=new ButtonEdges(),fps=new FrameRateCounter();
 const viewer={position:new T.Vector3(),orientation:new T.Quaternion()},head=new T.Vector3(),heading=new T.Quaternion(),euler=new T.Euler(0,0,0,'YXZ');
@@ -76,7 +80,7 @@ function reset() {
 const defs=[
   {id:'speed',kind:'number',label:'Walk speed (m/s)',min:.7,max:30,step:.1,get:()=>settings.speed,set:v=>settings.speed=v},
   {id:'slope',kind:'number',label:'Slide above (degrees)',min:20,max:50,step:1,get:()=>settings.slideSlope,set:v=>settings.slideSlope=v},
-  ...[['fps','FPS',()=>stats.fps.toFixed(0)],['triangles','Rendered triangles (~)',()=>stats.triangles.toLocaleString()],['update','Snap apply CPU (ms)',()=>terrain.updateMs.toFixed(1)],['sample','Snap worker (ms)',()=>terrain.sampleMs.toFixed(1)],['latency','Snap latency (ms)',()=>terrain.latencyMs.toFixed(1)],['generation','Generation (ms)',()=>(terrain.generationMs+world.generationMs).toFixed(0)],['vertices','Terrain vertices',()=>terrain.vertexCount.toLocaleString()],['snaps','Terrain snaps',()=>terrain.snapCount],['elevation','Elevation (m)',()=>stats.elevation.toFixed(1)],['remaining','Trail remaining (m)',()=>stats.remaining.toFixed(0)]].map(([id,label,get])=>({id,label,kind:'readout',get})),
+  ...[['fps','FPS',()=>stats.fps.toFixed(0)],['triangles','Rendered triangles (~)',()=>stats.triangles.toLocaleString()],['update','Snap apply CPU (ms)',()=>terrain.updateMs.toFixed(1)],['sample','Snap worker (ms)',()=>terrain.sampleMs.toFixed(1)],['latency','Snap latency (ms)',()=>terrain.latencyMs.toFixed(1)],['generation','Generation (ms)',()=>(terrain.generationMs+world.generationMs+world.flora.generationMs).toFixed(0)],['vertices','Terrain vertices',()=>terrain.vertexCount.toLocaleString()],['snaps','Terrain snaps',()=>terrain.snapCount],['elevation','Elevation (m)',()=>stats.elevation.toFixed(1)],['remaining','Trail remaining (m)',()=>stats.remaining.toFixed(0)],['trees','Generated pines',()=>flora.total.toLocaleString()],['trees3d','3D pine instances',()=>flora.instanceCount],['floraCalls','Vegetation batches',()=>flora.drawCalls],['pineSamples','Tree fade MSAA samples',()=>flora.coverageSamples],['floraMs','Vegetation slice (ms)',()=>flora.updateMs.toFixed(2)],['floraPeak','Vegetation peak (ms)',()=>flora.peakUpdateMs.toFixed(2)]].map(([id,label,get])=>({id,label,kind:'readout',get})),
   {id:'reset',kind:'action',label:'Reset to trailhead',run:reset}
 ];
 const model=new ControlModel(defs);
@@ -98,13 +102,13 @@ addEventListener('mousemove',e=>{if(document.pointerLockElement===$('#world')&&!
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 const vrButton=VRButton.createButton(renderer);document.body.append(vrButton);
 renderer.xr.addEventListener('sessionstart',()=>{keys.clear();walk=true;document.body.classList.add('walking');camera.rotation.set(0,0,0);fps.reset();edges.reset();last=0;vr.mesh.visible=false;});
-renderer.xr.addEventListener('sessionend',()=>{vr.enabled=false;vr.mesh.visible=false;state.reset();edges.reset();fps.reset();last=0;camera.position.set(0,1.7,0);reset();});
+renderer.xr.addEventListener('sessionend',()=>{flora.setCoverageSamples(flora.desktopSamples);vr.enabled=false;vr.mesh.visible=false;state.reset();edges.reset();fps.reset();last=0;camera.position.set(0,1.7,0);reset();});
 reset();
 renderer.setAnimationLoop((time,frame)=>{
   const elapsed=last?Math.max(0,(time-last)/1000):0;last=time;const dt=Math.min(.05,elapsed);
   const session=renderer.xr.getSession();state.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden);
   if(!state.active){vr.enabled=false;vr.hideRays();fps.reset();return;}
-  if(session){viewer.position.copy(state.pose.transform.position);viewer.orientation.copy(state.pose.transform.orientation);if(state.firstTracked)reset();}
+  if(session){viewer.position.copy(state.pose.transform.position);viewer.orientation.copy(state.pose.transform.orientation);if(state.firstTracked){reset();const gl=renderer.getContext();flora.setCoverageSamples(gl.getParameter(gl.SAMPLES));}}
   else {viewer.position.copy(camera.position);viewer.orientation.copy(camera.quaternion);}
   locomotion.settings.moveSpeed=settings.speed;
   if(session)locomotion.update(dt,session.inputSources,viewer);
@@ -117,6 +121,8 @@ renderer.setAnimationLoop((time,frame)=>{
   }
   const ground=world.height(head.x,head.z);rig.position.y+=(ground-rig.position.y)*(1-Math.exp(-dt*18));rig.updateMatrixWorld(true);
   terrain.update(head.x,head.z);
+  const terrainApplied=terrain.snapCount!==lastTerrainSnap;lastTerrainSnap=terrain.snapCount;
+  flora.update(head,false,!terrainApplied);
   if(session){
     let toggle=false;edges.retain(session.inputSources);
     for(const source of session.inputSources)if(source.gamepad?.mapping==='xr-standard')toggle=edges.sample(source,5,state.resumed).pressed||toggle;
@@ -127,11 +133,11 @@ renderer.setAnimationLoop((time,frame)=>{
   }else {vr.enabled=false;vr.hideRays();}
   const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
   uiElapsed+=elapsed;
-  if(uiElapsed>.5){uiElapsed=0;world.trail(head.x,head.z,projected,true);stats.along=projected.along;stats.remaining=world.totalLength-projected.along;stats.elevation=ground;model.refresh();$('#status').textContent=`${Math.round(ground)} m elevation · ${(stats.remaining/1000).toFixed(2)} km to summit${projected.distance>20?' · off trail':''}${stats.remaining<8&&projected.distance<10?' · Summit reached':''}`;}
+  if(uiElapsed>.5){uiElapsed=0;world.trail(head.x,head.z,projected,true);stats.along=projected.along;stats.remaining=world.totalLength-projected.along;stats.elevation=ground;if(panelOpen||vr.mesh.visible)model.refresh();$('#status').textContent=`${Math.round(ground)} m elevation · ${(stats.remaining/1000).toFixed(2)} km to summit${projected.distance>20?' · off trail':''}${stats.remaining<8&&projected.distance<10?' · Summit reached':''}`;}
   renderer.render(scene,camera);if(frameCount===0){showProgress(1,'Ready');document.body.classList.remove('loading');}stats.triangles=renderer.info.render.triangles;frameCount++;
 });
 // Desktop inspection surface for desktop acceptance checks.
-window.hike={version:APP_VERSION,world,terrain,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
+window.hike={version:APP_VERSION,world,terrain,flora,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
 } catch(error) {
   document.body.classList.remove('loading');
   $('#intro').hidden=true;$('#status').textContent='Mountain generation failed · choose another seed';
