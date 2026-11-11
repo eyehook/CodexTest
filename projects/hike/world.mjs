@@ -1,3 +1,4 @@
+import {createBankHeight} from './bank-height.mjs';
 import {createRouteQuery} from './route-query.mjs';
 // Authoritative cached geology and trail definition; independent of render LOD.
 import {createTrailSurface} from './trail-surface.mjs?v=snapped-1';
@@ -29,8 +30,7 @@ export function createWorld(options = {}) {
   if(maxGrade>.301 || totalLength<100) throw Error('Route validation failed; revise world parameters');
   const profile=route.map(p=>({...p}));
   const project=createRouteQuery(profile,half);
-  const scratch={};
-  function coarseHeight(x,z) { const raw=preparedHeight(x,z);project(x,z,scratch); const weight=1-smooth((scratch.distance-half)/9); return raw+(scratch.height-raw)*weight; }
+  const coarseHeight=createBankHeight(profile,half,preparedHeight,project);
   let surface=null;
   function height(x,z){return surface?.sample(x,z)??coarseHeight(x,z);}
   function normal(x,z,out={}) { if(surface?.normal(x,z,out))return out;const e=.35,dx=(height(x+e,z)-height(x-e,z))/(2*e),dz=(height(x,z+e)-height(x,z-e))/(2*e),s=Math.hypot(dx,1,dz);out.x=-dx/s;out.y=1/s;out.z=-dz/s;out.slope=Math.atan(Math.hypot(dx,dz))*180/Math.PI;return out; }

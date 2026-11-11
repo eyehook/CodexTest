@@ -48,7 +48,8 @@ world `{x,z}` inside ±1920 m and do not regenerate geology. Target length suppo
 `trail.mjs` uses terrain-cost A*, slope/descent penalties and scenic passes, with
 an optional 4 m navigation retry instead of the usual 8 m grid. It removes loops
 and width-conflicting folds, rounds/resamples to 801 points and limits centerline
-grade to 30%. The trail is carved into the ground with a 9 m blending shoulder.
+grade to 30%. The trail is carved into the ground with overlapping adaptive shoulders (minimum
+9 m; deeper cut/fill widens the affected ground).
 Length is a target, not an exact guarantee. Default hiking time is about 19 minutes
 at 1.4 m/s. Some approaches need substantial cut/fill; seed 1 reaches about 35.13 m.
 The regression allowance is 36 m, without relaxing walking slope limits.
@@ -279,3 +280,33 @@ Use `HIKE_TEST_CACHE=off npm run test:hike` to bypass world fixtures, or
 `HIKE_TEST_CACHE_DIR=/some/path npm run test:hike` to choose another cache
 directory. Deleting `.test-cache/` forces a cold rebuild. This release includes the test cache and the 300k renderer experiment.
 Generated cache files remain local and excluded from Git.
+
+
+### Adaptive trail banks — local change, 2026-11-11
+
+`bank-height.mjs` replaces the fixed-width nearest-route shoulder with a shared
+CPU/worker bank query. Each route segment has a minimum 9 m shoulder, widened to
+five times its maximum sampled cut/fill depth (endpoints and midpoint). Spatial
+buckets bound candidate searches. Outside the tread, inverse-square edge-distance
+weights blend all nearby segment elevations with the prepared geology. Influence
+and its first derivative vanish at each outer shoulder; influence approaches the
+segment height at the tread. This removes nearest-leg elevation jumps between
+separated switchback treads and spreads deep earthworks over more ground.
+
+Routing, tread constraints, destination preparation and the rendered grid are
+unchanged. Existing narrow clipped-bank peak cleanup remains. Both gameplay and
+the terrain worker use the same shaping function; cache versions are advanced.
+Generation fixtures invalidate automatically because the new module is a world
+import. Wider banks modify more of the mountain and increase query work; no
+universal bank slope cap is claimed. Closely spaced treads at different heights
+can still require a steep connecting slope. Route spacing/rerouting was not
+changed, and broad bank shaping does not eliminate every clipped-patch artifact.
+
+Validation: all 33 Hike tests passed in 22.56 seconds, including new synthetic
+checks for a 30 m deep cut, continuous tread joins, outer shoulder return and
+continuity across a switchback nearest-leg boundary. Existing multi-seed walking
+slopes, landing, near-tread rendered alignment and fresh-world worker parity
+checks passed. `git diff --check` passed. No browser visual review or Quest test
+has been performed by the agent for this change. The user tested the change,
+reported “Much better,” and authorized publication on 2026-11-11. Formal Quest
+performance measurements remain outstanding. This release includes adaptive banks.

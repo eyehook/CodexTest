@@ -1,4 +1,4 @@
-import {createTerrainSampler} from './terrain-sampler.mjs';
+import {createTerrainSampler} from './terrain-sampler.mjs?v=banks-1';
 import {TerrainSamples} from './terrain-samples.mjs?v=rings-300k-1';
 let samples;
 self.onmessage=({data})=>{
