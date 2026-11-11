@@ -1,7 +1,7 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {createDetailTexture,DETAIL_TILE_METERS} from './detail-texture.mjs';
-import {createTerrainGrid,CELL_SIZE,TERRAIN_RADIUS} from './terrain-grid.mjs?v=snapped-1';
-import {TerrainSamples} from './terrain-samples.mjs?v=snapped-1';
+import {createTerrainGrid,CELL_SIZE,TERRAIN_RADIUS} from './terrain-grid.mjs?v=rings-300k-1';
+import {TerrainSamples} from './terrain-samples.mjs?v=rings-300k-1';
 const radialFog=shader=>{shader.vertexShader=shader.vertexShader.replace('#include <fog_vertex>','#ifdef USE_FOG\nvFogDepth = length(mvPosition.xyz);\n#endif');};
 export class Terrain {
  constructor(scene,world,{workerFactory}={}){
@@ -18,7 +18,7 @@ export class Terrain {
   this.mesh=new T.Mesh(geometry,this.material);this.mesh.name='Snapped terrain';this.mesh.visible=false;scene.add(this.mesh);
   // Browser sampling is off-thread. Node's synchronous adapter exercises the
   // identical sampling path in deterministic tests without a browser worker.
-  const factory=workerFactory??(typeof Worker!=='undefined'?()=>new Worker(new URL('./terrain-worker.mjs?v=snapped-1',import.meta.url),{type:'module'}):null);
+  const factory=workerFactory??(typeof Worker!=='undefined'?()=>new Worker(new URL('./terrain-worker.mjs?v=rings-300k-1',import.meta.url),{type:'module'}):null);
   if(factory){
    this.worker=factory();this.worker.onmessage=({data})=>this.receive(data);this.worker.onerror=event=>this.fail(new Error(event.message||'Terrain sampling worker failed'));
    this.worker.postMessage({type:'init',world:world.samplingData,coordinates:this.grid.coordinates});

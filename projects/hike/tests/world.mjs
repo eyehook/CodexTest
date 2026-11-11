@@ -1,19 +1,21 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createWorld} from '../world.mjs';
+import {cachedWorld} from './helpers/world-fixture.mjs';
+import {createTerrainSampler} from '../terrain-sampler.mjs';
 import {SlopeSlide} from '../movement.mjs';
 const world=createWorld();
-test('seed reproduces terrain, route and summit independent of query order',()=>{
+test('seed reproduces terrain, route and summit independent of query order',async()=>{
  const other=createWorld();assert.deepEqual(world.route,other.route);
  const samples=[[-390,220],[10,50],[270,-100],[0,260],[0,-470]];
  const expected=samples.map(([x,z])=>world.height(x,z));
  for(const [x,z] of [...samples].reverse())other.height(x,z);
  assert.deepEqual(samples.map(([x,z])=>other.height(x,z)),expected);
- assert.notEqual(createWorld({seed:42}).rawHeight(270,-100),world.rawHeight(270,-100));
+ assert.notEqual((await cachedWorld({seed:42})).rawHeight(270,-100),world.rawHeight(270,-100));
 });
-test('validated routes remain continuous, grounded and walkable for multiple seeds',()=>{
+test('validated routes remain continuous, grounded and walkable for multiple seeds',async()=>{
  for(const seed of [41729,1,42,999,123456]){
-  const w=createWorld({seed}),slide=new SlopeSlide(w);assert.ok(w.totalLength>=1300&&w.totalLength<=2000);assert.ok(w.maxGrade<=.301);
+  const w=await cachedWorld({seed}),slide=new SlopeSlide(w);assert.ok(w.totalLength>=1300&&w.totalLength<=2000);assert.ok(w.maxGrade<=.301);
   assert.ok(w.totalLength/1.4/60>15&&w.totalLength/1.4/60<24);
   for(let i=0;i<w.route.length;i++){
    const p=w.route[i];assert.ok(Math.abs(w.height(p.x,p.z)-p.y)<1e-8);
@@ -34,4 +36,31 @@ test('default endpoints are the cached field extrema and within the atmospheric 
  assert.deepEqual({x:world.start.x,y:world.start.y,z:world.start.z},world.landscape.start);
  assert.deepEqual({x:world.summit.x,y:world.summit.y,z:world.summit.z},world.landscape.summit);
  assert.ok(Math.hypot(world.start.x-world.summit.x,world.start.z-world.summit.z)<950);
+});
+
+test('worker snapshot reproduces authoritative height, normals and trail projection',()=>{
+ const sampler=createTerrainSampler(structuredClone(world.samplingData)),a={},b={},pa={},pb={};
+ const points=[[-2100,10],[2100,0],[0,0],[-1920,-1920],[world.summit.x+1.5,world.summit.z]];
+ for(let i=0;i<world.route.length;i+=7){const p=world.route[i];for(const d of [0,.125,1,2.5,5,15])points.push([p.x+d,p.z-d*.4]);}
+ for(const [x,z] of points){assert.equal(sampler.height(x,z),world.height(x,z));sampler.normal(x,z,a);world.normal(x,z,b);assert.deepEqual(a,b);sampler.trail(x,z,pa);world.trail(x,z,pb);assert.equal(pa.distance,pb.distance);assert.equal(pa.along,pb.along);}
+});
+
+test('cached world faithfully restores a freshly generated world and its queries',async()=>{
+ const cached=await cachedWorld();
+ assert.deepEqual(cached.landscape.heights,world.landscape.heights);
+ assert.deepEqual(cached.route,world.route);
+ assert.deepEqual(cached.surface.vertices,world.surface.vertices);
+ assert.deepEqual(cached.surface.walking,world.surface.walking);
+ assert.equal(cached.mountain,cached.landscape);
+ const points=[[-2100,0],[2100,0],[-1920,-1920],[0,0]];
+ for(let i=0;i<world.route.length;i+=13){const p=world.route[i];for(const d of [0,.125,2.5,5,15])points.push([p.x+d,p.z-d*.4]);}
+ for(const [x,z] of points){
+  assert.equal(cached.rawHeight(x,z),world.rawHeight(x,z));
+  assert.equal(cached.landscape.height(x,z),world.landscape.height(x,z));
+  assert.equal(cached.height(x,z),world.height(x,z));
+  assert.deepEqual(cached.normal(x,z),world.normal(x,z));
+  assert.deepEqual(cached.trail(x,z),world.trail(x,z));
+  assert.deepEqual(cached.trail(x,z,{},true),world.trail(x,z,{},true));
+ }
+ for(let i=0;i<world.surface.walking.length;i+=137)assert.equal(cached.surface.slope(cached.surface.walking[i]),world.surface.slope(world.surface.walking[i]));
 });

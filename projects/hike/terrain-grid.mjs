@@ -1,10 +1,20 @@
 // Fixed square-cell topology. Coordinates are integer quarter-metres so every
 // shared point, including transition corners, receives exactly one index.
 export const CELL_SIZE=16,TERRAIN_RADIUS=1000,FINE_SPACING=.25;
+// Spend the 300k budget on the near/mid field. Radii select whole cells by
+// center distance; the 0.25 m core remains exactly 3×3 cells.
+export const RESOLUTION_BANDS=Object.freeze([
+ {radius:64,subdivisions:32},
+ {radius:120,subdivisions:16},
+ {radius:200,subdivisions:8},
+ {radius:272,subdivisions:4},
+ {radius:336,subdivisions:2}
+].map(band=>Object.freeze(band)));
 export function cellSubdivisions(x,z){
  if(Math.abs(x)<=1&&Math.abs(z)<=1)return 64;
- const band=Math.floor((Math.hypot(x,z)-1.5)/2);
- return 2**Math.max(0,5-band);
+ const distance=Math.hypot(x,z)*CELL_SIZE;
+ for(const band of RESOLUTION_BANDS)if(distance<band.radius)return band.subdivisions;
+ return 1;
 }
 const KEY_STRIDE=8193,KEY_OFFSET=4096;
 export const vertexKey=(x,z)=>(x+KEY_OFFSET)*KEY_STRIDE+z+KEY_OFFSET;

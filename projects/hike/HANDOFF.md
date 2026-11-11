@@ -6,14 +6,12 @@ Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Last published baseline: `692a42a` (2026-11-10), including bank-peak smoothing,
-generation optimization, centered loading UI and the level destination landing.
-The user authorized publishing the **2026-11-11 terrain renderer replacement**
-to the repository’s established `main` branch. Git history records the release
-commit; deployment status is verified separately. The user confirmed
-that the earlier version functions on Quest, with slow generation; this renderer
-still needs physical headset validation. Vegetation, wildlife, collectibles and
-bridges remain unimplemented.
+Last published baseline: `79ba73c` (2026-11-11), the single snapped grid with
+205,332 triangles. This release adds **300k-budget ring tuning and cached test mountains**.
+The user authorized this release on 2026-11-11 and previously
+confirmed that the earlier version functions on Quest, with slow generation;
+this denser layout still needs headset timing and appearance checks. Vegetation,
+wildlife, collectibles and bridges remain unimplemented.
 
 ## Controls and gameplay
 
@@ -97,24 +95,28 @@ heights, normals and route distances, including outside the generated field.
 `terrain-grid.mjs` constructs **one indexed grid** of **12,281 square 16 m cells**.
 Cell centers within a 1000 m radius are included; the outline is a staircase-like
 circle. This is the current rendered window, not the size of the underlying world.
-The grid has **102,917 vertices / 205,332 triangles**, including transition stitching
-(200,488 triangles before stitching). One `Terrain.mesh`, one material and one draw
+The grid has **150,057 vertices / 299,612 triangles**, including transition stitching
+(293,440 triangles before stitching). One `Terrain.mesh`, one material and one draw
 call render the terrain. `tile-mesh.mjs`, persistent tile meshes, LOD index patterns
 and the separate outer ground mesh have been removed.
 
-| Region | Subdivisions per 16 m cell | Spacing |
-| --- | --- | --- |
-| Central 3×3 cells | 64×64 | 0.25 m |
-| Band 1 | 32×32 | 0.5 m |
-| Band 2 | 16×16 | 1 m |
-| Band 3 | 8×8 | 2 m |
-| Band 4 | 4×4 | 4 m |
-| Band 5 | 2×2 | 8 m |
-| Outer terrain | 1×1 | 16 m |
+| Region | Subdivisions per 16 m cell | Spacing | Outer cell-center radius |
+| --- | --- | --- | --- |
+| Central 3×3 cells | 64×64 | 0.25 m | Fixed 48×48 m square |
+| Band 1 | 32×32 | 0.5 m | 64 m |
+| Band 2 | 16×16 | 1 m | 120 m |
+| Band 3 | 8×8 | 2 m | 200 m |
+| Band 4 | 4×4 | 4 m | 272 m |
+| Band 5 | 2×2 | 8 m | 336 m |
+| Outer terrain | 1×1 | 16 m | 1000 m coverage |
 
-The center always uses full resolution. Other cells use center distance in cell
-units, with band boundaries at 1.5, 3.5, 5.5, 7.5, 9.5 and 11.5 cells. All bands
-are square-grid approximations of circles, not radial vertices.
+The center always uses full resolution. Other cells use the fixed thresholds in
+`RESOLUTION_BANDS`, selecting the first radius strictly greater than cell-center
+distance. Bands remain square-grid approximations of circles. Their widths now
+vary to spend the 300,000-triangle budget in the near/mid field; stitching is
+included in that budget. Compared with `79ba73c`, 0.5 m detail extends from 56 to
+64 m, 1 m from 88 to 120 m, 2 m from 120 to 200 m, 4 m from 152 to 272 m, and 8 m
+from 184 to 336 m. The central core, snapping and world generation are unchanged.
 
 Every matching quarter-metre point shares an index. Only coarse boundary quads
 need center fans, subdividing each edge to match the finer neighbor. A single
@@ -133,7 +135,7 @@ the player stays within the same snap cell.
 
 `terrain-samples.mjs` fills reusable height/normal/color arrays using the existing
 CPU height function. Samples shared with the prior origin are copied exactly;
-a normal cardinal snap samples 18,036 new points instead of all 102,917. Sampling
+a normal cardinal snap samples 19,506 new points instead of all 150,057. Sampling
 never changes terrain heights according to resolution. World-space normals and
 UVs, nested spacings and consistent diagonals keep common points and lighting
 stable. The fine core keeps the nearest resolution transition away from the player.
@@ -210,10 +212,10 @@ Coarse distant terrain and very sharp banks may deviate more. Collision behavior
 is unchanged; exact coincidence of arbitrary clipped edges and a fixed square-grid
 triangulation is not guaranteed.
 
-Chrome checks observed 0.3–1.5 ms main-thread apply times and roughly 50–66 ms worker
+Chrome checks observed 0.4–2.0 ms main-thread apply times and roughly 49–73 ms worker
 sampling for eight cardinal snaps after startup. Observed frame intervals were
-about 16.6 ms median, 17.7 ms maximum in that short desktop run. The terrain submitted
-205,332 triangles in one draw call. These are desktop observations, not a standalone
+about 16.7 ms median, 17.3 ms maximum in that short desktop run. The terrain submitted
+299,612 triangles in one draw call. These are desktop observations, not a standalone
 Quest benchmark. GPU buffer-upload cost, stereo rendering, sustained FPS, worker
 latency under headset load and perceptibility of snapping still need Quest checks.
 The one mesh submits its full triangle count; there is no tile-level frustum culling.
@@ -222,5 +224,58 @@ World generation remains synchronous at startup, though earlier routing/drainage
 optimizations are retained. Other remaining limits: steep banks/large earthworks,
 finite seed coverage, possible unhandled inside-turn spikes, and no bridges.
 Route-aligned trail-grid refinement remains explicitly deferred. New renderer
-cache versions are advanced. The user authorized this revision’s commit and push
-on 2026-11-11; Quest validation remains outstanding.
+cache versions are advanced for the 300k experiment. This release includes the tuning; Quest validation remains outstanding.
+
+
+### Near/mid snap comparison — 2026-11-11
+
+An offline comparison used the actual indexed triangles of `79ba73c` and the
+new layout, with the unchanged default world. It measured absolute interpolated
+height differences before/after 16 m cardinal and diagonal snaps: eight directions,
+five route locations (indices 0, 200, 400, 600, 800), and points on an offset 8 m
+sampling grid 32–200 m from the mesh center. There were 76,640 comparisons.
+
+| Geometric change on snap | 205k baseline | 300k layout |
+| --- | --- | --- |
+| Mean absolute height change | 10.61 cm | 0.52 cm |
+| RMS height change | 54.10 cm | 2.05 cm |
+| Maximum sampled change | 12.18 m | 0.61 m |
+
+The mean reduction is about 95% **within this sampled range and seed**, not a
+claim of 95% less perceptible popping everywhere. Coarser transitions now happen
+farther away; steep banks can still pop, and this is not temporal geomorphing.
+The final layout favors a broader 2–4 m region over spending nearly all extra
+triangles on the closest half-metre band. It uses about 46% more triangles than
+the published grid, so Quest GPU cost needs checking despite low desktop snap
+apply times. All 26 Hike tests passed, including the budget ceiling and seam
+checks. Chrome rendered the new counts with no errors; eight snaps and
+trailhead/midpoint/summit views were checked.
+
+
+### Cached mountains for automated tests — 2026-11-11
+
+Generation and renderer tests now reuse serialized CPU worlds in the Git-ignored
+`projects/hike/.test-cache/` directory. Fixtures include the heightfield, route,
+corrected walking surface and spatial query data. This is test-only; startup in
+the browser and on Quest is unchanged.
+
+Each fixture is keyed by generation settings and seed. Its version hashes
+`world.mjs` and its transitive local imports, including vendored dependencies,
+plus a fixture schema and runtime compatibility identifiers. Generation source
+changes rebuild fixtures on their next use; renderer-only changes reuse them.
+Missing or corrupt entries rebuild automatically. Atomic writes and per-fixture
+locks prevent concurrent tests from consuming partial files. The current sample
+cache occupies approximately 94 MB and is not committed.
+
+Two fresh default worlds still run on every full test pass for determinism.
+Fresh-versus-cached parity checks compare terrain, routes, surface geometry and
+height/normal/trail queries; worker query parity also uses a freshly generated
+world. Cache unit tests cover invalidation, settings, concurrency and corruption.
+All 31 tests passed with the warm cache in 6.93 seconds on this desktop,
+versus 26.09 seconds with caching disabled (also 31 passing): about 73% less
+elapsed time, or 3.8× faster.
+
+Use `HIKE_TEST_CACHE=off npm run test:hike` to bypass world fixtures, or
+`HIKE_TEST_CACHE_DIR=/some/path npm run test:hike` to choose another cache
+directory. Deleting `.test-cache/` forces a cold rebuild. This release includes the test cache and the 300k renderer experiment.
+Generated cache files remain local and excluded from Git.

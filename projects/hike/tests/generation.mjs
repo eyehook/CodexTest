@@ -1,8 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createWorld} from '../world.mjs';
+import {cachedWorld} from './helpers/world-fixture.mjs';
 const seeds=[41729,1,3,8,42,999,15,3307485663];
-const worlds=seeds.map(seed=>createWorld({seed}));
+const worlds=[];for(const seed of seeds)worlds.push(await cachedWorld({seed}));
 test('one unified heightfield covers the main hiking area and distant ridges',()=>{
  for(const w of worlds){
   assert.equal(w.landscape.gridSize,1025);assert.equal(w.extent,1920);
@@ -34,9 +34,9 @@ test('default lowest-to-highest routes remain walkable and within view range',()
   for(let i=0;i<w.route.length;i++){const p=w.route[i];assert.ok(Math.abs(w.height(p.x,p.z)-p.y)<1e-6);assert.ok(w.normal(p.x,p.z).slope<30,`seed ${w.config.seed}, point ${i}`);}
  }
 });
-test('explicit endpoints alter route planning without regenerating different geology',()=>{
+test('explicit endpoints alter route planning without regenerating different geology',async()=>{
  const a=worlds[0],start={x:-900,z:-600},end={x:-600,z:-300};
- const b=createWorld({seed:a.config.seed,start,end,targetLength:1000});
+ const b=await cachedWorld({seed:a.config.seed,start,end,targetLength:1000});
  assert.deepEqual(a.landscape.heights,b.landscape.heights);
  assert.equal(b.start.x,start.x);assert.equal(b.start.z,start.z);assert.equal(b.summit.x,end.x);assert.equal(b.summit.z,end.z);
  assert.equal(b.start.y,b.rawHeight(start.x,start.z));assert.equal(b.summit.y,b.rawHeight(end.x,end.z));

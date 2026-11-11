@@ -1,17 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from '../../../shared/vendor/three-r180/three.module.js';
-import {createWorld} from '../world.mjs';
+import {cachedWorld} from './helpers/world-fixture.mjs';
 import {Terrain} from '../terrain.mjs';
 import {createTerrainGrid,cellSubdivisions,vertexKey} from '../terrain-grid.mjs';
-import {createTerrainSampler} from '../terrain-sampler.mjs';
 const grid=createTerrainGrid();
-test('one fixed grid has a 3×3 full-detail core, two-cell radial bands and 2 km coverage',()=>{
- const expected=new Map([[0,64],[2,32],[4,16],[6,8],[8,4],[10,2],[12,1]]);
+test('one fixed grid has a 3×3 full-detail core, expanded near/mid radial bands and 2 km coverage',()=>{
+ const expected=new Map([[0,64],[2,32],[3,32],[4,16],[7,16],[8,8],[12,8],[13,4],[16,4],[17,2],[20,2],[21,1]]);
  for(const [x,n] of expected)assert.equal(cellSubdivisions(x,0),n);
  assert.equal(grid.cells.filter(c=>c.subdivisions===64).length,9);
- for(const c of grid.cells){assert.ok(Math.hypot(c.x*16,c.z*16)<=1000);assert.equal(c.subdivisions,Math.abs(c.x)<=1&&Math.abs(c.z)<=1?64:2**Math.max(0,5-Math.floor((Math.hypot(c.x,c.z)-1.5)/2)));}
- assert.equal(grid.cells.length,12281);assert.equal(grid.baseTriangles,200488);assert.equal(grid.indices.length/3,205332);assert.equal(grid.vertexCount,102917);
+ for(const c of grid.cells){assert.ok(Math.hypot(c.x*16,c.z*16)<=1000);const radius=Math.hypot(c.x,c.z)*16;assert.equal(c.subdivisions,Math.abs(c.x)<=1&&Math.abs(c.z)<=1?64:radius<64?32:radius<120?16:radius<200?8:radius<272?4:radius<336?2:1);}
+ assert.equal(grid.cells.length,12281);assert.equal(grid.baseTriangles,293440);assert.equal(grid.indices.length/3,299612);assert.equal(grid.vertexCount,150057);
+ assert.ok(grid.indices.length/3<=300000,'including transition stitching');
  const points=new Set();for(let i=0;i<grid.vertexCount;i++){const key=vertexKey(grid.coordinates[i*2],grid.coordinates[i*2+1]);assert.ok(!points.has(key));points.add(key);}
 });
 test('all four transition sides and corners form an upward-wound, crack-free partition',()=>{
@@ -58,13 +58,7 @@ test('worker failure rejects startup and reports the error',async()=>{
  const worker=new FakeWorker(),terrain=new Terrain(new T.Scene(),syntheticWorld(),{workerFactory:()=>worker});
  const rejected=assert.rejects(terrain.ready,/sampling failed/);worker.onmessage({data:{error:'sampling failed'}});await rejected;assert.equal(terrain.mesh.visible,false);assert.equal(worker.terminated,true);terrain.dispose();
 });
-const world=createWorld();
-test('worker snapshot reproduces authoritative height, normals and trail projection',()=>{
- const sampler=createTerrainSampler(structuredClone(world.samplingData)),a={},b={},pa={},pb={};
- const points=[[-2100,10],[2100,0],[0,0],[-1920,-1920],[world.summit.x+1.5,world.summit.z]];
- for(let i=0;i<world.route.length;i+=7){const p=world.route[i];for(const d of [0,.125,1,2.5,5,15])points.push([p.x+d,p.z-d*.4]);}
- for(const [x,z] of points){assert.equal(sampler.height(x,z),world.height(x,z));sampler.normal(x,z,a);world.normal(x,z,b);assert.deepEqual(a,b);sampler.trail(x,z,pa);world.trail(x,z,pb);assert.equal(pa.distance,pb.distance);assert.equal(pa.along,pb.along);}
-});
+const world=await cachedWorld();
 test('near-player rendering follows the unchanged trail and level destination',()=>{
  const terrain=new Terrain(new T.Scene(),world),q=terrain.grid.coordinates,lookup=new Map();for(let i=0;i<q.length;i+=2)lookup.set(vertexKey(q[i],q[i+1]),i/2);
  let worst=0;

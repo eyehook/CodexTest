@@ -1,5 +1,5 @@
 import {surfaceColor} from './surface.mjs';
-import {vertexKey} from './terrain-grid.mjs?v=snapped-1';
+import {vertexKey} from './terrain-grid.mjs?v=rings-300k-1';
 // Event-driven sampling; retained previous values reuse overlapping world points.
 // Output layout: heights, normals, colors. No renderer/DOM dependency.
 export class TerrainSamples {

@@ -3,3 +3,6 @@ node_modules/
 
 # Blender backup files
 *.blend1
+
+# Rebuilt automatically when Hike generation sources change
+/projects/hike/.test-cache/

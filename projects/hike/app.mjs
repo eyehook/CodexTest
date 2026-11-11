@@ -8,7 +8,7 @@ import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
 import {createWorld} from './world.mjs?v=snapped-1';
-import {Terrain} from './terrain.mjs?v=snapped-1';
+import {Terrain} from './terrain.mjs?v=rings-300k-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
 const $=s=>document.querySelector(s);
