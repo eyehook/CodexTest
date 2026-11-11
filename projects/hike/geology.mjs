@@ -36,7 +36,11 @@ export function generateLandscape(config){
  const px=GRID_MIN+(initialPeak%GRID_SIZE)*GRID_STEP,pz=GRID_MIN+Math.floor(initialPeak/GRID_SIZE)*GRID_STEP;
  const snap=v=>GRID_MIN+Math.round((Math.max(-850,Math.min(850,v))-GRID_MIN)/GRID_STEP)*GRID_STEP;
  p.valleyX=snap(px+Math.cos(angle)*range);p.valleyZ=snap(pz+Math.sin(angle)*range);
- function drain(radius){for(let z=0;z<GRID_SIZE;z++)for(let x=0;x<GRID_SIZE;x++){const d=Math.hypot(GRID_MIN+x*GRID_STEP-p.valleyX,GRID_MIN+z*GRID_STEP-p.valleyZ);if(d<radius)heights[z*GRID_SIZE+x]*=smooth(d/radius);}}
+ function drain(radius){
+  // Only the outlet's bounding square can change; retain the same sample order.
+  const x0=Math.max(0,Math.ceil((p.valleyX-radius-GRID_MIN)/GRID_STEP)),x1=Math.min(GRID_SIZE-1,Math.floor((p.valleyX+radius-GRID_MIN)/GRID_STEP));
+  const z0=Math.max(0,Math.ceil((p.valleyZ-radius-GRID_MIN)/GRID_STEP)),z1=Math.min(GRID_SIZE-1,Math.floor((p.valleyZ+radius-GRID_MIN)/GRID_STEP));
+  for(let z=z0;z<=z1;z++)for(let x=x0;x<=x1;x++){const d=Math.hypot(GRID_MIN+x*GRID_STEP-p.valleyX,GRID_MIN+z*GRID_STEP-p.valleyZ);if(d<radius)heights[z*GRID_SIZE+x]*=smooth(d/radius);}}
  drain(160);
  // Droplet transport: erode accelerating downhill water, deposit in slower reaches.
  // Work is bounded and paid only once, before terrain tiles or collision queries.

@@ -1,6 +1,6 @@
 import {SCALE,rect,offsetRoute,boolean,triangulate,PointIndex} from './planar.mjs?v=trail-detail-3';
 const SIZE=128,STEP_X=.5,STEP_Z=1;
-export function createTrailSurface({route,width,height,project}){
+export function createTrailSurface({route,width,height,project,destinationRadius=0}){
  const began=performance.now(),half=width/2,innerPaths=offsetRoute(route,half),tiles=new Map(),refined=new Set();
  const vertices=[],lookup=new Map(),walking=[],banks=[],cells=new Map(),boundary=new PointIndex(),near={};
  function vertex(p){const key=p.X+','+p.Y;let id=lookup.get(key);if(id===undefined){id=vertices.length;const x=p.X/SCALE,z=p.Y/SCALE;vertices.push({x,z,y:height(x,z),fixed:Math.hypot(x-route[0].x,z-route[0].z)<1.1||Math.hypot(x-route.at(-1).x,z-route.at(-1).z)<1.1});lookup.set(key,id);}return id;}
@@ -57,6 +57,22 @@ export function createTrailSurface({route,width,height,project}){
  }
  walking.length=banks.length=0;cells.clear();
  for(const record of tiles.values())for(const triangle of record.triangles){(triangle.walking?walking:banks).push(triangle.ids);for(const key of triangle.keys){if(!cells.has(key))cells.set(key,[]);cells.get(key).push(triangle.ids);}}
+ // Pin every walking triangle touching the arrival disk. Pinning the full
+ // triangle preserves a level rendered/collision surface up to its edge, rather
+ // than letting interpolation tip the rim between grid samples.
+ if(destinationRadius>0){
+  const end=route.at(-1),radius2=destinationRadius**2;
+  for(const ids of walking){
+   let touches=false,positive=false,negative=false;
+   for(let i=0;i<3;i++){
+    const a=vertices[ids[i]],b=vertices[ids[(i+1)%3]],dx=b.x-a.x,dz=b.z-a.z;
+    const cross=dx*(end.z-a.z)-dz*(end.x-a.x);positive ||= cross>0;negative ||= cross<0;
+    const u=Math.max(0,Math.min(1,((end.x-a.x)*dx+(end.z-a.z)*dz)/(dx*dx+dz*dz)));
+    if((a.x+u*dx-end.x)**2+(a.z+u*dz-end.z)**2<=radius2)touches=true;
+   }
+   if(touches||!positive||!negative)for(const id of ids){vertices[id].fixed=true;vertices[id].y=end.y;}
+  }
+ }
  // Limit the actual walking planes, including tight inside bends. Shared edge
  // vertices move with them, so banks join the corrected tread without a gap.
  for(const p of vertices){if(p.fixed)p.y=Math.hypot(p.x-route[0].x,p.z-route[0].z)<1.1?route[0].y:route.at(-1).y;}
@@ -104,6 +120,7 @@ export function createTrailSurface({route,width,height,project}){
   if(changed)for(const id of ids)for(const neighbor of adjacent[id])if(neighbor!==i)enqueue(neighbor);
  }
  passes=corrections;
+ const smoothedBankVertices=smoothBankPeaks(vertices,walking,banks);
  function locate(x,z){
   const cx=Math.floor(x/STEP_X),cz=Math.floor(z/STEP_Z),xs=Math.abs(x/STEP_X-cx)<1e-8?[cx,cx-1]:[cx],zs=Math.abs(z/STEP_Z-cz)<1e-8?[cz,cz-1]:[cz];let bank=null;
   for(const xx of xs)for(const zz of zs)for(const ids of cells.get(xx+','+zz)??[]){
@@ -116,5 +133,32 @@ export function createTrailSurface({route,width,height,project}){
  function sample(x,z){const id=lookup.get(x*SCALE+','+z*SCALE);if(id!==undefined)return vertices[id].y;const hit=locate(x,z);return hit?hit.ids.reduce((sum,id,i)=>sum+vertices[id].y*hit.weights[i],0):null;}
  function normal(x,z,out){const hit=locate(x,z);if(!hit)return null;const [a,b,c]=hit.ids.map(id=>vertices[id]),dx=b.x-a.x,dz=b.z-a.z,ex=c.x-a.x,ez=c.z-a.z,det=dx*ez-dz*ex,gx=((b.y-a.y)*ez-(c.y-a.y)*dz)/det,gz=(dx*(c.y-a.y)-ex*(b.y-a.y))/det,length=Math.hypot(gx,1,gz);out.x=-gx/length;out.y=1/length;out.z=-gz/length;out.slope=Math.atan(Math.hypot(gx,gz))*180/Math.PI;return out;}
  function slope(ids){const a=vertices[ids[0]],b=vertices[ids[1]],c=vertices[ids[2]],dx=b.x-a.x,dz=b.z-a.z,ex=c.x-a.x,ez=c.z-a.z,det=dx*ez-dz*ex;if(!det)return 0;return Math.atan(Math.hypot(((b.y-a.y)*ez-(c.y-a.y)*dz)/det,(dx*(c.y-a.y)-ex*(b.y-a.y))/det))*180/Math.PI;}
- return {normal,edges,refined,passes,tiles,vertices,walking,banks,boundary,sample,slope,generationMs:performance.now()-began};
+ return {normal,edges,refined,passes,smoothedBankVertices,tiles,vertices,walking,banks,boundary,sample,slope,generationMs:performance.now()-began};
+}
+
+// A tight inside bend can leave a bank-only vertex surrounded by lowered tread.
+// Remove isolated peaks after tread correction, without relaxing the walking
+// planes or the patch perimeter (which joins unchanged landscape triangles).
+export function smoothBankPeaks(vertices,walking,banks){
+ const protectedIds=new Set(walking.flat()),neighbors=new Map(),edgeCounts=new Map();
+ for(const ids of [...walking,...banks])for(let i=0;i<3;i++){
+  const a=ids[i],b=ids[(i+1)%3],key=a<b?a+','+b:b+','+a;
+  edgeCounts.set(key,(edgeCounts.get(key)??0)+1);
+ }
+ for(const [key,count] of edgeCounts)if(count===1)for(const id of key.split(','))protectedIds.add(Number(id));
+ for(const ids of banks)for(const a of ids){
+  if(protectedIds.has(a)||vertices[a].fixed)continue;
+  if(!neighbors.has(a))neighbors.set(a,new Set());
+  for(const b of ids)if(a!==b)neighbors.get(a).add(b);
+ }
+ const edits=[];
+ for(const [id,ring] of neighbors){
+  const p=vertices[id];let maximum=-Infinity,total=0,weight=0;
+  for(const other of ring){const q=vertices[other],w=1/Math.hypot(q.x-p.x,q.z-p.z);maximum=Math.max(maximum,q.y);total+=q.y*w;weight+=w;}
+  // Ignore numerical noise and retain ordinary sloping banks. Read all original
+  // heights before applying edits so triangle iteration order cannot affect it.
+  if(p.y>maximum+.02)edits.push([id,total/weight]);
+ }
+ for(const [id,y] of edits)vertices[id].y=y;
+ return edits.length;
 }

@@ -1,7 +1,7 @@
 // Authoritative cached geology and trail definition; independent of render LOD.
-import {createTrailSurface} from './trail-surface.mjs?v=trail-detail-3';
-import {generateLandscape} from './geology.mjs?v=unified-2';
-import {generateTrail} from './trail.mjs?v=trail-detail-3';
+import {createTrailSurface} from './trail-surface.mjs?v=summit-1';
+import {generateLandscape} from './geology.mjs?v=generation-1';
+import {generateTrail} from './trail.mjs?v=summit-1';
 export const DEFAULTS = Object.freeze({seed: 41729, elevation: 220, trailWidth: 5, targetLength: 1600});
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const smooth = x => { x = clamp(x, 0, 1); return x*x*(3-2*x); };
@@ -9,7 +9,13 @@ export function createWorld(options = {}) {
   const began=performance.now(),config = {...DEFAULTS, ...options};
   if (![config.seed,config.elevation,config.trailWidth,config.targetLength].every(Number.isFinite) || config.elevation < 40 || config.elevation > 280 || config.trailWidth < 3 || config.trailWidth > 10 || config.targetLength < 200 || config.targetLength > 5000) throw Error('Invalid world configuration');
   for(const p of [config.start,config.end])if(p&&(!Number.isFinite(p.x)||!Number.isFinite(p.z)||Math.abs(p.x)>=1920||Math.abs(p.z)>=1920))throw Error('Endpoints must lie within the terrain map');
-  const landscape=generateLandscape(config),rawHeight=landscape.height,ascent=generateTrail(landscape,config);
+  const landscape=generateLandscape(config),rawHeight=landscape.height;
+  const destination=config.end?{...config.end,y:rawHeight(config.end.x,config.end.z)}:landscape.summit;
+  // Prepare the arrival ground before routing, without changing the seeded geology.
+  const destinationRadius=1.5;
+  function flattenDestination(x,z,y){const blend=smooth((Math.hypot(x-destination.x,z-destination.z)-destinationRadius)/4);return destination.y+(y-destination.y)*blend;}
+  const preparedHeight=(x,z)=>flattenDestination(x,z,rawHeight(x,z));
+  const ascent=generateTrail({...landscape,height:preparedHeight},{...config,destinationRadius});
   const route=ascent.route, buckets=new Map(), cell=24, half=config.trailWidth/2;
   let totalLength=0,maxGrade=0,maxEarthwork=0;
   for(let i=0;i<route.length;i++) {
@@ -39,11 +45,11 @@ export function createWorld(options = {}) {
     return out;
   }
   const scratch={};
-  function coarseHeight(x,z) { const raw=rawHeight(x,z);project(x,z,scratch); const weight=1-smooth((scratch.distance-half)/9); return raw+(scratch.height-raw)*weight; }
+  function coarseHeight(x,z) { const raw=preparedHeight(x,z);project(x,z,scratch); const weight=1-smooth((scratch.distance-half)/9); return raw+(scratch.height-raw)*weight; }
   let surface=null;
   function height(x,z){return surface?.sample(x,z)??coarseHeight(x,z);}
   function normal(x,z,out={}) { if(surface?.normal(x,z,out))return out;const e=.35,dx=(height(x+e,z)-height(x-e,z))/(2*e),dz=(height(x,z+e)-height(x,z-e))/(2*e),s=Math.hypot(dx,1,dz);out.x=-dx/s;out.y=1/s;out.z=-dz/s;out.slope=Math.atan(Math.hypot(dx,dz))*180/Math.PI;return out; }
-  surface=createTrailSurface({route,width:config.trailWidth,height:coarseHeight,project});
+  surface=createTrailSurface({route,width:config.trailWidth,height:coarseHeight,project,destinationRadius});
   totalLength=0;maxGrade=0;maxEarthwork=0;
   for(let i=0;i<route.length;i++){const p=route[i];p.y=height(p.x,p.z);maxEarthwork=Math.max(maxEarthwork,Math.abs(p.y-rawHeight(p.x,p.z)));if(i){const a=route[i-1],d=Math.hypot(a.x-p.x,a.z-p.z);totalLength+=Math.hypot(d,p.y-a.y);maxGrade=Math.max(maxGrade,Math.abs(p.y-a.y)/(d||1));}p.distance=totalLength;profile[i].distance=totalLength;}
   surface.maxWalkingSlope=surface.walking.reduce((max,ids)=>Math.max(max,surface.slope(ids)),0);

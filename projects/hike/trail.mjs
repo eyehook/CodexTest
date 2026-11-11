@@ -5,20 +5,24 @@ export function generateTrail(landscape,config,navigationStep=8){
  const heights=new Float32Array(count);for(let z=0;z<n;z++)for(let x=0;x<n;x++)heights[z*n+x]=height(-extent+x*step,-extent+z*step);
  const index=p=>Math.max(1,Math.min(n-2,Math.round((p.z+extent)/step)))*n+Math.max(1,Math.min(n-2,Math.round((p.x+extent)/step)));
  const startIndex=index(start),endIndex=index(end),cost=new Float64Array(count),parent=new Int32Array(count),closed=new Uint8Array(count);
+ // Grid-edge lengths and goal distances are invariant across relaxations.
+ // Keep one goal cache per solve, bounded even for the finer navigation grid.
+ const moves=[];for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++)if(dx||dz)moves.push({dx,dz,offset:dx+dz*n,d:step*Math.hypot(dx,dz)});
+ const heuristic=new Float64Array(count);let heuristicGoal=-1;
  const heapIds=[],heapCosts=[];
  function push(id,value){let i=heapIds.length;heapIds.push(id);heapCosts.push(value);while(i){const p=(i-1)>>1;if(heapCosts[p]<=value)break;heapIds[i]=heapIds[p];heapCosts[i]=heapCosts[p];i=p;}heapIds[i]=id;heapCosts[i]=value;}
  function pop(){const first=heapIds[0],id=heapIds.pop(),value=heapCosts.pop();if(heapIds.length){let i=0;while(i*2+1<heapIds.length){let child=i*2+1;if(child+1<heapIds.length&&heapCosts[child+1]<heapCosts[child])child++;if(heapCosts[child]>=value)break;heapIds[i]=heapIds[child];heapCosts[i]=heapCosts[child];i=child;}heapIds[i]=id;heapCosts[i]=value;}return first;}
  function path(from,to,penalty,avoid=null){
   cost.fill(Infinity);parent.fill(-1);closed.fill(0);heapIds.length=heapCosts.length=0;cost[from]=0;
-  const tx=to%n,tz=Math.floor(to/n);push(from,0);
+  const tx=to%n,tz=Math.floor(to/n);if(heuristicGoal!==to){heuristic.fill(-1);heuristicGoal=to;}push(from,0);
   let visits=0;
   while(heapIds.length&&visits<count){const i=pop();if(closed[i])continue;closed[i]=1;visits++;if(i===to)break;const x=i%n,z=Math.floor(i/n);
-   for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){
-    if(!dx&&!dz||x+dx<1||x+dx>=n-1||z+dz<1||z+dz>=n-1)continue;
-    const j=i+dx+dz*n;if(closed[j]||(avoid?.has(j)&&j!==to))continue;
-    const d=step*Math.hypot(dx,dz),rise=heights[j]-heights[i],grade=Math.abs(rise)/d;
+   for(const {dx,dz,offset,d} of moves){
+    if(x+dx<1||x+dx>=n-1||z+dz<1||z+dz>=n-1)continue;
+    const j=i+offset;if(closed[j]||(avoid?.has(j)&&j!==to))continue;
+    const rise=heights[j]-heights[i],grade=Math.abs(rise)/d;
     const next=cost[i]+d*(1+grade*grade*penalty+Math.max(0,grade-.32)**2*500)+Math.max(0,-rise)*2;
-    if(next>=cost[j])continue;cost[j]=next;parent[j]=i;push(j,next+step*Math.hypot(tx-x-dx,tz-z-dz));
+    if(next>=cost[j])continue;cost[j]=next;parent[j]=i;if(heuristic[j]<0)heuristic[j]=step*Math.hypot(tx-x-dx,tz-z-dz);push(j,next+heuristic[j]);
    }
   }
   if(!Number.isFinite(cost[to]))return null;
@@ -62,10 +66,18 @@ export function generateTrail(landscape,config,navigationStep=8){
   const route=[];let segment=1;
   for(let i=0;i<=800;i++){const d=distances.at(-1)*i/800;while(segment<points.length-1&&distances[segment]<d)segment++;const a=points[segment-1],b=points[segment],u=(d-distances[segment-1])/(distances[segment]-distances[segment-1]||1),x=a.x+(b.x-a.x)*u,z=a.z+(b.z-a.z)*u;route.push({x,z,y:height(x,z)});}
   route[0]={...start};route[800]={...end};
+  // Reserve the final fine-grid triangles for the level arrival area. Include
+  // one walking-cell diagonal and one route sample so interpolated heights
+  // under every pinned vertex are already level before the surface solve.
+  const arrival=new Uint8Array(801);
+  let arrivalSampleMargin=0;for(let i=1;i<route.length;i++)arrivalSampleMargin=Math.max(arrivalSampleMargin,Math.hypot(route[i].x-route[i-1].x,route[i].z-route[i-1].z));
+  if(config.destinationRadius)for(let i=1;i<801;i++)if(Math.hypot(route[i].x-end.x,route[i].z-end.z)<=config.destinationRadius+Math.hypot(.5,1)+arrivalSampleMargin){arrival[i]=1;route[i].y=end.y;}
+  const gradeLimits=new Float64Array(800);
+  for(let i=0;i<800;i++){const a=route[i],b=route[i+1];gradeLimits[i]=Math.hypot(a.x-b.x,a.z-b.z)*.30;}
   for(let pass=0;pass<160;pass++){
-   for(let i=1;i<800;i++)route[i].y=route[i].y*.5+(route[i-1].y+route[i+1].y)*.25;
-   for(let i=1;i<800;i++){const a=route[i-1],b=route[i],d=Math.hypot(a.x-b.x,a.z-b.z)*.30;b.y=Math.max(a.y-d,Math.min(a.y+d,b.y));}
-   for(let i=799;i>0;i--){const a=route[i+1],b=route[i],d=Math.hypot(a.x-b.x,a.z-b.z)*.30;b.y=Math.max(a.y-d,Math.min(a.y+d,b.y));}
+   for(let i=1;i<800;i++)if(!arrival[i])route[i].y=route[i].y*.5+(route[i-1].y+route[i+1].y)*.25;
+   for(let i=1;i<800;i++){if(arrival[i])continue;const a=route[i-1],b=route[i],d=gradeLimits[i-1];b.y=Math.max(a.y-d,Math.min(a.y+d,b.y));}
+   for(let i=799;i>0;i--){if(arrival[i])continue;const a=route[i+1],b=route[i],d=gradeLimits[i];b.y=Math.max(a.y-d,Math.min(a.y+d,b.y));}
   }
   let length=0,maxGrade=0,maxEarthwork=0,earthworks=0;
   for(let i=0;i<route.length;i++){const p=route[i],cut=Math.abs(p.y-height(p.x,p.z));maxEarthwork=Math.max(maxEarthwork,cut);earthworks+=cut*cut;if(i){const a=route[i-1],d=Math.hypot(a.x-p.x,a.z-p.z);length+=Math.hypot(d,a.y-p.y);maxGrade=Math.max(maxGrade,Math.abs(a.y-p.y)/(d||1));}p.distance=length;}

@@ -7,7 +7,7 @@ import {FrameRateCounter} from '../../shared/performance/frame-rate.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
-import {createWorld} from './world.mjs?v=trail-detail-3';
+import {createWorld} from './world.mjs?v=summit-1';
 import {Terrain} from './terrain.mjs?v=trail-detail-3';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -30,6 +30,8 @@ addEventListener('keydown',e=>{
 });
 $('#route-info').textContent=`Seed ${seed}`;
 try {
+// Give the loading card a paint before synchronous world generation begins.
+await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 const world=createWorld({seed});
 const settings={radius:160,quality:1,transition:160,speed:14,slideSlope:35};
 const scene=new T.Scene();scene.background=new T.Color(0x9fbac6);scene.fog=new T.Fog(0x9fbac6,650,1000);
@@ -43,8 +45,6 @@ const terrain=new Terrain(scene,world,settings);
 const marker=new T.Group();marker.position.set(world.summit.x,world.summit.y,world.summit.z);scene.add(marker);
 const mast=new T.Mesh(new T.CylinderGeometry(.2,.25,9,6),new T.MeshLambertMaterial({color:0x302b24}));mast.position.y=4.5;marker.add(mast);
 const pennant=new T.Mesh(new T.BoxGeometry(3.4,1.6,.08),new T.MeshLambertMaterial({color:0xeab04c}));pennant.position.set(1.6,8,0);marker.add(pennant);
-const summitLabel=document.createElement('canvas');summitLabel.width=512;summitLabel.height=128;const ctx=summitLabel.getContext('2d');ctx.fillStyle='#15251edd';ctx.fillRect(0,0,512,128);ctx.fillStyle='#f6dfac';ctx.font='bold 38px system-ui';ctx.textAlign='center';ctx.fillText(world.config.end?'DESTINATION':'SUMMIT',256,55);ctx.font='25px system-ui';ctx.fillText(`${Math.round(world.summit.y)} m`,256,96);
-const tex=new T.CanvasTexture(summitLabel);tex.colorSpace=T.SRGBColorSpace;const label=new T.Sprite(new T.SpriteMaterial({map:tex,depthTest:true}));label.position.set(0,17,0);label.scale.set(28,7,1);marker.add(label);
 const locomotion=new Locomotion(rig,{moveSpeed:settings.speed,turnSpeed:Math.PI/3});
 const sliding=new SlopeSlide(world);
 const state=new XRFrameState(),edges=new ButtonEdges(),fps=new FrameRateCounter();
@@ -117,11 +117,12 @@ renderer.setAnimationLoop((time,frame)=>{
   const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
   uiElapsed+=elapsed;
   if(uiElapsed>.5){uiElapsed=0;world.trail(head.x,head.z,projected,true);stats.along=projected.along;stats.remaining=world.totalLength-projected.along;stats.elevation=ground;model.refresh();$('#status').textContent=`${Math.round(ground)} m elevation · ${(stats.remaining/1000).toFixed(2)} km to summit${projected.distance>20?' · off trail':''}${stats.remaining<8&&projected.distance<10?' · Summit reached':''}`;}
-  renderer.render(scene,camera);stats.triangles=renderer.info.render.triangles;frameCount++;
+  renderer.render(scene,camera);if(frameCount===0)document.body.classList.remove('loading');stats.triangles=renderer.info.render.triangles;frameCount++;
 });
 // Desktop inspection surface for desktop acceptance checks.
 window.hike={world,terrain,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
 } catch(error) {
+  document.body.classList.remove('loading');
   $('#intro').hidden=true;$('#status').textContent='Mountain generation failed · choose another seed';
   $('#error').hidden=false;$('#error').textContent=`Seed ${seed} could not load: ${error.message}. Choose Random seed or enter another seed below.`;
   setPanel(true);console.error(error);

@@ -2,9 +2,10 @@
 
 ## State and preview
 
-The initial release is on GitHub (`8e9e0ef`). The unified-landscape revision is
-local work; consult Git status/history for subsequent publication. The user’s
-previous push authorization does not authorize publishing this revision.
+The initial release is on GitHub (`8e9e0ef`); the unified landscape and fine trail
+were released in `94f1131`. The user authorized the follow-up release below on
+2026-11-10. Consult Git history for its commit and publication state; local-status
+notes in the implementation sections describe their state when first written.
 
 Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
@@ -272,9 +273,10 @@ Exact counts vary with the seed and route. The default route is about 1582 m.
 
 ### Outstanding issues / validation
 
-1. **Physical Quest validation remains open:** sustained FPS, memory/loading time,
-   stereo appearance, tracked-controller interaction and walking/sliding comfort.
-   Headless Chrome results are not a headset performance benchmark.
+1. **Quest functionality validated by the user (2026-11-10).** The hike works on
+   Quest, with slow but functional generation. This is user headset feedback, not
+   a formal sustained-FPS/memory benchmark. The bank-smoothing change below still
+   needs a headset retest against the reported inside-turn spike.
 2. **Startup remains synchronous.** Routing, clipping and slope correction can
    block interaction during generation; difficult seeds take longer. A loading
    worker or staged generation is not implemented. None of that polygon work runs
@@ -285,7 +287,7 @@ Exact counts vary with the seed and route. The default route is about 1582 m.
    summit routing and bridge construction remain deferred.
 4. **The sampling grid is world-aligned.** It is not adaptive to the trail tangent;
    quarter-metre clipping coordinates can make close-up tread outlines slightly
-   angular. Adaptive route-aligned sampling would be a future refinement.
+   angular. Adaptive route-aligned sampling is explicitly deferred by the user.
 5. **Off-trail terrain keeps its existing density/LOD tradeoffs:** coarse geometry
    outside the corridor and finite index transitions can still pop or differ from
    the finer authoritative ground query. No geomorphing has been added.
@@ -296,3 +298,127 @@ Exact counts vary with the seed and route. The default route is about 1582 m.
 Release status: the user authorized committing and pushing the tested unified-
 landscape and fine-trail changes on 2026-11-10. Git history records the release
 commit. GitHub Pages deployment was not checked, as requested.
+
+
+## Inside-turn bank smoothing — 2026-11-10 (local)
+
+The user validated that the hike functions on Quest and reported slow generation
+and occasional single-vertex spikes on the inside of sharp turns. No reproducing
+seed/location was available. Trail-grid changes are deferred.
+
+After the existing walking-plane correction, `smoothBankPeaks` removes isolated
+upward peaks in bank-only vertices inside the replacement patch. A peak exceeding
+all its connected neighbors by more than 2 cm is lowered to their inverse-distance
+weighted mean. The pass reads original heights before applying edits; ordinary
+slopes, walking vertices, fixed endpoints and the patch perimeter stay unchanged.
+This targets narrow bank remnants enclosed by trail geometry without adding
+vertices, changing topology or performing per-frame work. Rendering, height and
+normal queries use the same corrected surface. Open-boundary spikes and broader
+ridges are outside this deliberately limited correction.
+
+The default seed smooths five bank vertices, including a regression case at
+(-388, 148). All **28 Hike tests** pass, including peak removal, preserved slopes
+and boundaries, deterministic traversal, rendered grounding, existing walking
+slope limits, shared seams and exact map coverage. Headless Chrome loads and
+renders with no page errors; maximum walking slope remains about 28 degrees.
+Entry/world/surface cache versions were advanced. `git diff --check` passed.
+
+Slow synchronous generation remains outstanding. This change is local, uncommitted
+and unpublished; the exact user-observed spike has not been confirmed fixed on
+Quest because no reproducing seed/location was available.
+
+
+## First generation optimization pass — 2026-11-10 (local)
+
+CPU sampling across seeds 41729, 1 and 3307485663 identified A* routing as the
+largest startup cost (roughly half the sampled CPU time). This pass preserves
+search ordering, route candidates, smoothing iterations and terrain detail:
+
+- `trail.mjs` precomputes the eight grid-edge lengths and lazily caches goal
+  distances across relaxations/searches sharing a destination. A different goal
+  invalidates the single cache. Fixed route-segment grade limits are calculated
+  once instead of inside each of the 160 smoothing passes.
+- `geology.mjs` visits only the drainage outlet's bounding square in both drainage
+  passes, preserving the original update order and radius test.
+- Entry, world, routing and geology cache versions were advanced.
+
+The heuristic cache adds about 1.8 MiB at the normal 8 m navigation grid and
+7.0 MiB at the fallback 4 m grid (about 8.8 MiB combined during recursive fallback).
+These arrays become collectible after routing; there is no new retained world
+cache or per-frame work.
+
+Desktop Node measurements of world generation plus tile baking, using an
+unprofiled baseline and the mean of two optimized runs in fresh processes:
+
+| Seed | Before | After | Reduction |
+| --- | --- | --- | --- |
+| 41729 | 4.08 s | 3.84 s | 5.7% |
+| 1 | 6.23 s | 5.71 s | 8.4% |
+| 3307485663 | 3.92 s | 3.65 s | 6.9% |
+
+These are small-sample desktop observations, not Quest benchmarks. SHA-256
+comparisons of landscape height bytes, serialized route and surface vertices,
+and every tile's rendered position buffer match the pre-optimization results for
+all three seeds, including the existing bank smoothing. The 28 Hike tests and
+`git diff --check` pass. Generation still blocks synchronously; worker/staged
+loading and further route-search optimization remain future work. Quest loading
+speed for this revision has not been measured. Changes remain local, uncommitted
+and unpublished.
+
+
+## Loading card and summit marker — 2026-11-10 (local)
+
+Removed the floating summit/destination text sprite and its elevation label;
+the mast and gold flag remain. The web loading message now appears in a centered,
+responsive dark card: large “Shaping the mountain...” with smaller “Please wait
+a moment.” below. The intro is hidden during loading. Two animation frames allow
+the card to paint before synchronous generation starts; it disappears after the
+first world render or on failure, leaving seed-recovery diagnostics accessible.
+The footer retains its normal in-world status. App/CSS cache versions advanced.
+
+Chrome checks passed at desktop and mobile widths: centered card, successful
+startup hiding it, flag retained without sprite, and forced generation failure
+hiding the card and opening recovery. Normal startup produced no page errors.
+Mobile screenshot visually reviewed; `git diff --check` passed. Changes are local,
+uncommitted and unpublished.
+
+
+## Level destination landing — 2026-11-10 (local)
+
+The destination now has a level arrival disk of **3 m diameter**, centered beneath
+the retained flag at the existing endpoint elevation. A smoothstep shoulder blends
+the prepared ground into the original terrain over the next 4 m. This preparation
+happens before route planning, so navigation heights and route engineering see it.
+The underlying seeded geology/cache and `rawHeight()` remain unchanged; explicit
+endpoints prepare their own destination without relocating or regenerating geology.
+
+Route elevation planning reserves a level final approach, including a fine-cell
+and route-sample margin. After clipping, walking triangles touching the 1.5 m
+radius disk are fixed to destination elevation before the existing slope solve.
+The triangle-aligned flat edge can extend slightly beyond the requested disk;
+there is no new overlay, extra mesh density or separate collision surface. This
+keeps the whole disk level in both rendering and grounding. Trail carving uses
+prepared terrain without reapplying the shoulder over the engineered approach.
+
+The landing and its approach can increase earthworks: seed 1 now needs about
+35.13 m maximum cut/fill, compared with roughly 33 m previously. The broad
+regression allowance is now 36 m. The 30% centerline and sub-30-degree walking-plane
+limits remain unchanged. Existing steep-bank limitations still apply outside the
+arrival/trail surface.
+
+Validation covers radial height/normal samples throughout the disk across eight
+seeds, a custom destination, rendered landing triangles, and all existing Hike
+checks. Chrome loaded without page errors; a close summit view was inspected with
+the flag standing on the flat surface. App/world/trail/surface cache versions were
+advanced. Changes remain local, uncommitted and unpublished; headset appearance
+of the new landing has not been tested.
+
+
+## Follow-up release — 2026-11-10
+
+The user authorized committing and pushing the bank-peak smoothing, generation
+optimizations, centered loading card, summit-label removal and level destination
+landing together. The final scoped Hike suite contains 30 tests. Browser checks
+and limitations are documented above; Quest retesting remains outstanding for
+these changes. No runtime changes outside Hike are included. Git history records
+the release commit; pushing main triggers GitHub Pages publication.

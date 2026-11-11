@@ -81,3 +81,26 @@ test('extra vertices are confined to the trail and narrow transition cells',()=>
   assert.ok(world.trail(x,z,{}).distance<world.config.trailWidth/2+4,'detail leaked out of the trail corridor');
  }}
 });
+
+test('default inner-bank peak is smoothed and shared by rendering and grounding',()=>{
+ const p=world.surface.vertices.find(p=>p.x===-388&&p.z===148);
+ assert.ok(p,'known default-route inner-bank vertex');
+ assert.ok(p.y<196,'previous isolated peak stood at 196.385 m');
+ assert.ok(world.surface.smoothedBankVertices>0);
+ assert.equal(world.height(p.x,p.z),p.y);
+ let copies=0;
+ for(const tile of terrain.tiles){const positions=tile.mesh.geometry.attributes.position;for(let i=0;i<positions.count;i++)if(positions.getX(i)===p.x&&positions.getZ(i)===p.z){assert.ok(Math.abs(positions.getY(i)-p.y)<.0001);copies++;}}
+ assert.ok(copies>0);
+});
+
+test('rendered destination landing matches its level collision surface',()=>{
+ let checked=0;
+ for(const t of terrain.tiles){const p=t.mesh.geometry.attributes.position,ids=t.walkingIndices;
+  for(let i=0;i<ids.length;i+=3){const tri=[ids[i],ids[i+1],ids[i+2]],x=tri.reduce((s,j)=>s+p.getX(j),0)/3,z=tri.reduce((s,j)=>s+p.getZ(j),0)/3;
+   if(Math.hypot(x-world.summit.x,z-world.summit.z)>1.5)continue;
+   for(const j of tri)assert.ok(Math.abs(p.getY(j)-world.summit.y)<.0001);
+   checked++;
+  }
+ }
+ assert.ok(checked>10);
+});

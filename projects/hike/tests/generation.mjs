@@ -26,8 +26,9 @@ test('default lowest-to-highest routes remain walkable and within view range',()
  for(const w of worlds){
   assert.ok(w.totalLength>1300&&w.totalLength<2000,`seed ${w.config.seed}: length ${w.totalLength}`);
   assert.ok(w.maxGrade<=.301);
-  // Width-aware switchbacks may require a little more earthwork than a zero-width route.
-  assert.ok(w.maxEarthwork<35,`seed ${w.config.seed}: earthwork ${w.maxEarthwork}`);
+  // Width-aware switchbacks and the level arrival approach need cut/fill.
+  // Seed 1 now reaches 35.13 m; retain a bounded 36 m regression budget.
+  assert.ok(w.maxEarthwork<36,`seed ${w.config.seed}: earthwork ${w.maxEarthwork}`);
   assert.ok(Math.hypot(w.start.x-w.summit.x,w.start.z-w.summit.z)<950);
   assert.deepEqual(w.sections,[{kind:'ground',start:0,end:800}]);
   for(let i=0;i<w.route.length;i++){const p=w.route[i];assert.ok(Math.abs(w.height(p.x,p.z)-p.y)<1e-6);assert.ok(w.normal(p.x,p.z).slope<30,`seed ${w.config.seed}, point ${i}`);}
@@ -39,4 +40,14 @@ test('explicit endpoints alter route planning without regenerating different geo
  assert.deepEqual(a.landscape.heights,b.landscape.heights);
  assert.equal(b.start.x,start.x);assert.equal(b.start.z,start.z);assert.equal(b.summit.x,end.x);assert.equal(b.summit.z,end.z);
  assert.equal(b.start.y,b.rawHeight(start.x,start.z));assert.equal(b.summit.y,b.rawHeight(end.x,end.z));
+ for(let i=0;i<32;i++){const x=end.x+1.5*Math.cos(i*Math.PI/16),z=end.z+1.5*Math.sin(i*Math.PI/16);assert.ok(Math.abs(b.height(x,z)-b.summit.y)<1e-7);}
+
+});
+
+test('destination landing stays level across its three-metre disk for every seed',()=>{
+ for(const w of worlds)for(let r=0;r<=1.5;r+=.25)for(let i=0;i<32;i++){
+  const x=w.summit.x+r*Math.cos(i*Math.PI/16),z=w.summit.z+r*Math.sin(i*Math.PI/16);
+  assert.ok(Math.abs(w.height(x,z)-w.summit.y)<1e-7,`seed ${w.config.seed}: landing at ${x},${z}`);
+  assert.ok(w.normal(x,z).slope<1e-5);
+ }
 });
