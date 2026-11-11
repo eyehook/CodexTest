@@ -7,8 +7,8 @@ import {FrameRateCounter} from '../../shared/performance/frame-rate.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
-import {createWorld} from './world.mjs?v=ascent-recovery-2';
-import {Terrain} from './terrain.mjs?v=single-mountain-2';
+import {createWorld} from './world.mjs?v=trail-detail-3';
+import {Terrain} from './terrain.mjs?v=trail-detail-3';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
 const $=s=>document.querySelector(s);
@@ -32,8 +32,8 @@ $('#route-info').textContent=`Seed ${seed}`;
 try {
 const world=createWorld({seed});
 const settings={radius:160,quality:1,transition:160,speed:14,slideSlope:35};
-const scene=new T.Scene();scene.background=new T.Color(0x9fbac6);scene.fog=new T.Fog(0x9fbac6,1700,6500);
-const camera=new T.PerspectiveCamera(70,innerWidth/innerHeight,.08,8500);camera.position.y=1.7;camera.rotation.order='YXZ';camera.rotation.x=.18;
+const scene=new T.Scene();scene.background=new T.Color(0x9fbac6);scene.fog=new T.Fog(0x9fbac6,650,1000);
+const camera=new T.PerspectiveCamera(70,innerWidth/innerHeight,.08,1200);camera.position.y=1.7;camera.rotation.order='YXZ';camera.rotation.x=.18;
 const rig=new T.Group();scene.add(rig);rig.add(camera);
 const renderer=new T.WebGLRenderer({canvas:$('#world'),antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
@@ -43,7 +43,7 @@ const terrain=new Terrain(scene,world,settings);
 const marker=new T.Group();marker.position.set(world.summit.x,world.summit.y,world.summit.z);scene.add(marker);
 const mast=new T.Mesh(new T.CylinderGeometry(.2,.25,9,6),new T.MeshLambertMaterial({color:0x302b24}));mast.position.y=4.5;marker.add(mast);
 const pennant=new T.Mesh(new T.BoxGeometry(3.4,1.6,.08),new T.MeshLambertMaterial({color:0xeab04c}));pennant.position.set(1.6,8,0);marker.add(pennant);
-const summitLabel=document.createElement('canvas');summitLabel.width=512;summitLabel.height=128;const ctx=summitLabel.getContext('2d');ctx.fillStyle='#15251edd';ctx.fillRect(0,0,512,128);ctx.fillStyle='#f6dfac';ctx.font='bold 38px system-ui';ctx.textAlign='center';ctx.fillText('SUMMIT',256,55);ctx.font='25px system-ui';ctx.fillText(`${Math.round(world.summit.y)} m`,256,96);
+const summitLabel=document.createElement('canvas');summitLabel.width=512;summitLabel.height=128;const ctx=summitLabel.getContext('2d');ctx.fillStyle='#15251edd';ctx.fillRect(0,0,512,128);ctx.fillStyle='#f6dfac';ctx.font='bold 38px system-ui';ctx.textAlign='center';ctx.fillText(world.config.end?'DESTINATION':'SUMMIT',256,55);ctx.font='25px system-ui';ctx.fillText(`${Math.round(world.summit.y)} m`,256,96);
 const tex=new T.CanvasTexture(summitLabel);tex.colorSpace=T.SRGBColorSpace;const label=new T.Sprite(new T.SpriteMaterial({map:tex,depthTest:true}));label.position.set(0,17,0);label.scale.set(28,7,1);marker.add(label);
 const locomotion=new Locomotion(rig,{moveSpeed:settings.speed,turnSpeed:Math.PI/3});
 const sliding=new SlopeSlide(world);
@@ -54,7 +54,8 @@ let terrainDirty=false,walk=false,last=0,uiElapsed=0,frameCount=0;
 const keys=new Set();
 function reset() {
   // Place the physical headset's horizontal offset over the trailhead exactly once.
-  sliding.reset();rig.rotation.set(0,Math.atan2(world.start.x-world.summit.x,world.start.z-world.summit.z),0);rig.position.set(world.start.x,world.start.y,world.start.z);
+  const ahead=world.route[12];
+  sliding.reset();rig.rotation.set(0,Math.atan2(world.start.x-ahead.x,world.start.z-ahead.z),0);rig.position.set(world.start.x,world.start.y,world.start.z);
   if(renderer.xr.isPresenting&&state.pose){head.copy(viewer.position).applyQuaternion(rig.quaternion);rig.position.x-=head.x;rig.position.z-=head.z;}
   camera.rotation.set(.18,0,0);rig.updateMatrixWorld(true);terrainDirty=true;
 }
@@ -64,7 +65,7 @@ const defs=[
   {id:'transition',kind:'number',label:'LOD band (m)',min:64,max:320,step:32,get:()=>settings.transition,set:v=>settings.transition=v},
   {id:'speed',kind:'number',label:'Walk speed (m/s)',min:.7,max:30,step:.1,get:()=>settings.speed,set:v=>settings.speed=v},
   {id:'slope',kind:'number',label:'Slide above (degrees)',min:20,max:50,step:1,get:()=>settings.slideSlope,set:v=>settings.slideSlope=v},
-  ...[['fps','FPS',()=>stats.fps.toFixed(0)],['triangles','Rendered triangles (~)',()=>stats.triangles.toLocaleString()],['update','Last LOD update (ms)',()=>terrain.updateMs.toFixed(1)],['generation','Generation (ms)',()=>(terrain.generationMs+world.generationMs).toFixed(0)],['chunks','Terrain meshes',()=>terrain.tiles.length],['elevation','Elevation (m)',()=>stats.elevation.toFixed(1)],['remaining','Trail remaining (m)',()=>stats.remaining.toFixed(0)]].map(([id,label,get])=>({id,label,kind:'readout',get})),
+  ...[['fps','FPS',()=>stats.fps.toFixed(0)],['triangles','Rendered triangles (~)',()=>stats.triangles.toLocaleString()],['update','Last LOD update (ms)',()=>terrain.updateMs.toFixed(1)],['generation','Generation (ms)',()=>(terrain.generationMs+world.generationMs).toFixed(0)],['chunks','Active terrain tiles',()=>terrain.activeTiles],['elevation','Elevation (m)',()=>stats.elevation.toFixed(1)],['remaining','Trail remaining (m)',()=>stats.remaining.toFixed(0)]].map(([id,label,get])=>({id,label,kind:'readout',get})),
   {id:'reset',kind:'action',label:'Reset to trailhead',run:reset}
 ];
 const model=new ControlModel(defs,{onChange:id=>{if(['radius','quality','transition'].includes(id))terrainDirty=true;}});

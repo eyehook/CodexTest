@@ -357,3 +357,11 @@ The Hike reuses `xr/locomotion.mjs`, `xr/session.mjs`, `xr/input.mjs`
 and `ui/vr-panel.mjs`. Terrain collision, height following, settings and panel
 placement remain project-owned; see its [handoff](../projects/hike/HANDOFF.md).
 No shared runtime changes were needed. Quest acceptance remains pending.
+
+### JavaScript Clipper 6.4.2.2 — The Hike
+
+`vendor/clipper-6.4.2.2/clipper.mjs` is the local ES-module adaptation of JavaScript
+Clipper for The Hike’s startup trail polygon operations. No existing consumer uses
+it. See that folder’s `NOTICE.md`, Boost `LICENSE_1_0.txt` and `JSBN-LICENSE.txt`
+for provenance, modifications and retained notices. It performs no network loads
+and no per-frame polygon work.

@@ -1,35 +1,43 @@
-// Seeded single-mountain heightmap, generated once. No browser or renderer state.
-export const GRID_SIZE=513,GRID_MIN=-640,GRID_STEP=1280/(GRID_SIZE-1);
+// One landscape-wide ridge/drainage field, eroded once and shared by every mesh.
+export const GRID_SIZE=1025,GRID_MIN=-1920,GRID_STEP=3840/(GRID_SIZE-1);
 export function randomSource(seed){let state=seed>>>0;return ()=>{state+=0x6d2b79f5;let n=Math.imul(state^(state>>>15),1|state);n^=n+Math.imul(n^(n>>>7),61|n);return ((n^(n>>>14))>>>0)/4294967296;};}
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
-export function generateMountain(config){
+export function generateLandscape(config){
  const began=performance.now(),random=randomSource(config.seed),seed=config.seed|0;
- const parameters={x:(random()-.5)*130,z:(random()-.5)*130,rx:260+random()*230,rz:280+random()*220,height:config.elevation*(.92+random()*.53),rotation:random()*Math.PI*2,profile:1.0+random()*1.15,ridges:4+Math.floor(random()*5),twist:(random()-.5)*2,phase:random()*Math.PI*2,erosion:45000+Math.floor(random()*35000)};
- parameters.ridgeStrength=.08+random()*.22;parameters.cap=.018+random()*.065;parameters.headwall=random()*.18;
+ const parameters={height:config.elevation*(1.35+random()*.30),frequency:350+random()*260,rotation:random()*Math.PI*2,stretch:.7+random()*.65,warp:110+random()*120,erosion:100000+Math.floor(random()*40000)};
  const p=parameters,cos=Math.cos(p.rotation),sin=Math.sin(p.rotation);
+ p.peakHeight=config.elevation*(.95+random()*.30);
+ const angle=random()*Math.PI*2,range=650+random()*80;
+ p.valleyX=GRID_MIN+Math.round((Math.cos(angle)*range-GRID_MIN)/GRID_STEP)*GRID_STEP;
+ p.valleyZ=GRID_MIN+Math.round((Math.sin(angle)*range-GRID_MIN)/GRID_STEP)*GRID_STEP;
+ const boundaryHeight=20;
  const hash=(x,z)=>{let n=Math.imul(x,374761393)^Math.imul(z,668265263)^seed;n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967295;};
  function noise(x,z){const ix=Math.floor(x),iz=Math.floor(z),u=smooth(x-ix),v=smooth(z-iz);return (hash(ix,iz)*(1-u)+hash(ix+1,iz)*u)*(1-v)+(hash(ix,iz+1)*(1-u)+hash(ix+1,iz+1)*u)*v;}
  const heights=new Float32Array(GRID_SIZE*GRID_SIZE);
  for(let z=0;z<GRID_SIZE;z++)for(let x=0;x<GRID_SIZE;x++){
-  const wx=GRID_MIN+x*GRID_STEP,wz=GRID_MIN+z*GRID_STEP,dx=wx-p.x,dz=wz-p.z;
-  const lx=(dx*cos-dz*sin)/p.rx,lz=(dx*sin+dz*cos)/p.rz,theta=Math.atan2(lz,lx),radius=Math.hypot(lx,lz);
-  const warp=(noise(wx/125,wz/125)-.5)*.75;
-  const fold=Math.cos(theta*p.ridges+p.phase+radius*p.twist+warp);
-  const branches=Math.cos(theta*(p.ridges*2+1)+radius*5+p.phase);
-  const footprint=1+.11*Math.sin(theta*3+p.phase)+.065*Math.sin(theta*5-p.phase);
-  const r=radius/footprint;if(r>=1)continue;
-  // A rounded summit cap feeds asymmetric radiating spurs, all part of one peak.
-  const capped=r*r/(r+p.cap);
-  const flankProfile=p.profile+.55*Math.cos(theta-p.phase)*smooth(r/.14);
-  const profile=Math.pow(Math.max(0,1-capped),flankProfile);
-  const valleys=(1-fold)*.5;
-  const erosionShape=(valleys*p.ridgeStrength+(1-branches)*.018)*(Math.sin(Math.PI*r)**1.2);
-  const bowlAngle=Math.atan2(Math.sin(theta-p.phase),Math.cos(theta-p.phase));
-  const headwall=p.headwall*Math.exp(-(((r-.48)/.17)**2)-((bowlAngle/.5)**2))*Math.sin(Math.PI*r);
-  const strata=(noise(wx/44,wz/44)-.5)*.026*Math.sin(Math.PI*r);
-  const edge=smooth((625-Math.abs(wx))/50)*smooth((625-Math.abs(wz))/50);
-  heights[z*GRID_SIZE+x]=Math.max(0,p.height*(profile-erosionShape-headwall+strata)*edge);
+  const wx=GRID_MIN+x*GRID_STEP,wz=GRID_MIN+z*GRID_STEP;
+  const warpedX=wx+(noise(wx/380+15,wz/380-11)-.5)*p.warp*2;
+  const warpedZ=wz+(noise(wx/380-19,wz/380+23)-.5)*p.warp*2;
+  const lx=(warpedX*cos-warpedZ*sin)*p.stretch,lz=(warpedX*sin+warpedZ*cos)/p.stretch;
+  // Correlated, warped ridge families span the entire map. The broad uplift
+  // changes their prominence toward the middle; there are no placed peak blobs.
+  const large=1-Math.abs(2*noise(lx/p.frequency,lz/p.frequency)-1);
+  const medium=1-Math.abs(2*noise(lx/165+31,lz/165-17)-1);
+  const small=1-Math.abs(2*noise(lx/48-9,lz/48+41)-1);
+  const ridge=.60*large**2+.27*medium**2+.13*small;
+  const uplift=.30+.70*Math.exp(-(wx*wx+wz*wz)/(630*630));
+  const edge=smooth((1920-Math.abs(wx))/100)*smooth((1920-Math.abs(wz))/100);
+  // A low drainage outlet gives the hike a unique low valley. It modifies this
+  // same field before erosion; it is independent of route or mesh allocation.
+  heights[z*GRID_SIZE+x]=boundaryHeight+p.height*uplift*(.10+.90*ridge)*edge;
  }
+ // Establish a low drainage outlet within hiking distance of the central high point.
+ let initialPeak=0;for(let i=0;i<heights.length;i++)if(heights[i]>heights[initialPeak])initialPeak=i;
+ const px=GRID_MIN+(initialPeak%GRID_SIZE)*GRID_STEP,pz=GRID_MIN+Math.floor(initialPeak/GRID_SIZE)*GRID_STEP;
+ const snap=v=>GRID_MIN+Math.round((Math.max(-850,Math.min(850,v))-GRID_MIN)/GRID_STEP)*GRID_STEP;
+ p.valleyX=snap(px+Math.cos(angle)*range);p.valleyZ=snap(pz+Math.sin(angle)*range);
+ function drain(radius){for(let z=0;z<GRID_SIZE;z++)for(let x=0;x<GRID_SIZE;x++){const d=Math.hypot(GRID_MIN+x*GRID_STEP-p.valleyX,GRID_MIN+z*GRID_STEP-p.valleyZ);if(d<radius)heights[z*GRID_SIZE+x]*=smooth(d/radius);}}
+ drain(160);
  // Droplet transport: erode accelerating downhill water, deposit in slower reaches.
  // Work is bounded and paid only once, before terrain tiles or collision queries.
  const n=GRID_SIZE,gradient={};
@@ -49,6 +57,8 @@ export function generateMountain(config){
    speed=Math.sqrt(Math.max(.05,speed*speed-change*.65));water*=.975;x=nx;z=nz;
   }
  }
+ // Keep the drainage outlet open after sediment transport.
+ drain(70);
  // Brief talus relaxation removes isolated erosion needles without smoothing ridges away.
  const delta=new Float32Array(heights.length),talus=Math.tan(48*Math.PI/180)*GRID_STEP;
  for(let pass=0;pass<5;pass++){
@@ -59,8 +69,17 @@ export function generateMountain(config){
   }
   for(let i=0;i<heights.length;i++)heights[i]=Math.max(0,heights[i]+delta[i]);
  }
- let peakIndex=0;for(let i=0;i<heights.length;i++)if(heights[i]>heights[peakIndex])peakIndex=i;
+ // Normalize the elevation budget without changing ridge/drainage topology.
+ // The whole field, including distant terrain, receives the same scaling.
+ let maximum=0;for(const value of heights)maximum=Math.max(maximum,value);
+ const scale=p.peakHeight/maximum;
+ for(let z=0;z<n;z++)for(let x=0;x<n;x++){const edge=smooth((1920-Math.max(Math.abs(GRID_MIN+x*GRID_STEP),Math.abs(GRID_MIN+z*GRID_STEP)))/100);heights[z*n+x]=boundaryHeight+(heights[z*n+x]*scale-boundaryHeight)*edge;}
+ // Restore the exact border after erosion, and locate endpoints in the same field.
+ for(let q=0;q<n;q++){heights[q]=heights[(n-1)*n+q]=heights[q*n]=heights[q*n+n-1]=boundaryHeight;}
+ let peakIndex=0,minIndex=0;
+ for(let i=0;i<heights.length;i++){if(heights[i]>heights[peakIndex])peakIndex=i;if(heights[i]<heights[minIndex])minIndex=i;}
  const summit={x:GRID_MIN+(peakIndex%n)*GRID_STEP,z:GRID_MIN+Math.floor(peakIndex/n)*GRID_STEP,y:heights[peakIndex]};
- function height(x,z){const gx=(x-GRID_MIN)/GRID_STEP,gz=(z-GRID_MIN)/GRID_STEP;if(gx<0||gz<0||gx>=n-1||gz>=n-1)return 0;return sample(gx,gz,gradient).y;}
- return {height,summit,parameters,heights,generationMs:performance.now()-began};
+ const start={x:GRID_MIN+(minIndex%n)*GRID_STEP,z:GRID_MIN+Math.floor(minIndex/n)*GRID_STEP,y:heights[minIndex]};
+ function height(x,z){const gx=(x-GRID_MIN)/GRID_STEP,gz=(z-GRID_MIN)/GRID_STEP;if(gx<0||gz<0||gx>=n-1||gz>=n-1)return boundaryHeight;return sample(gx,gz,gradient).y;}
+ return {height,summit,start,boundaryHeight,extent:1920,gridSize:n,gridStep:GRID_STEP,parameters,heights,generationMs:performance.now()-began};
 }

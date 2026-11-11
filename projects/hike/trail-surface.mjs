@@ -1,0 +1,120 @@
+import {SCALE,rect,offsetRoute,boolean,triangulate,PointIndex} from './planar.mjs?v=trail-detail-3';
+const SIZE=128,STEP_X=.5,STEP_Z=1;
+export function createTrailSurface({route,width,height,project}){
+ const began=performance.now(),half=width/2,innerPaths=offsetRoute(route,half),tiles=new Map(),refined=new Set();
+ const vertices=[],lookup=new Map(),walking=[],banks=[],cells=new Map(),boundary=new PointIndex(),near={};
+ function vertex(p){const key=p.X+','+p.Y;let id=lookup.get(key);if(id===undefined){id=vertices.length;const x=p.X/SCALE,z=p.Y/SCALE;vertices.push({x,z,y:height(x,z),fixed:Math.hypot(x-route[0].x,z-route[0].z)<1.1||Math.hypot(x-route.at(-1).x,z-route.at(-1).z)<1.1});lookup.set(key,id);}return id;}
+ function emit(record,kind,a,b,c,keys){
+  const area=(b.X-a.X)*(c.Y-a.Y)-(b.Y-a.Y)*(c.X-a.X);if(Math.abs(area)<1e-10)return;
+  const tri=[vertex(a),vertex(b),vertex(c)];if(area>0)[tri[1],tri[2]]=[tri[2],tri[1]];
+  record.triangles.push({ids:tri,walking:kind==='walk',keys});(kind==='walk'?walking:banks).push(tri);
+  for(const key of keys){if(!cells.has(key))cells.set(key,[]);cells.get(key).push(tri);}
+ }
+ const tileKeys=new Set();for(const p of route)for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++)tileKeys.add((Math.floor(p.x/SIZE)+dx)*SIZE+','+(Math.floor(p.z/SIZE)+dz)*SIZE);
+ for(const key of tileKeys){
+  const [x,z]=key.split(',').map(Number),mask=boolean(innerPaths,[rect(x,z,x+SIZE,z+SIZE)],'ctIntersection');if(!mask.paths.length)continue;
+  const record={x,z,inner:mask.paths,triangles:[],cells:new Set()};tiles.set(key,record);
+  let minX=Infinity,minZ=Infinity,maxX=-Infinity,maxZ=-Infinity;for(const path of mask.paths)for(const p of path){minX=Math.min(minX,p.X/SCALE);maxX=Math.max(maxX,p.X/SCALE);minZ=Math.min(minZ,p.Y/SCALE);maxZ=Math.max(maxZ,p.Y/SCALE);}
+  for(let gx=Math.max(x,Math.floor(minX/2)*2);gx<Math.min(x+SIZE,Math.ceil(maxX/2)*2);gx+=2)for(let gz=Math.max(z,Math.floor(minZ/2)*2);gz<Math.min(z+SIZE,Math.ceil(maxZ/2)*2);gz+=2){
+   project(gx+1,gz+1,near);if(near.distance>half+Math.SQRT2+.3)continue;
+   const coarse=rect(gx,gz,gx+2,gz+2),intersect=boolean(mask.paths,[coarse],'ctIntersection');if(!intersect.paths.length)continue;
+   refined.add(gx+','+gz);record.cells.add(gx+','+gz);
+   const corePieces=[],coreBoundary=new PointIndex(),allKeys=[];
+   for(let xx=gx;xx<gx+2;xx+=STEP_X)for(let zz=gz;zz<gz+2;zz+=STEP_Z){
+    const cell=rect(xx,zz,xx+STEP_X,zz+STEP_Z),cellKey=Math.round(xx/STEP_X)+','+Math.round(zz/STEP_Z);allKeys.push(cellKey);
+    project(xx+STEP_X/2,zz+STEP_Z/2,near);
+    if(near.distance<half-Math.hypot(STEP_X,STEP_Z)/2-.3){corePieces.push(cell);for(const p of cell)coreBoundary.add(p);emit(record,'walk',cell[0],cell[3],cell[1],[cellKey]);emit(record,'walk',cell[1],cell[3],cell[2],[cellKey]);continue;}
+    const core=boolean(intersect.paths,[cell],'ctIntersection');corePieces.push(...core.paths);for(const path of core.paths)for(const p of path)coreBoundary.add(p);
+    triangulate(core.polygons,(a,b,c)=>emit(record,'walk',a,b,c,[cellKey]));
+   }
+   // Reuse the exact clipped walking boundary for the narrow bank. Subtraction
+   // happens inside the same 2 m cell, so neighboring unchanged terrain needs no
+   // overlays, extra full-tile detail, or independently rounded hole boundaries.
+   const union=boolean(corePieces,[],'ctUnion'),outside=boolean([coarse],union.paths,'ctDifference');
+   triangulate(outside.polygons,(a,b,c)=>emit(record,'bank',a,b,c,allKeys),coreBoundary);
+  }
+ }
+ const edges=new Map();
+ function edge(key,id){if(!edges.has(key))edges.set(key,new Set());edges.get(key).add(id);}
+ for(let i=0;i<vertices.length;i++){const p=vertices[i];if(Math.abs(p.x/2-Math.round(p.x/2))<1e-8){const x=Math.round(p.x/2)*2,z=Math.floor(p.z/2)*2;edge('v:'+x+':'+z,i);if(Math.abs(p.z-z)<1e-8)edge('v:'+x+':'+(z-2),i);}if(Math.abs(p.z/2-Math.round(p.z/2))<1e-8){const z=Math.round(p.z/2)*2,x=Math.floor(p.x/2)*2;edge('h:'+z+':'+x,i);if(Math.abs(p.x-x)<1e-8)edge('h:'+z+':'+(x-2),i);}}
+ // Make all cut-cell joins conforming, including collinear points Earcut may
+ // omit on a neighboring triangle. One indexed edge must mean the same thing
+ // on the walking surface, its bank, and both sides of a cell boundary.
+ const allPoints=new PointIndex();for(const p of vertices)allPoints.add({X:p.x*SCALE,Y:p.z*SCALE});
+ for(const record of tiles.values()){
+  const triangles=[];
+  for(const triangle of record.triangles){
+   const ring=[];
+   for(let e=0;e<3;e++){
+    const ai=triangle.ids[e],bi=triangle.ids[(e+1)%3],a=vertices[ai],b=vertices[bi];ring.push(ai);
+    for(const p of allPoints.along({X:a.x*SCALE,Y:a.z*SCALE},{X:b.x*SCALE,Y:b.z*SCALE},1e-7)){const id=lookup.get(p.X+','+p.Y);if(id!==undefined)ring.push(id);}
+   }
+   if(ring.length===3){triangles.push(triangle);continue;}
+   const abc=triangle.ids.map(id=>vertices[id]),center=vertex({X:(abc[0].x+abc[1].x+abc[2].x)/3*SCALE,Y:(abc[0].z+abc[1].z+abc[2].z)/3*SCALE});
+   for(let i=0;i<ring.length;i++)triangles.push({ids:[center,ring[i],ring[(i+1)%ring.length]],walking:triangle.walking,keys:triangle.keys});
+  }
+  record.triangles=triangles;
+ }
+ walking.length=banks.length=0;cells.clear();
+ for(const record of tiles.values())for(const triangle of record.triangles){(triangle.walking?walking:banks).push(triangle.ids);for(const key of triangle.keys){if(!cells.has(key))cells.set(key,[]);cells.get(key).push(triangle.ids);}}
+ // Limit the actual walking planes, including tight inside bends. Shared edge
+ // vertices move with them, so banks join the corrected tread without a gap.
+ for(const p of vertices){if(p.fixed)p.y=Math.hypot(p.x-route[0].x,p.z-route[0].z)<1.1?route[0].y:route.at(-1).y;}
+ const limit=Math.tan(28*Math.PI/180),coefficients=new Float64Array(walking.length*6);let passes=0;
+ for(let i=0;i<walking.length;i++){
+  const [a,b,c]=walking[i].map(j=>vertices[j]),det=(b.x-a.x)*(c.z-a.z)-(b.z-a.z)*(c.x-a.x),k=i*6;
+  coefficients[k]=(b.z-c.z)/det;coefficients[k+1]=(c.z-a.z)/det;coefficients[k+2]=(a.z-b.z)/det;
+  coefficients[k+3]=(c.x-b.x)/det;coefficients[k+4]=(a.x-c.x)/det;coefficients[k+5]=(b.x-a.x)/det;
+ }
+ const walkingSet=new Set(walking);
+ const adjacent=Array.from({length:vertices.length},()=>[]),centerConstraints=[];
+ walking.forEach((ids,i)=>{for(const id of ids)adjacent[id].push(i);});
+ const samples=route.map(p=>locate(p.x,p.z));
+ for(let i=1;i<route.length;i++){
+  const a=samples[i-1],b=samples[i];if(!a||!b)continue;const coefficients=new Map();
+  a.ids.forEach((id,j)=>coefficients.set(id,(coefficients.get(id)??0)-a.weights[j]));b.ids.forEach((id,j)=>coefficients.set(id,(coefficients.get(id)??0)+b.weights[j]));
+  const entries=Array.from(coefficients).filter(([,value])=>Math.abs(value)>1e-10),constraint={entries,limit:.30*Math.hypot(route[i].x-route[i-1].x,route[i].z-route[i-1].z)};
+  const id=walking.length+centerConstraints.length;centerConstraints.push(constraint);for(const [vertex] of entries)adjacent[vertex].push(id);
+ }
+ const constraints=walking.length+centerConstraints.length;
+ const queue=new Int32Array(constraints),queued=new Uint8Array(constraints);let head=0,tail=0,pending=0,corrections=0;
+ function enqueue(i){if(queued[i])return;queued[i]=1;queue[tail]=i;tail=(tail+1)%queue.length;pending++;}
+ for(let i=0;i<constraints;i++)enqueue(i);
+ const checkInterval=constraints*10,acceptable=Math.tan(29*Math.PI/180);
+ function acceptableSurface(){
+  for(const c of centerConstraints){let value=0;for(const [id,weight] of c.entries)value+=vertices[id].y*weight;if(Math.abs(value)>c.limit*1.001)return false;}
+  for(let i=0;i<walking.length;i++){const [a,b,c]=walking[i].map(id=>vertices[id]),k=i*6,gx=coefficients[k]*a.y+coefficients[k+1]*b.y+coefficients[k+2]*c.y,gz=coefficients[k+3]*a.y+coefficients[k+4]*b.y+coefficients[k+5]*c.y;if(gx*gx+gz*gz>acceptable*acceptable)return false;}
+  return true;
+ }
+ while(pending&&corrections<constraints*500){
+  if(corrections&&corrections%checkInterval===0&&acceptableSurface())break;
+  const i=queue[head];head=(head+1)%queue.length;pending--;queued[i]=0;corrections++;
+  if(i>=walking.length){
+   const constraint=centerConstraints[i-walking.length];let value=0,den=0;
+   for(const [id,c] of constraint.entries){value+=vertices[id].y*c;if(!vertices[id].fixed)den+=c*c;}
+   if(Math.abs(value)>constraint.limit*1.00001&&den>1e-20){const correction=(value-Math.sign(value)*constraint.limit)*1.001/den;for(const [id,c] of constraint.entries)if(!vertices[id].fixed){vertices[id].y-=c*correction;for(const neighbor of adjacent[id])if(neighbor!==i)enqueue(neighbor);}}
+   continue;
+  }
+  const ids=walking[i],a=vertices[ids[0]],b=vertices[ids[1]],c=vertices[ids[2]],k=i*6;let changed=false;
+  for(let iteration=0;iteration<6;iteration++){
+   const gx=coefficients[k]*a.y+coefficients[k+1]*b.y+coefficients[k+2]*c.y,gz=coefficients[k+3]*a.y+coefficients[k+4]*b.y+coefficients[k+5]*c.y,mag=Math.hypot(gx,gz);if(mag<=limit*1.00001)break;
+   const ca=a.fixed?0:(coefficients[k]*gx+coefficients[k+3]*gz)/mag,cb=b.fixed?0:(coefficients[k+1]*gx+coefficients[k+4]*gz)/mag,cc=c.fixed?0:(coefficients[k+2]*gx+coefficients[k+5]*gz)/mag,den=ca*ca+cb*cb+cc*cc;if(den<1e-20)break;
+   const correction=(mag-limit)*1.001/den;a.y-=ca*correction;b.y-=cb*correction;c.y-=cc*correction;changed=true;
+  }
+  if(changed)for(const id of ids)for(const neighbor of adjacent[id])if(neighbor!==i)enqueue(neighbor);
+ }
+ passes=corrections;
+ function locate(x,z){
+  const cx=Math.floor(x/STEP_X),cz=Math.floor(z/STEP_Z),xs=Math.abs(x/STEP_X-cx)<1e-8?[cx,cx-1]:[cx],zs=Math.abs(z/STEP_Z-cz)<1e-8?[cz,cz-1]:[cz];let bank=null;
+  for(const xx of xs)for(const zz of zs)for(const ids of cells.get(xx+','+zz)??[]){
+   const a=vertices[ids[0]],b=vertices[ids[1]],c=vertices[ids[2]],det=(b.z-c.z)*(a.x-c.x)+(c.x-b.x)*(a.z-c.z);if(Math.abs(det)<1e-12)continue;
+   const u=((b.z-c.z)*(x-c.x)+(c.x-b.x)*(z-c.z))/det,v=((c.z-a.z)*(x-c.x)+(a.x-c.x)*(z-c.z))/det;
+   if(u>=-1e-7&&v>=-1e-7&&u+v<=1+1e-7){const hit={ids,weights:[u,v,1-u-v]};if(walkingSet.has(ids))return hit;bank??=hit;}
+  }
+  return bank;
+ }
+ function sample(x,z){const id=lookup.get(x*SCALE+','+z*SCALE);if(id!==undefined)return vertices[id].y;const hit=locate(x,z);return hit?hit.ids.reduce((sum,id,i)=>sum+vertices[id].y*hit.weights[i],0):null;}
+ function normal(x,z,out){const hit=locate(x,z);if(!hit)return null;const [a,b,c]=hit.ids.map(id=>vertices[id]),dx=b.x-a.x,dz=b.z-a.z,ex=c.x-a.x,ez=c.z-a.z,det=dx*ez-dz*ex,gx=((b.y-a.y)*ez-(c.y-a.y)*dz)/det,gz=(dx*(c.y-a.y)-ex*(b.y-a.y))/det,length=Math.hypot(gx,1,gz);out.x=-gx/length;out.y=1/length;out.z=-gz/length;out.slope=Math.atan(Math.hypot(gx,gz))*180/Math.PI;return out;}
+ function slope(ids){const a=vertices[ids[0]],b=vertices[ids[1]],c=vertices[ids[2]],dx=b.x-a.x,dz=b.z-a.z,ex=c.x-a.x,ez=c.z-a.z,det=dx*ez-dz*ex;if(!det)return 0;return Math.atan(Math.hypot(((b.y-a.y)*ez-(c.y-a.y)*dz)/det,(dx*(c.y-a.y)-ex*(b.y-a.y))/det))*180/Math.PI;}
+ return {normal,edges,refined,passes,tiles,vertices,walking,banks,boundary,sample,slope,generationMs:performance.now()-began};
+}

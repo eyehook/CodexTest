@@ -1,213 +1,298 @@
-# The Hike — Milestone 1
+# The Hike — unified landscape
 
-## Current state
+## State and preview
 
-Buildless desktop/WebXR prototype at `projects/hike/`. The user authorized publication on 2026-11-10; consult Git history and GitHub Pages
-for the current release/deployment state. A single seeded mountain replaces the previous fixed three-peak layout.
-No vegetation, wildlife, collectibles or bridges are implemented.
+The initial release is on GitHub (`8e9e0ef`). The unified-landscape revision is
+local work; consult Git status/history for subsequent publication. The user’s
+previous push authorization does not authorize publishing this revision.
 
-Serve the repository root with `python3 -m http.server 8080 --bind 127.0.0.1`,
-then open `/projects/hike/`. For Quest use root `Start-VR.command` over USB or
-HTTPS after a separately authorized publication. All runtime dependencies are local.
+Buildless entry: `projects/hike/`. Serve the repository root with
+`python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
+Quest USB testing uses root `Start-VR.command`. All runtime dependencies are local.
+Vegetation, wildlife, collectibles and bridges remain unimplemented.
 
-## Controls and test settings
+## Controls retained
 
-- Desktop: Start walking, WASD / up/down arrows; mouse look after clicking the
-  world; left/right arrows turn. Esc releases mouse, P opens diagnostics, R resets.
-  After using a diagnostic button, click the world to return keyboard/mouse focus.
-- Quest: left stick walks relative to the headset, right stick smoothly turns at
-  60°/s about the physical headset. B/Y toggles field notes; controller ray + trigger
-  adjusts controls. The panel opens 45° right at 2.1 m and stays world locked.
-- Current testing speed is **14 m/s**, ten times normal 1.4 m/s. The shared web/VR
-  control range is 0.7–30 m/s. A normal hike remains approximately 18–20 minutes.
-- Slopes above **35°** cause automatic downhill sliding with steering and turning
-  still active. No slope-based blocking. Drift starts at 1.15× walking speed,
-  accelerates under gravity and is capped at max(6 m/s, 1.5× walking speed).
-  Short steps and a boundary search stop sliding on gentler ground. Reset clears it.
-- Hidden/untracked XR suspends navigation and pointers. Entry/exit resets to the
-  trailhead, with tracked physical head offsets and floor height preserved.
+- Desktop: Start walking, WASD / up/down arrows, mouse look after clicking the
+  world, left/right arrows turn. Esc releases mouse, P toggles diagnostics, R resets.
+- Quest: left stick walks relative to the horizontal headset heading; right stick
+  turns smoothly at 60°/s about the physical headset. B/Y opens field notes 45°
+  right at 2.1 m; controller ray + trigger adjusts controls. Panel stays world locked.
+- Testing speed remains **14 m/s**, ten times the normal 1.4 m/s. Both diagnostic
+  views share the same 0.7–30 m/s speed bounds and increments.
+- Terrain above **35°** causes downhill sliding with walking/turning still active.
+  Drift starts at 1.15× walking speed, accelerates and caps at max(6 m/s, 1.5×
+  walking speed). Short steps stop it on gentler ground. Reset clears slide state.
+- Hidden/untracked XR pauses navigation and rays; held toggles are absorbed on resume.
+- Reset now faces the first part of the hiking path. The user explicitly permits
+  the destination to be occluded from the lowest-point trailhead.
 
-## Source map
+## One terrain definition for the whole landscape
 
-- `geology.mjs`: seeded mountain structure, hydraulic erosion, talus relaxation,
-  cached heightfield and actual summit selection.
-- `trail.mjs`: contour-following route search and grade/earthwork validation.
-- `world.mjs`: authoritative terrain/trail queries and spatial hash.
-- `terrain.mjs`: persistent mesh pool and index-only LOD.
-- `surface.mjs`: baked elevation/slope palette and broad world-space mottling.
-- `detail-texture.mjs`: shared 256×256 mipmapped noise bitmap.
-- `movement.mjs`: independent downhill sliding.
-- `app.mjs`: shared XR/UI integration, desktop input, grounding and scene.
-- `tests/`: deterministic generation, route, sliding, mesh persistence and seams.
+`geology.mjs` exports `generateLandscape(config)`. It creates a **3.84 × 3.84 km**
+heightfield centered on the origin, spanning ±1920 m. This size keeps the 1 km view
+range inside generated terrain throughout the default hiking area.
 
-## Single-mountain generation
+The field combines seeded, correlated ridge families at several scales, domain
+warping, rotation/stretch and broad central uplift. These same rules cover the
+whole map: there is no central-mountain generator plus separately placed background
+peaks. Hydraulic sediment transport and talus relaxation operate across that field.
+A drainage outlet creates the low valley before route planning; the trail does not
+control the underlying geology.
 
-`createWorld({seed, elevation, trailWidth, targetLength})` defaults to seed 41729,
-elevation scale 220, width 5 m and target route length 1600 m. Elevation scale is
-not an exact summit height. The seed changes summit position, elliptical footprint
-(260–490 / 280–500 m radii), orientation, overall height, summit cap width,
-profile, flank asymmetry, spur count/strength/twist, a localized headwall hollow
-and erosion intensity. Spurs belong to one dominant peak, not independent cones.
+A 1025×1025 Float32 cache stores heights at **3.75 m spacing**, about 4 MiB retained.
+Around 100k–140k bounded droplet paths and five talus passes run once during loading.
+Elevation is normalized to a seeded budget around the configured elevation scale.
+The outer 100 m blends to a 20 m boundary height; beyond the generated domain is
+flat continuation. That remote boundary is outside the default hike’s visible area.
 
-Generation samples a 513×513 Float32 heightfield spanning ±640 m (2.5 m spacing).
-A rounded apex feeds asymmetric radial ridges and branching detail. A bounded
-45k–80k droplet transport pass erodes downhill water and deposits sediment; five
-short talus passes remove isolated needles while preserving ridges. This is a
-compact visual erosion approximation, not a full geological simulation.
+The default start is the actual global minimum of the cached field. The destination
+is the actual global maximum, normally in its central region. A single seed fixes
+all terrain, endpoints, erosion and routes. No generation depends on player travel.
 
-The maximum cached height selects the destination summit. All later rendering,
-normal and collision queries bilinearly sample this same immutable world-space
-field. The retained heightmap is approximately 1 MiB. Generation and erosion run
-once at page load, currently synchronously, not in the render loop. Startup can
-pause longer on Quest; worker generation is a possible later improvement.
+## Endpoint-driven route planning
 
-The footprint fades to zero before its square boundary. Outside it is a flat
-plain, with no surrounding mountains or scenery. Seeded world coordinates remain
-independent of player movement and LOD, suitable for future scenery placement.
+`createWorld({seed, elevation, trailWidth, targetLength, start?, end?})` defaults
+to seed 41729, elevation scale 220, 5 m tread width and 1600 m target length.
+Optional `start`/`end` are world `{x,z}` coordinates inside ±1920 m. Their elevations
+are sampled from the same field; supplying them does **not** change the geology.
+`targetLength` may be 200–5000 m for explicit endpoint experiments.
 
-## Terrain-following trail
+`trail.mjs` searches a terrain-cost graph using A*: slope and descent penalties
+favor traversable valleys, ridge traverses and passes. Several slope weights and
+scenic intermediate passes seek the desired length. Different legs avoid one
+another; exact and near-closed loops are removed before corner rounding.
+Difficult approaches retry with a 4 m navigation grid instead of the usual 8 m.
+This replaces the previous radial contour/spiral assumption.
 
-The planner searches visible starting aspects around the mountain. For each of
-up to eight initial candidates, it traces increasing elevation contours along a winding
-ascent, adjusting angular travel toward the requested length. This wraps around
-the actual mountain, not a fixed sinusoid in world Z. It is not a general A* route
-planner, and currently favors an ascending spiral rather than discrete hairpins.
+The result is rounded, resampled to 801 points, smoothed and grade-projected to a
+30% maximum centerline grade (16.7°). The trail is flattened into the authoritative
+height query with a 9 m blending shoulder. It is not an overlapping ribbon.
+Grounding and sliding use this query, independently of rendered mesh density.
+The fine walking surface now supplies a shared, LOD-independent triangle definition
+for both display and collision, as described below.
 
-Pixel-scale contour wiggles are smoothed, tread elevations are grade-projected
-in both directions, and valid candidates are scored by earthworks with an extra
-penalty for the largest cut/fill. Valid routes remain 1.5–1.7 km with centerline
-grade ≤30% (16.7°). The default is approximately 1.60 km and a 227 m summit.
-The tread is carved/flattened in the authoritative height function with a 9 m
-blending shoulder, never rendered as an overlapping ribbon. Significant cut/fill
-can still occur on difficult seeds; a global route search could improve this.
+Length is a routing target, not a guaranteed exact distance: difficult terrain can
+produce a shorter/longer route or require conspicuous cut/fill. The default route
+is about 1.57 km, roughly 18.7 minutes at 1.4 m/s, or 1.9 minutes at test speed.
+Sharper approaches can still require substantial earthworks; bridges and more
+sophisticated route engineering remain future improvements.
 
-Twenty-four starting aspects are checked for line of sight to the summit marker.
-Reset now faces the generated summit rather than a fixed compass direction.
-Current routes are entirely ground-supported. `sections` records typed ground
-ranges (`{kind:'ground', start, end}`) as a starting point for future elevated bridge
-sections; bridge selection, geometry and separate walking surfaces remain future work.
+The lowest valley may hide the summit behind nearer ridges. Endpoint distance
+stays within the atmospheric range in the tested seeds; direct line of sight is
+not required, as clarified by the user. `sections` contains typed ground ranges
+(`{kind:'ground',start:0,end:800}`), leaving an extension point for future bridges.
+Bridge selection, geometry and separate elevated walking surfaces are not present.
 
-Queries:
+## Route-driven mesh allocation
 
-- `rawHeight(x,z)`: eroded heightfield before trail earthworks.
-- `height(x,z)`: authoritative carved terrain surface.
+`terrain.mjs` divides the whole field into **30×30 persistent 128 m tiles**.
+`tile-mesh.mjs` allocates vertex density from distance to the actual route:
+
+- Trail/endpoint tiles: a permanent 2 m baseline, with the sub-metre walking
+  patches described below.
+- Tiles within a 160 m route buffer: reserve a 2 m grid.
+- Intermediate tiles out to a 384 m route buffer: reserve an 8 m grid.
+- Remaining terrain: reserve a 32 m grid.
+
+Distance uses each tile’s footprint, so tile extents make these broad corridors,
+not exact circular boundaries. Dense buffers follow a changed route/endpoints;
+the generated field itself remains identical. Background meshes are just coarser
+samples of the same height query, not a separate atmospheric terrain generator.
+The 2 m mesh spacing interpolates the 3.75 m geology cache and resolves trail cuts;
+it does not create extra geological detail finer than the source cache.
+
+Each tile adds only the edge/center vertices needed to stitch its finer neighbors.
+A shared edge always uses the finer allocation’s fixed spacing. Boundary-cell fans
+join it to coarser interiors. Positions, normals, colors and UVs match across tiles,
+including between 2/8/32 m allocations. All required LOD index patterns are cached at startup; fine-trail tiles keep
+one fixed pattern.
+No overlapping LOD surfaces, skirts, per-frame mesh allocation or vertex uploads.
+
+Within its allocated density, nearby terrain draws 4 m by default (2 m at quality
+2), then 8 m in the intermediate band and 32 m farther out. Trail/endpoint tiles
+remain 2 m. LOD checks happen after 16 m travel or setting edits, with 24 m near-detail
+hysteresis. Only a changed tile’s reused index buffer is uploaded. Settings cannot
+promote distant 32 m allocations into a dense exploration region. Moving far off
+trail therefore retains coarse visual terrain, while collision still uses the
+fine authoritative field; extending detailed off-trail exploration is future work.
+
+The default allocation stores about **196k vertices**, versus 422.5k for the old
+1.28 km all-dense grid. Resident triangle count is about 157k in the default initial
+view/settings, varying by route and LOD. The 900 resident tiles are not 900 visible
+draw calls: distance culling rejects tiles wholly beyond 1 km, then normal frustum
+culling rejects off-screen tiles. All terrain tiles share one material and texture.
+The far flat continuation is also skipped when entirely outside the fade range.
+It surrounds, never overlaps, the generated map and matches its fine outer edge.
+
+## Atmosphere, surfaces and XR
+
+Terrain fog starts at **650 m** and reaches full sky color at **1000 m**. A small
+vertex-shader substitution uses radial view distance, keeping wide/XR views
+consistent with distance culling. The camera far plane is 1200 m, behind full fog.
+Elevation/slope vertex colors, exposed rock and the single repeating 256×256
+mipmapped grayscale noise texture remain. No normal maps, triplanar layers,
+postprocessing or shadow maps. Steep faces can show stretched texture mapping.
+
+The physical headset’s local pose is composed with the rig once. Movement and
+turning apply first, then world-space sliding translates the rig without changing
+yaw or physical head offsets. Ground height is evaluated under the headset’s
+world X/Z and smoothed vertically; renderer XR camera world getters are not used.
+Physical room-scale movement cannot be blocked by software.
+
+## Queries, diagnostics and failure recovery
+
+- `landscape`: cached field, extrema, domain, generation parameters and timing.
+  `mountain` remains an alias for compatibility with earlier inspection code.
+- `rawHeight(x,z)`: landscape before trail earthworks.
+- `height(x,z)`: carved authoritative terrain, also used by rendering and collision.
 - `normal(x,z,out)`: normal components and slope in degrees.
-- `trail(x,z,out,global=false)`: lateral distance, tread height and along-route distance.
-  Local mode uses a segment hash and returns Infinity outside its search envelope;
-  global mode projects onto the entire route for twice-per-second diagnostics.
-- `route`: x/y/z and cumulative 3D distance; `start`, `summit`, `landmarks`, `sections`,
-  `totalLength`, `maxGrade`, `maxEarthwork`, `generationMs` and `mountain` metadata.
+- `trail(x,z,out,global=false)`: distance, tread height and along-route distance.
+  The local spatial hash returns Infinity outside its search envelope; global
+  projection is used only for twice-per-second diagnostic progress.
+- `route`, `start`, `summit` (destination), `landmarks`, `sections`, `extent`,
+  `boundaryHeight`, `totalLength`, `maxGrade`, `maxEarthwork`, `generationMs`.
 
-## Persistent LOD, rendering and surfaces
+Both web/VR diagnostics share near LOD radius/quality/band, walking speed, slide
+threshold and reset. Readouts include FPS, approximate submitted triangles,
+last index-update time, combined world + mesh generation time, distance-active tile
+count, elevation and geometric trail distance remaining. These update twice per
+second. FPS is application cadence, not GPU/compositor timing. Off-trail progress
+is nearest-route projection, not checkpoint completion.
 
-100 permanent 128 m tiles each own preallocated 65×65 position/normal/color/UV
-arrays and a maximum-capacity index buffer. Geometry is sampled once at 2 m
-spacing. Indices select 2/4/8/16 m interiors. The trail corridor and generated summit
-stay at 2 m; there are no hard-coded side-peak coordinates. Every tile renders a
-fixed fine perimeter, with coarse boundary cells fanning into existing center
-vertices: shared edges have no overlapping LOD layers, skirts or T-junctions.
+Random seed and manual regeneration use `?seed=...`. Diagnostics and seed controls
+are initialized before generation. Any setup/generation failure automatically
+opens the inline recovery panel; footer/P toggles and both seed controls remain
+usable without a world/renderer. Historical failing seed 3307485663 is retained
+in the regressions. Entry/module cache versions were advanced for this revision.
 
-LOD updates after 16 m displacement or a setting change, with 24 m near-detail
-hysteresis. Defaults: radius 160 m, quality 1 (4 m nearby), intermediate band 160 m
-(8 m), then 16 m. Quality 2 uses 2 m nearby. Ordinary movement only changes indices;
-no mesh creation or vertex/color uploads. Steep off-trail interiors can still pop
-at finite LOD changes; there is no temporal geomorphing. The whole mountain stays
-resident, and frustum culling only removes tiles outside the camera view.
+## Validation and remaining limits
 
-Shared Lambert lighting, elevation colors (green/ochre/brown/gray/white), exposed
-rock on steep slopes and the noise texture remain. The 12 m world-space texture
-repeat is stable across LODs. One 256×256 RGBA bitmap with mipmaps uses about
-341 KiB plus approximately 3.2 MiB static UVs; no normal/triplanar maps. Near-vertical
-faces can show stretched texture mapping. No postprocessing or shadow maps.
-The exterior plain surrounds, rather than overlaps, terrain; this avoids the
-previous flat-base depth-buffer flickering.
+Run `npm run test:hike` / `node --test projects/hike/tests/*.mjs`. Tests cover unified
+near/distant heights, global extrema, seed variation, endpoint changes preserving
+geology but moving dense allocation, walkable route grades, determinism, sliding,
+translated/rotated XR offsets, persistent buffers, mixed-density live edge indices,
+matching vertex shading/UVs, 1 km culling and non-overlapping flat continuation.
 
-Grounding uses the authoritative surface beneath the physical headset's world
-X/Z with exponentially smoothed rig elevation. Locomotion/turning is applied
-first, then sliding adds world-space translation without changing yaw or physical
-head offsets. XR poses are composed with the rig once; renderer XR-camera world
-getters are not used for collision. Physical room-scale movement cannot be blocked.
+Chrome checks cover compilation of the radial fog shader, walking/reset, live
+LOD settings, responsive UI, seed regeneration, startup failure recovery and views
+from trailhead/midpoint/summit. Final results are recorded below. Changes are local;
+no new commit/push is implied by this implementation.
 
-## Diagnostics and regeneration
+Generation/route solving and mesh baking are synchronous startup work. A Web Worker
+is a future loading improvement. Terrain appearance, loading time, sustained FPS,
+VR controller mapping/rays, tracking recovery, sliding comfort and a full human
+hike still need physical Quest checks. Desktop/headless timings are not headset
+benchmarks. Finite index changes can still pop off trail; there is no geomorphing.
 
-Both views share detail radius/quality/band, walking speed, slide threshold and
-reset. Readouts refresh twice per second: application FPS, submitted triangles
-(approximate terrain count including small UI/marker geometry, stereo count in XR),
-last changed LOD update time, combined world + mesh generation time, resident tile
-count, elevation and geometric distance remaining. Nearest-route progress can
-change when exploring off trail; it is not a checkpoint system.
+### Unified revision checks — 2026-11-10
 
-The top web Random seed button picks a new effective 32-bit seed and immediately
-reloads/regenerates using `?seed=...`. The manual seed field remains. Seed changes
-now alter the whole mountain and route, not just surface detail. Entry/module query
-versions were advanced for browser/headset cache refresh.
+All **21 Hike tests** passed, including eight seeded landscape/route cases and
+explicit endpoints changing dense allocation while retaining identical geology.
+Chrome compiled the radial fog shader without errors; walking/reset, P diagnostics,
+live LOD controls, responsive layout and both seed-recovery paths passed. Reported
+seed 3307485663 loads with an approximately 1606 m route. Whole-map (fog temporarily
+disabled for inspection) and normal trailhead/midpoint/summit views were reviewed.
+No near/distant terrain layer boundary or independent background generator exists.
 
-## Validation / limits
+Default measurements: 1574 m route, about 196,469 stored terrain vertices, 156,742
+resident terrain triangles, and 224 distance-active tiles out of 900. The normal
+trailhead view submitted about 29,284 triangles / 68 draw calls in this desktop
+run; frustum culling further reduced the active set. World generation took about
+0.96 s and tile baking about 0.23 s. These are single desktop observations, not
+controlled performance benchmarks or Quest results. Import links and whitespace
+checks passed. The user clarified that summit line of sight from the trailhead is
+not required. This revision remains local and unpublished.
 
-Run `npm run test:hike` or `node --test projects/hike/tests/*.mjs`. The full root
-suite also includes these tests. The focused suite covers seed/query-order
-repeatability, large-scale normalized shape differences, a single connected high
-summit region, finite heightmap data, visible summit markers, bounded route length,
-grade/earthworks, trail walking, normal/distance queries, sliding/turning with
-physical head offsets, persistent objects/buffers and matched tile boundaries.
+## Fine trail surface — 2026-11-10
 
-Chrome checks cover startup, walking/reset, web diagnostics, live LOD settings,
-responsive layout and base/mid/summit views. Four generated seeds were visually
-compared. A separate batch examined additional seeds including unsigned/signed
-limits. Final measurements and checks are recorded below.
+`trail-surface.mjs` constructs a **0.5 × 1 m walking grid** with explicit clipped tread
+edges. The extra density is limited to the tread. Only 2 m landscape cells touched
+by it are replaced; the remaining parts of those cells form a narrow, coarse bank
+transition. Small adjoining cells receive matching edge vertices when needed.
+Whole tiles, surrounding landscapes and distant allocations are not made denser.
 
-Physical Quest testing remains required for visual realism and seed variety,
-stereo appearance, controller mapping/rays, tracking loss/resume, physical head
-turn/reset offsets, sliding/height-following comfort, loading time and sustained
-FPS. Headless Chrome timings are not a headset benchmark. No human 20-minute
-hike or bridge traversal has been validated.
+`planar.mjs` uses locally bundled JavaScript Clipper (Boost Software License 1.0,
+with its JSBN notice) for robust offset/intersection/subtraction at startup. Cuts
+use quarter-metre coordinates to avoid unstable sliver triangles. Three.js’s
+existing Earcut utility triangulates the resulting polygons, with every shared
+collinear edge point explicitly reinstated. The new patches replace old terrain
+triangles, rather than floating over them. They remain part of the existing tile
+meshes and material, so they add no terrain draw calls or new texture layers.
 
-### Completed single-mountain checks — 2026-11-10
+Wide paths also need width-aware route cleanup: the planner now removes folds
+closer than the tread can support, using a spatial hash to keep startup bounded.
+Endpoints and geology are unchanged; the exact route can differ from the previous
+revision. The route still targets roughly 1.6 km.
 
-All 18 Hike tests passed, including eight seeds in the topology/summit/route
-regressions. An additional seed batch covered 0–10, 123, 456, 789 and signed/unsigned
-limits; generated routes remained 1.5–1.7 km with centerline grades at or below 30%.
-Chrome walking/reset/diagnostics/live LOD/responsive checks and random-seed
-regeneration passed with no browser errors. Four seeded shapes and ground-level
-views were visually reviewed. The exterior ground now matches every 2 m terrain
-perimeter vertex; the final overhead view no longer shows thin boundary cracks.
-Project imports and `git diff --check` passed.
+The actual walking triangle planes are slope-limited, targeting 28 degrees and
+validated below 30 degrees. A neighboring-constraint queue preserves the 30%
+centerline grade and fixed endpoint heights while correcting tight inside bends.
+Banks may remain steep. Invalid surfaces fail into the existing seed-recovery UI.
+This fixes geometry that could connect a walkable tread to an adjacent steep bank.
 
-Final default: 1600.0 m route, 227.0 m summit, approximately 4.0 m maximum cut/fill
-and 184,584 resident terrain triangles. Cached geology + route generation measured
-roughly 0.47–0.51 seconds in desktop runs, with mesh baking about another 0.23 s;
-these are not controlled benchmarks or Quest results. Loading work increased,
-while per-frame erosion remains zero. Quest visual/loading/FPS checks remain open.
+The fine triangle data is a CPU terrain definition, independent of Three.js mesh
+objects or LOD. `height()` uses its barycentric surface inside the replaced cells,
+and `normal()` uses the corresponding plane. Rendering copies the same data into
+the existing tile buffers. Public route elevations, lengths and proximity heights
+are refreshed from this corrected surface, keeping grounding and diagnostics
+consistent with what is drawn. All fine geometry is persistent; movement does not
+allocate or rebuild it.
 
-### Failed-seed recovery — 2026-11-10
+The cost is additional walking triangles, a cached CPU query structure and startup
+clipping/slope solving. There is no per-frame polygon clipping. Physical Quest FPS
+and loading time must still be measured. Sub-metre walking triangles, actual
+Float32-rendered slopes, exact projected map coverage, manifold patch edges, shared
+tile seams and corridor-only added vertices have dedicated regressions.
 
-Reported seed **3307485663** reproduced an ascent failure. The search previously
-kept only the final bisection trial even though contour changes make route length
-non-monotonic. It now retains every valid trial and searches other visible aspects
-and the opposite direction when necessary. A second reproduced failure, seed 15,
-needed a larger winding range; the upper bracket now expands up to a bounded 20.
-Length and walking-grade validation remain enforced. Both seeds are included in
-the generation regressions.
+Width-aware routing can change the earthwork budget on difficult seeds: the seed-1
+approach currently needs about 33 m maximum cut/fill. The broad regression budget
+is 35 m; actual walking-plane slope and the 30% centerline grade remain strict
+checks. Better summit approach planning/bridges remain future improvements.
 
-Seed buttons, manual regeneration and diagnostic toggles are initialized before
-world generation. Any generation/setup exception automatically opens diagnostics
-and displays the failed seed and error inline; the intro is hidden. Random seed,
-manual seed, the footer toggle and P remain usable without a world/renderer. Entry
-and world/trail module cache versions were advanced.
+### Final fine-trail testing — 2026-11-10
 
-All 18 focused tests and whitespace/syntax checks passed. Chrome forced-failure
-checks confirmed automatic diagnostics and recovery via both manual and random
-seeds; the reported seed also loaded normally.
+- Complete root test command passed, including all **24 Hike tests**.
+- Actual Float32-rendered tread triangles were checked below 30 degrees; the
+  centerline grade limit, shared grounding heights, persistent buffers and mixed
+  tile seams passed.
+- Full-map projected triangle area matches the map exactly once, and patch-edge
+  manifold checks pass: no overlapping terrain layer or open interior patch edge.
+- Added off-grid vertices are confined to the tread and narrow transition cells.
+- Chrome: walking/reset, diagnostics/live LOD, responsive layout, normal startup,
+  manual/random seed recovery after forced failure and seed 3307485663 passed
+  without browser errors. Final trailhead and mid-route screenshots were reviewed.
+- Module links, retained vendor notices and whitespace checks passed.
 
-### Initial release review — 2026-11-10
+The final grid uses 0.5 m spacing in world X and 1 m in world Z, giving fine tread
+triangles while keeping the cost near the original estimate. Default: **34,334
+walking triangles**, about **6,887 bank triangles**, and **210,576 resident terrain
+triangles** at initial settings/location. Tile draw-call count is unchanged.
+Exact counts vary with the seed and route. The default route is about 1582 m.
 
-The user authorized committing and pushing The Hike. Reviewed all new project
-source/tests and scoped directory, documentation and test-registration changes.
-The complete root suite passed, including all 18 Hike regressions. Entry links,
-module imports and whitespace checks passed. Prior Chrome checks include normal
-controls, random regeneration, the reported seed 3307485663, and forced-failure
-recovery through manual and random seed controls.
+### Outstanding issues / validation
 
-The 14 m/s testing speed and 35-degree sliding threshold are intentionally retained.
-Bridges remain deferred. Physical Quest performance/comfort and the complete
-human hike remain unverified; publication does not establish those results.
+1. **Physical Quest validation remains open:** sustained FPS, memory/loading time,
+   stereo appearance, tracked-controller interaction and walking/sliding comfort.
+   Headless Chrome results are not a headset performance benchmark.
+2. **Startup remains synchronous.** Routing, clipping and slope correction can
+   block interaction during generation; difficult seeds take longer. A loading
+   worker or staged generation is not implemented. None of that polygon work runs
+   during normal walking.
+3. **Steep banks and large earthworks remain possible.** The walking surface is
+   slope-validated, but its adjoining banks are not constrained to walking grade.
+   Seed 1 needs roughly 33 m maximum cut/fill at a difficult approach. Better
+   summit routing and bridge construction remain deferred.
+4. **The sampling grid is world-aligned.** It is not adaptive to the trail tangent;
+   quarter-metre clipping coordinates can make close-up tread outlines slightly
+   angular. Adaptive route-aligned sampling would be a future refinement.
+5. **Off-trail terrain keeps its existing density/LOD tradeoffs:** coarse geometry
+   outside the corridor and finite index transitions can still pop or differ from
+   the finer authoritative ground query. No geomorphing has been added.
+6. **Seed coverage is finite.** Tests cover multiple seeds including previous
+   failures; bounded routing/surface solving can still reject an untested seed.
+   Recovery controls remain available in that case.
+
+Release status: the user authorized committing and pushing the tested unified-
+landscape and fine-trail changes on 2026-11-10. Git history records the release
+commit. GitHub Pages deployment was not checked, as requested.
