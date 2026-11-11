@@ -3,104 +3,82 @@ import assert from 'node:assert/strict';
 import * as T from '../../../shared/vendor/three-r180/three.module.js';
 import {createWorld} from '../world.mjs';
 import {Terrain} from '../terrain.mjs';
-const world=createWorld(),scene=new T.Scene(),settings={radius:160,quality:1,transition:160};
-const terrain=new Terrain(scene,world,settings);
-function edge(t,side){const p=t.mesh.geometry.attributes.position,result=new Map(),used=new Set(t.mesh.geometry.index.array.subarray(0,t.mesh.geometry.drawRange.count));for(let i=0;i<p.count;i++){if(!used.has(i))continue;const x=p.getX(i),z=p.getZ(i);if(side===0&&x===t.x||side===1&&x===t.x+128||side===2&&z===t.z||side===3&&z===t.z+128)result.set(side<2?z:x,[x,p.getY(i),z,i]);}return result;}
-test('route-based allocation preserves static meshes/buffers across travel and LOD changes',()=>{
- const before=terrain.tiles.map(t=>[t.mesh,t.mesh.geometry,t.mesh.geometry.attributes.position.array,t.mesh.geometry.index.array]);
- assert.equal(terrain.update(world.start.x+1,world.start.z+1),false);
- for(const [x,z] of [[300,100],[-1200,-900],[world.summit.x,world.summit.z]])terrain.update(x,z,true);
- terrain.tiles.forEach((t,i)=>{assert.equal(t.mesh,before[i][0]);assert.equal(t.mesh.geometry,before[i][1]);assert.equal(t.mesh.geometry.attributes.position.array,before[i][2]);assert.equal(t.mesh.geometry.index.array,before[i][3]);assert.ok(t.step>=t.nativeStep);if(t.pinned)assert.equal(t.step,2);});
- assert.equal(terrain.tiles.length,900);assert.ok(terrain.vertexCount<422500,'larger map must not allocate full-resolution grids everywhere');
- assert.ok(terrain.tiles.some(t=>t.nativeStep===2));assert.ok(terrain.tiles.some(t=>t.nativeStep===8));assert.ok(terrain.tiles.some(t=>t.nativeStep===32));
- for(const t of terrain.tiles)if(t.distance>384&&!t.pinned)assert.equal(t.nativeStep,32);
+import {createTerrainGrid,cellSubdivisions,vertexKey} from '../terrain-grid.mjs';
+import {createTerrainSampler} from '../terrain-sampler.mjs';
+const grid=createTerrainGrid();
+test('one fixed grid has a 3×3 full-detail core, two-cell radial bands and 2 km coverage',()=>{
+ const expected=new Map([[0,64],[2,32],[4,16],[6,8],[8,4],[10,2],[12,1]]);
+ for(const [x,n] of expected)assert.equal(cellSubdivisions(x,0),n);
+ assert.equal(grid.cells.filter(c=>c.subdivisions===64).length,9);
+ for(const c of grid.cells){assert.ok(Math.hypot(c.x*16,c.z*16)<=1000);assert.equal(c.subdivisions,Math.abs(c.x)<=1&&Math.abs(c.z)<=1?64:2**Math.max(0,5-Math.floor((Math.hypot(c.x,c.z)-1.5)/2)));}
+ assert.equal(grid.cells.length,12281);assert.equal(grid.baseTriangles,200488);assert.equal(grid.indices.length/3,205332);assert.equal(grid.vertexCount,102917);
+ const points=new Set();for(let i=0;i<grid.vertexCount;i++){const key=vertexKey(grid.coordinates[i*2],grid.coordinates[i*2+1]);assert.ok(!points.has(key));points.add(key);}
 });
-test('different native densities and LODs share identical edge vertices and live segments',()=>{
- for(const [x,z] of [[world.start.x,world.start.z],[world.summit.x,world.summit.z],[-1200,800]]){
-  terrain.update(x,z,true);
-  for(const t of terrain.tiles)for(const [dx,dz,side,opposite] of [[1,0,1,0],[0,1,3,2]]){
-   const u=terrain.at(t.ix+dx,t.iz+dz);if(!u)continue;
-   const a=edge(t,side),b=edge(u,opposite);assert.equal(a.size,b.size);
-   const usedA=new Set(t.mesh.geometry.index.array.subarray(0,t.mesh.geometry.drawRange.count)),usedB=new Set(u.mesh.geometry.index.array.subarray(0,u.mesh.geometry.drawRange.count));
-   for(const [key,p] of a){const q=b.get(key);assert.ok(q);assert.deepEqual(p.slice(0,3),q.slice(0,3));assert.ok(usedA.has(p[3]));assert.ok(usedB.has(q[3]));for(const name of ['normal','color','uv']){const aa=t.mesh.geometry.attributes[name],bb=u.mesh.geometry.attributes[name];for(let c=0;c<aa.itemSize;c++)assert.equal(aa.array[p[3]*aa.itemSize+c],bb.array[q[3]*bb.itemSize+c]);}}
+test('all four transition sides and corners form an upward-wound, crack-free partition',()=>{
+ const edges=new Map(),cells=new Set(grid.cells.map(c=>c.x+','+c.z));let area=0;
+ for(let i=0;i<grid.indices.length;i+=3){const ids=[grid.indices[i],grid.indices[i+1],grid.indices[i+2]],a=ids[0]*2,b=ids[1]*2,c=ids[2]*2,q=grid.coordinates;
+  const twice=(q[c]-q[a])*(q[b+1]-q[a+1])-(q[b]-q[a])*(q[c+1]-q[a+1]);assert.ok(twice>0,'degenerate or downward triangle');area+=twice/32;
+  for(let j=0;j<3;j++){const a=ids[j],b=ids[(j+1)%3],key=a<b?a*grid.vertexCount+b:b*grid.vertexCount+a;edges.set(key,(edges.get(key)??0)+1);}
+ }
+ assert.equal(area,grid.cells.length*256);
+ for(const [key,count] of edges){assert.ok(count===1||count===2);if(count===2)continue;
+  const a=Math.floor(key/grid.vertexCount)*2,b=(key%grid.vertexCount)*2,q=grid.coordinates,x=(q[a]+q[b])/2,z=(q[a+1]+q[b+1])/2;
+  if(q[a]===q[b]&&x%64===0){const cx=x/64,cz=Math.floor(z/64);assert.notEqual(cells.has((cx-1)+','+cz),cells.has(cx+','+cz),'interior vertical open edge');}
+  else if(q[a+1]===q[b+1]&&z%64===0){const cx=Math.floor(x/64),cz=z/64;assert.notEqual(cells.has(cx+','+(cz-1)),cells.has(cx+','+cz),'interior horizontal open edge');}
+  else assert.fail('non-perimeter open edge / T junction');
+ }
+});
+function syntheticWorld(){let queries=0;return {start:{x:0,z:0},config:{seed:1,trailWidth:5},landscape:{summit:{y:200}},height(x,z){queries++;return 30+.02*x+.01*z;},normal(x,z,out){Object.assign(out,{x:-.019995,y:.99975,z:-.0099975,slope:1.28});return out;},trail(x,z,out){out.distance=100;return out;},get queries(){return queries;}};}
+test('stationary buffers, 16 m negative/diagonal/multi-cell snaps, stable shared samples',()=>{
+ const world=syntheticWorld(),scene=new T.Scene(),terrain=new Terrain(scene,world),g=terrain.geometry;
+ assert.equal(scene.children.length,1);assert.equal(scene.children[0],terrain.mesh);assert.equal(g.groups.length,0);
+ const index=g.index.array,attrs=Object.values(g.attributes).map(a=>[a,a.array,a.version]),before=g.attributes.position.array.slice(),queries=world.queries,beforeAttributes=Object.values(g.attributes).map(a=>a.array.slice());
+ for(let i=0;i<100;i++)assert.equal(terrain.update(15.99*i/100,10),false);
+ assert.equal(world.queries,queries);assert.deepEqual(g.attributes.position.array,before);attrs.forEach(([a,array,version])=>{assert.equal(a.array,array);assert.equal(a.version,version);});
+ for(const [x,z,ox,oz] of [[16,0,16,0],[-.01,-.01,-16,-16],[-16,-16,-16,-16],[1025,-1025,1024,-1040],[0,0,0,0]]){
+  terrain.update(x,z);assert.equal(terrain.originX,ox);assert.equal(terrain.originZ,oz);assert.equal(g.index.array,index);assert.equal(g.index.version,0);
+  assert.ok(x>=ox-16&&x<=ox+32&&z>=oz-16&&z<=oz+32);
+  for(let i=0;i<terrain.vertexCount;i+=97){const p=g.attributes.position,x=ox+p.getX(i),z=oz+p.getZ(i);assert.equal(p.getY(i),Math.fround(world.height(x,z)));assert.ok(g.boundingBox.containsPoint(new T.Vector3(p.getX(i),p.getY(i),p.getZ(i))));assert.ok(g.boundingSphere.containsPoint(new T.Vector3(p.getX(i),p.getY(i),p.getZ(i))));}
+ }
+ assert.deepEqual(g.attributes.position.array,before);attrs.forEach(([a,array],i)=>{assert.equal(a.array,array);assert.deepEqual(a.array,beforeAttributes[i]);});terrain.dispose();assert.equal(scene.children.length,0);
+});
+class FakeWorker {
+ messages=[];postMessage(message){this.messages.push(message);}terminate(){this.terminated=true;}
+ finish(){const m=this.messages.filter(m=>m.type==='sample').at(-1);this.onmessage({data:{...m,min:0,max:0,sampled:0,sampleMs:1}});}
+}
+test('worker results commit atomically; stale snaps coalesce and disposal terminates work',async()=>{
+ const worker=new FakeWorker(),terrain=new Terrain(new T.Scene(),syntheticWorld(),{workerFactory:()=>worker});
+ terrain.update(20,1);terrain.update(200,-100);assert.equal(terrain.snapCount,0);assert.equal(terrain.mesh.visible,false);assert.equal(worker.messages.length,2);
+ worker.finish();assert.equal(terrain.snapCount,0);assert.equal(worker.messages.length,3);worker.finish();await terrain.ready;
+ assert.equal(terrain.originX,192);assert.equal(terrain.originZ,-112);assert.equal(terrain.mesh.visible,true);assert.equal(terrain.snapCount,1);
+ terrain.update(208,-100);terrain.update(200,-100);worker.finish();assert.equal(terrain.snapCount,1,'return to current cell discards obsolete response');
+ terrain.dispose();worker.finish();assert.equal(worker.terminated,true);assert.equal(terrain.snapCount,1);
+});
+test('worker failure rejects startup and reports the error',async()=>{
+ const worker=new FakeWorker(),terrain=new Terrain(new T.Scene(),syntheticWorld(),{workerFactory:()=>worker});
+ const rejected=assert.rejects(terrain.ready,/sampling failed/);worker.onmessage({data:{error:'sampling failed'}});await rejected;assert.equal(terrain.mesh.visible,false);assert.equal(worker.terminated,true);terrain.dispose();
+});
+const world=createWorld();
+test('worker snapshot reproduces authoritative height, normals and trail projection',()=>{
+ const sampler=createTerrainSampler(structuredClone(world.samplingData)),a={},b={},pa={},pb={};
+ const points=[[-2100,10],[2100,0],[0,0],[-1920,-1920],[world.summit.x+1.5,world.summit.z]];
+ for(let i=0;i<world.route.length;i+=7){const p=world.route[i];for(const d of [0,.125,1,2.5,5,15])points.push([p.x+d,p.z-d*.4]);}
+ for(const [x,z] of points){assert.equal(sampler.height(x,z),world.height(x,z));sampler.normal(x,z,a);world.normal(x,z,b);assert.deepEqual(a,b);sampler.trail(x,z,pa);world.trail(x,z,pb);assert.equal(pa.distance,pb.distance);assert.equal(pa.along,pb.along);}
+});
+test('near-player rendering follows the unchanged trail and level destination',()=>{
+ const terrain=new Terrain(new T.Scene(),world),q=terrain.grid.coordinates,lookup=new Map();for(let i=0;i<q.length;i+=2)lookup.set(vertexKey(q[i],q[i+1]),i/2);
+ let worst=0;
+ for(const routeIndex of [0,50,150,300,450,600,750,790,800]){
+  const at=world.route[routeIndex];terrain.update(at.x,at.z);const p=terrain.geometry.attributes.position;
+  for(const dx of [-.5,0,.5])for(const dz of [-.5,0,.5]){
+   const x=at.x+dx,z=at.z+dz,lx=(x-terrain.originX)*4,lz=(z-terrain.originZ)*4,ix=Math.floor(lx),iz=Math.floor(lz),u=lx-ix,v=lz-iz;
+   const y=(a,b)=>p.getY(lookup.get(vertexKey(a,b)));
+   const rendered=u+v<=1?y(ix,iz)*(1-u-v)+y(ix+1,iz)*u+y(ix,iz+1)*v:y(ix+1,iz)*(1-v)+y(ix,iz+1)*(1-u)+y(ix+1,iz+1)*(u+v-1);
+   worst=Math.max(worst,Math.abs(rendered-world.height(x,z)));
   }
  }
-});
-test('mesh heights in near and distant regions sample the same carved terrain definition',()=>{
- for(const t of terrain.tiles){const p=t.mesh.geometry.attributes.position;for(let i=0;i<p.count;i+=Math.max(1,Math.floor(p.count/5))){assert.ok(Math.abs(p.getY(i)-world.height(p.getX(i),p.getZ(i)))<.0001);}}
-});
-test('fixed summit/trail vertices remain unchanged and 1 km culling tracks the viewer',()=>{
- const fixed=terrain.tiles.filter(t=>t.pinned),before=fixed.map(t=>t.mesh.geometry.attributes.position.array.slice());terrain.update(-1400,-1400,true);
- fixed.forEach((t,i)=>{assert.equal(t.step,2);assert.deepEqual(t.mesh.geometry.attributes.position.array,before[i]);});
- for(const t of terrain.tiles){const d=Math.hypot(Math.max(t.x+1400,0,-1400-t.x-128),Math.max(t.z+1400,0,-1400-t.z-128));assert.equal(t.mesh.visible,d<1000);}
- assert.ok(terrain.activeTiles<terrain.tiles.length/2);
-});
-test('flat continuation never overlaps the unified map and matches its exact border',()=>{
- const g=terrain.ground.geometry,p=g.attributes.position,index=g.index,e=world.extent,keys=new Set();
- for(let i=0;i<p.count;i++){keys.add(`${p.getX(i)},${p.getZ(i)}`);assert.equal(p.getY(i),world.boundaryHeight);}
- for(let i=0;i<index.count;i+=3){const v=[0,1,2].map(j=>index.getX(i+j));assert.ok(v.every(j=>p.getX(j)<=-e)||v.every(j=>p.getX(j)>=e)||v.every(j=>p.getZ(j)<=-e)||v.every(j=>p.getZ(j)>=e));}
- for(let q=-e;q<=e;q+=2)for(const [x,z] of [[q,-e],[q,e],[-e,q],[e,q]]){assert.ok(keys.has(`${x},${z}`));assert.equal(world.height(x,z),world.boundaryHeight);}
-});
-
-test('moving the endpoints moves the dense allocation while retaining the same geology',()=>{
- const start={x:-900,z:-600},end={x:-600,z:-300},custom=createWorld({start,end,targetLength:1000});
- const other=new Terrain(new T.Scene(),custom,settings),ix=Math.floor((start.x+terrain.extent)/128),iz=Math.floor((start.z+terrain.extent)/128);
- assert.equal(other.at(ix,iz).nativeStep,2);assert.equal(other.at(ix,iz).pinned,true);
- assert.ok(terrain.at(ix,iz).nativeStep>2);
- assert.deepEqual(world.landscape.heights,custom.landscape.heights);
-});
-
-test('rendered walking triangles are fine, grounded and below 30 degrees',()=>{
- let count=0,maximum=0;
- for(const tile of terrain.tiles){const p=tile.mesh.geometry.attributes.position,ids=tile.walkingIndices;
-  for(let i=0;i<ids.length;i+=3){const a=ids[i],b=ids[i+1],c=ids[i+2],dx=p.getX(b)-p.getX(a),dz=p.getZ(b)-p.getZ(a),ex=p.getX(c)-p.getX(a),ez=p.getZ(c)-p.getZ(a),det=dx*ez-dz*ex;if(Math.abs(det)<1e-12)continue;
-   const gx=((p.getY(b)-p.getY(a))*ez-(p.getY(c)-p.getY(a))*dz)/det,gz=(dx*(p.getY(c)-p.getY(a))-ex*(p.getY(b)-p.getY(a)))/det,slope=Math.atan(Math.hypot(gx,gz))*180/Math.PI;
-   maximum=Math.max(maximum,slope);assert.ok(slope<30,`rendered slope ${slope}`);
-   assert.ok(Math.max(Math.hypot(dx,dz),Math.hypot(ex,ez),Math.hypot(dx-ex,dz-ez))<1.2);
-   const x=(p.getX(a)+p.getX(b)+p.getX(c))/3,z=(p.getZ(a)+p.getZ(b)+p.getZ(c))/3,y=(p.getY(a)+p.getY(b)+p.getY(c))/3;
-   assert.ok(Math.abs(world.height(x,z)-y)<.002,'grounding and displayed walking triangle disagree');count++;
-  }
- }
- assert.equal(count,world.surface.walking.length);assert.ok(count>20000&&count<100000);assert.ok(maximum>15);
-});
-test('trail replacement is a conforming partition with no overlapping terrain layer',()=>{
- const edges=new Map();let area=0;
- for(const tile of terrain.tiles){const p=tile.mesh.geometry.attributes.position,index=tile.mesh.geometry.index.array;for(let i=0;i<tile.mesh.geometry.drawRange.count;i+=3){const a=index[i],b=index[i+1],c=index[i+2];area+=Math.abs((p.getX(b)-p.getX(a))*(p.getZ(c)-p.getZ(a))-(p.getZ(b)-p.getZ(a))*(p.getX(c)-p.getX(a)))/2;}}
- assert.ok(Math.abs(area-world.extent**2*4)<.01,'terrain should cover the map exactly once');
- for(const tile of world.surface.tiles.values())for(const triangle of tile.triangles){const ids=triangle.ids;for(let e=0;e<3;e++){const a=ids[e],b=ids[(e+1)%3],key=a<b?a+','+b:b+','+a;edges.set(key,(edges.get(key)??0)+1);}}
- for(const [key,count] of edges){assert.ok(count===1||count===2,'overlapping surface triangles');if(count===2)continue;const [a,b]=key.split(',').map(i=>world.surface.vertices[Number(i)]),x=(a.x+b.x)/2,z=(a.z+b.z)/2;
-  const cell=(x,z)=>world.surface.refined.has((Math.floor(x/2)*2)+','+(Math.floor(z/2)*2));
-  if(Math.abs(a.x-b.x)<1e-8&&Math.abs(x/2-Math.round(x/2))<1e-8)assert.notEqual(cell(x-.01,z),cell(x+.01,z),'open interior vertical edge');
-  else if(Math.abs(a.z-b.z)<1e-8&&Math.abs(z/2-Math.round(z/2))<1e-8)assert.notEqual(cell(x,z-.01),cell(x,z+.01),'open interior horizontal edge');
-  else assert.fail('open interior trail edge');
- }
-});
-test('extra vertices are confined to the trail and narrow transition cells',()=>{
- for(const t of terrain.tiles){const p=t.mesh.geometry.attributes.position;for(let i=0;i<p.count;i++){
-  const x=p.getX(i),z=p.getZ(i);if(Math.abs(x/2-Math.round(x/2))<1e-8&&Math.abs(z/2-Math.round(z/2))<1e-8)continue;
-  assert.ok(world.trail(x,z,{}).distance<world.config.trailWidth/2+4,'detail leaked out of the trail corridor');
- }}
-});
-
-test('default inner-bank peak is smoothed and shared by rendering and grounding',()=>{
- const p=world.surface.vertices.find(p=>p.x===-388&&p.z===148);
- assert.ok(p,'known default-route inner-bank vertex');
- assert.ok(p.y<196,'previous isolated peak stood at 196.385 m');
- assert.ok(world.surface.smoothedBankVertices>0);
- assert.equal(world.height(p.x,p.z),p.y);
- let copies=0;
- for(const tile of terrain.tiles){const positions=tile.mesh.geometry.attributes.position;for(let i=0;i<positions.count;i++)if(positions.getX(i)===p.x&&positions.getZ(i)===p.z){assert.ok(Math.abs(positions.getY(i)-p.y)<.0001);copies++;}}
- assert.ok(copies>0);
-});
-
-test('rendered destination landing matches its level collision surface',()=>{
- let checked=0;
- for(const t of terrain.tiles){const p=t.mesh.geometry.attributes.position,ids=t.walkingIndices;
-  for(let i=0;i<ids.length;i+=3){const tri=[ids[i],ids[i+1],ids[i+2]],x=tri.reduce((s,j)=>s+p.getX(j),0)/3,z=tri.reduce((s,j)=>s+p.getZ(j),0)/3;
-   if(Math.hypot(x-world.summit.x,z-world.summit.z)>1.5)continue;
-   for(const j of tri)assert.ok(Math.abs(p.getY(j)-world.summit.y)<.0001);
-   checked++;
-  }
- }
- assert.ok(checked>10);
+ assert.ok(worst<.08,`near-tread interpolation error ${worst} m`);
+ for(let i=0;i<terrain.vertexCount;i++){const x=terrain.originX+pX(i),z=terrain.originZ+pZ(i);if(Math.hypot(x-world.summit.x,z-world.summit.z)<=1.5)assert.ok(Math.abs(terrain.geometry.attributes.position.getY(i)-world.summit.y)<.0001);}
+ function pX(i){return terrain.geometry.attributes.position.getX(i);}function pZ(i){return terrain.geometry.attributes.position.getZ(i);}
+ terrain.dispose();
 });

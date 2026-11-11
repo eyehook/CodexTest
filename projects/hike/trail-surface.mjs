@@ -1,8 +1,9 @@
+import {createSurfaceQuery} from './surface-query.mjs';
 import {SCALE,rect,offsetRoute,boolean,triangulate,PointIndex} from './planar.mjs?v=trail-detail-3';
 const SIZE=128,STEP_X=.5,STEP_Z=1;
 export function createTrailSurface({route,width,height,project,destinationRadius=0}){
- const began=performance.now(),half=width/2,innerPaths=offsetRoute(route,half),tiles=new Map(),refined=new Set();
- const vertices=[],lookup=new Map(),walking=[],banks=[],cells=new Map(),boundary=new PointIndex(),near={};
+ const began=performance.now(),half=width/2,innerPaths=offsetRoute(route,half),tiles=new Map();
+ const vertices=[],lookup=new Map(),walking=[],banks=[],cells=new Map(),near={};
  function vertex(p){const key=p.X+','+p.Y;let id=lookup.get(key);if(id===undefined){id=vertices.length;const x=p.X/SCALE,z=p.Y/SCALE;vertices.push({x,z,y:height(x,z),fixed:Math.hypot(x-route[0].x,z-route[0].z)<1.1||Math.hypot(x-route.at(-1).x,z-route.at(-1).z)<1.1});lookup.set(key,id);}return id;}
  function emit(record,kind,a,b,c,keys){
   const area=(b.X-a.X)*(c.Y-a.Y)-(b.Y-a.Y)*(c.X-a.X);if(Math.abs(area)<1e-10)return;
@@ -13,12 +14,12 @@ export function createTrailSurface({route,width,height,project,destinationRadius
  const tileKeys=new Set();for(const p of route)for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++)tileKeys.add((Math.floor(p.x/SIZE)+dx)*SIZE+','+(Math.floor(p.z/SIZE)+dz)*SIZE);
  for(const key of tileKeys){
   const [x,z]=key.split(',').map(Number),mask=boolean(innerPaths,[rect(x,z,x+SIZE,z+SIZE)],'ctIntersection');if(!mask.paths.length)continue;
-  const record={x,z,inner:mask.paths,triangles:[],cells:new Set()};tiles.set(key,record);
+  const record={triangles:[]};tiles.set(key,record);
   let minX=Infinity,minZ=Infinity,maxX=-Infinity,maxZ=-Infinity;for(const path of mask.paths)for(const p of path){minX=Math.min(minX,p.X/SCALE);maxX=Math.max(maxX,p.X/SCALE);minZ=Math.min(minZ,p.Y/SCALE);maxZ=Math.max(maxZ,p.Y/SCALE);}
   for(let gx=Math.max(x,Math.floor(minX/2)*2);gx<Math.min(x+SIZE,Math.ceil(maxX/2)*2);gx+=2)for(let gz=Math.max(z,Math.floor(minZ/2)*2);gz<Math.min(z+SIZE,Math.ceil(maxZ/2)*2);gz+=2){
    project(gx+1,gz+1,near);if(near.distance>half+Math.SQRT2+.3)continue;
    const coarse=rect(gx,gz,gx+2,gz+2),intersect=boolean(mask.paths,[coarse],'ctIntersection');if(!intersect.paths.length)continue;
-   refined.add(gx+','+gz);record.cells.add(gx+','+gz);
+
    const corePieces=[],coreBoundary=new PointIndex(),allKeys=[];
    for(let xx=gx;xx<gx+2;xx+=STEP_X)for(let zz=gz;zz<gz+2;zz+=STEP_Z){
     const cell=rect(xx,zz,xx+STEP_X,zz+STEP_Z),cellKey=Math.round(xx/STEP_X)+','+Math.round(zz/STEP_Z);allKeys.push(cellKey);
@@ -34,9 +35,6 @@ export function createTrailSurface({route,width,height,project,destinationRadius
    triangulate(outside.polygons,(a,b,c)=>emit(record,'bank',a,b,c,allKeys),coreBoundary);
   }
  }
- const edges=new Map();
- function edge(key,id){if(!edges.has(key))edges.set(key,new Set());edges.get(key).add(id);}
- for(let i=0;i<vertices.length;i++){const p=vertices[i];if(Math.abs(p.x/2-Math.round(p.x/2))<1e-8){const x=Math.round(p.x/2)*2,z=Math.floor(p.z/2)*2;edge('v:'+x+':'+z,i);if(Math.abs(p.z-z)<1e-8)edge('v:'+x+':'+(z-2),i);}if(Math.abs(p.z/2-Math.round(p.z/2))<1e-8){const z=Math.round(p.z/2)*2,x=Math.floor(p.x/2)*2;edge('h:'+z+':'+x,i);if(Math.abs(p.x-x)<1e-8)edge('h:'+z+':'+(x-2),i);}}
  // Make all cut-cell joins conforming, including collinear points Earcut may
  // omit on a neighboring triangle. One indexed edge must mean the same thing
  // on the walking surface, its bank, and both sides of a cell boundary.
@@ -82,7 +80,8 @@ export function createTrailSurface({route,width,height,project,destinationRadius
   coefficients[k]=(b.z-c.z)/det;coefficients[k+1]=(c.z-a.z)/det;coefficients[k+2]=(a.z-b.z)/det;
   coefficients[k+3]=(c.x-b.x)/det;coefficients[k+4]=(a.x-c.x)/det;coefficients[k+5]=(b.x-a.x)/det;
  }
- const walkingSet=new Set(walking);
+ const queryData={vertices,walking,cells,lookup};
+ const {locate,sample,normal}=createSurfaceQuery(queryData);
  const adjacent=Array.from({length:vertices.length},()=>[]),centerConstraints=[];
  walking.forEach((ids,i)=>{for(const id of ids)adjacent[id].push(i);});
  const samples=route.map(p=>locate(p.x,p.z));
@@ -121,19 +120,8 @@ export function createTrailSurface({route,width,height,project,destinationRadius
  }
  passes=corrections;
  const smoothedBankVertices=smoothBankPeaks(vertices,walking,banks);
- function locate(x,z){
-  const cx=Math.floor(x/STEP_X),cz=Math.floor(z/STEP_Z),xs=Math.abs(x/STEP_X-cx)<1e-8?[cx,cx-1]:[cx],zs=Math.abs(z/STEP_Z-cz)<1e-8?[cz,cz-1]:[cz];let bank=null;
-  for(const xx of xs)for(const zz of zs)for(const ids of cells.get(xx+','+zz)??[]){
-   const a=vertices[ids[0]],b=vertices[ids[1]],c=vertices[ids[2]],det=(b.z-c.z)*(a.x-c.x)+(c.x-b.x)*(a.z-c.z);if(Math.abs(det)<1e-12)continue;
-   const u=((b.z-c.z)*(x-c.x)+(c.x-b.x)*(z-c.z))/det,v=((c.z-a.z)*(x-c.x)+(a.x-c.x)*(z-c.z))/det;
-   if(u>=-1e-7&&v>=-1e-7&&u+v<=1+1e-7){const hit={ids,weights:[u,v,1-u-v]};if(walkingSet.has(ids))return hit;bank??=hit;}
-  }
-  return bank;
- }
- function sample(x,z){const id=lookup.get(x*SCALE+','+z*SCALE);if(id!==undefined)return vertices[id].y;const hit=locate(x,z);return hit?hit.ids.reduce((sum,id,i)=>sum+vertices[id].y*hit.weights[i],0):null;}
- function normal(x,z,out){const hit=locate(x,z);if(!hit)return null;const [a,b,c]=hit.ids.map(id=>vertices[id]),dx=b.x-a.x,dz=b.z-a.z,ex=c.x-a.x,ez=c.z-a.z,det=dx*ez-dz*ex,gx=((b.y-a.y)*ez-(c.y-a.y)*dz)/det,gz=(dx*(c.y-a.y)-ex*(b.y-a.y))/det,length=Math.hypot(gx,1,gz);out.x=-gx/length;out.y=1/length;out.z=-gz/length;out.slope=Math.atan(Math.hypot(gx,gz))*180/Math.PI;return out;}
  function slope(ids){const a=vertices[ids[0]],b=vertices[ids[1]],c=vertices[ids[2]],dx=b.x-a.x,dz=b.z-a.z,ex=c.x-a.x,ez=c.z-a.z,det=dx*ez-dz*ex;if(!det)return 0;return Math.atan(Math.hypot(((b.y-a.y)*ez-(c.y-a.y)*dz)/det,(dx*(c.y-a.y)-ex*(b.y-a.y))/det))*180/Math.PI;}
- return {normal,edges,refined,passes,smoothedBankVertices,tiles,vertices,walking,banks,boundary,sample,slope,generationMs:performance.now()-began};
+ return {queryData,normal,passes,smoothedBankVertices,vertices,walking,banks,sample,slope,generationMs:performance.now()-began};
 }
 
 // A tight inside bend can leave a bank-only vertex surrounded by lowered tread.

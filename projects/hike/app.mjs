@@ -7,8 +7,8 @@ import {FrameRateCounter} from '../../shared/performance/frame-rate.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
-import {createWorld} from './world.mjs?v=summit-1';
-import {Terrain} from './terrain.mjs?v=trail-detail-3';
+import {createWorld} from './world.mjs?v=snapped-1';
+import {Terrain} from './terrain.mjs?v=snapped-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
 const $=s=>document.querySelector(s);
@@ -33,15 +33,17 @@ try {
 // Give the loading card a paint before synchronous world generation begins.
 await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 const world=createWorld({seed});
-const settings={radius:160,quality:1,transition:160,speed:14,slideSlope:35};
-const scene=new T.Scene();scene.background=new T.Color(0x9fbac6);scene.fog=new T.Fog(0x9fbac6,650,1000);
+const settings={speed:14,slideSlope:35};
+const scene=new T.Scene();scene.background=new T.Color(0x9fbac6);scene.fog=new T.Fog(0x9fbac6,650,950);
 const camera=new T.PerspectiveCamera(70,innerWidth/innerHeight,.08,1200);camera.position.y=1.7;camera.rotation.order='YXZ';camera.rotation.x=.18;
 const rig=new T.Group();scene.add(rig);rig.add(camera);
 const renderer=new T.WebGLRenderer({canvas:$('#world'),antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
 renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1;renderer.outputColorSpace=T.SRGBColorSpace;renderer.setClearColor(scene.background);
 scene.add(new T.HemisphereLight(0xe2edf0,0x665644,1.2));const sun=new T.DirectionalLight(0xffe5b5,2.2);sun.position.set(-450,650,-150);scene.add(sun);
-const terrain=new Terrain(scene,world,settings);
+const terrain=new Terrain(scene,world);
+terrain.onError=error=>{renderer.setAnimationLoop(null);document.body.classList.remove('loading');$('#error').hidden=false;$('#error').textContent=error.message+' · Choose another seed to reload.';setPanel(true);};
+await terrain.ready;
 const marker=new T.Group();marker.position.set(world.summit.x,world.summit.y,world.summit.z);scene.add(marker);
 const mast=new T.Mesh(new T.CylinderGeometry(.2,.25,9,6),new T.MeshLambertMaterial({color:0x302b24}));mast.position.y=4.5;marker.add(mast);
 const pennant=new T.Mesh(new T.BoxGeometry(3.4,1.6,.08),new T.MeshLambertMaterial({color:0xeab04c}));pennant.position.set(1.6,8,0);marker.add(pennant);
@@ -50,25 +52,22 @@ const sliding=new SlopeSlide(world);
 const state=new XRFrameState(),edges=new ButtonEdges(),fps=new FrameRateCounter();
 const viewer={position:new T.Vector3(),orientation:new T.Quaternion()},head=new T.Vector3(),heading=new T.Quaternion(),euler=new T.Euler(0,0,0,'YXZ');
 const stats={triangles:0,fps:0,elevation:0,remaining:world.totalLength,along:0};const projected={};
-let terrainDirty=false,walk=false,last=0,uiElapsed=0,frameCount=0;
+let walk=false,last=0,uiElapsed=0,frameCount=0;
 const keys=new Set();
 function reset() {
   // Place the physical headset's horizontal offset over the trailhead exactly once.
   const ahead=world.route[12];
   sliding.reset();rig.rotation.set(0,Math.atan2(world.start.x-ahead.x,world.start.z-ahead.z),0);rig.position.set(world.start.x,world.start.y,world.start.z);
   if(renderer.xr.isPresenting&&state.pose){head.copy(viewer.position).applyQuaternion(rig.quaternion);rig.position.x-=head.x;rig.position.z-=head.z;}
-  camera.rotation.set(.18,0,0);rig.updateMatrixWorld(true);terrainDirty=true;
+  camera.rotation.set(.18,0,0);rig.updateMatrixWorld(true);
 }
 const defs=[
-  {id:'radius',kind:'number',label:'Detail radius (m)',min:64,max:320,step:32,get:()=>settings.radius,set:v=>settings.radius=v},
-  {id:'quality',kind:'number',label:'Detail quality (1–2)',min:1,max:2,step:1,get:()=>settings.quality,set:v=>settings.quality=v},
-  {id:'transition',kind:'number',label:'LOD band (m)',min:64,max:320,step:32,get:()=>settings.transition,set:v=>settings.transition=v},
   {id:'speed',kind:'number',label:'Walk speed (m/s)',min:.7,max:30,step:.1,get:()=>settings.speed,set:v=>settings.speed=v},
   {id:'slope',kind:'number',label:'Slide above (degrees)',min:20,max:50,step:1,get:()=>settings.slideSlope,set:v=>settings.slideSlope=v},
-  ...[['fps','FPS',()=>stats.fps.toFixed(0)],['triangles','Rendered triangles (~)',()=>stats.triangles.toLocaleString()],['update','Last LOD update (ms)',()=>terrain.updateMs.toFixed(1)],['generation','Generation (ms)',()=>(terrain.generationMs+world.generationMs).toFixed(0)],['chunks','Active terrain tiles',()=>terrain.activeTiles],['elevation','Elevation (m)',()=>stats.elevation.toFixed(1)],['remaining','Trail remaining (m)',()=>stats.remaining.toFixed(0)]].map(([id,label,get])=>({id,label,kind:'readout',get})),
+  ...[['fps','FPS',()=>stats.fps.toFixed(0)],['triangles','Rendered triangles (~)',()=>stats.triangles.toLocaleString()],['update','Snap apply CPU (ms)',()=>terrain.updateMs.toFixed(1)],['sample','Snap worker (ms)',()=>terrain.sampleMs.toFixed(1)],['latency','Snap latency (ms)',()=>terrain.latencyMs.toFixed(1)],['generation','Generation (ms)',()=>(terrain.generationMs+world.generationMs).toFixed(0)],['vertices','Terrain vertices',()=>terrain.vertexCount.toLocaleString()],['snaps','Terrain snaps',()=>terrain.snapCount],['elevation','Elevation (m)',()=>stats.elevation.toFixed(1)],['remaining','Trail remaining (m)',()=>stats.remaining.toFixed(0)]].map(([id,label,get])=>({id,label,kind:'readout',get})),
   {id:'reset',kind:'action',label:'Reset to trailhead',run:reset}
 ];
-const model=new ControlModel(defs,{onChange:id=>{if(['radius','quality','transition'].includes(id))terrainDirty=true;}});
+const model=new ControlModel(defs);
 const desktop=new DesktopControls($('#controls'),model);
 const controllers=[renderer.xr.getController(0),renderer.xr.getController(1)];
 for(const c of controllers){rig.add(c);c.addEventListener('connected',e=>c.userData.source=e.data);c.addEventListener('disconnected',()=>delete c.userData.source);}
@@ -105,7 +104,7 @@ renderer.setAnimationLoop((time,frame)=>{
     head.x=slide.x;head.z=slide.z;
   }
   const ground=world.height(head.x,head.z);rig.position.y+=(ground-rig.position.y)*(1-Math.exp(-dt*18));rig.updateMatrixWorld(true);
-  terrain.update(head.x,head.z,terrainDirty);terrainDirty=false;
+  terrain.update(head.x,head.z);
   if(session){
     let toggle=false;edges.retain(session.inputSources);
     for(const source of session.inputSources)if(source.gamepad?.mapping==='xr-standard')toggle=edges.sample(source,5,state.resumed).pressed||toggle;

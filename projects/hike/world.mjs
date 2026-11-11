@@ -1,5 +1,6 @@
+import {createRouteQuery} from './route-query.mjs';
 // Authoritative cached geology and trail definition; independent of render LOD.
-import {createTrailSurface} from './trail-surface.mjs?v=summit-1';
+import {createTrailSurface} from './trail-surface.mjs?v=snapped-1';
 import {generateLandscape} from './geology.mjs?v=generation-1';
 import {generateTrail} from './trail.mjs?v=summit-1';
 export const DEFAULTS = Object.freeze({seed: 41729, elevation: 220, trailWidth: 5, targetLength: 1600});
@@ -16,7 +17,7 @@ export function createWorld(options = {}) {
   function flattenDestination(x,z,y){const blend=smooth((Math.hypot(x-destination.x,z-destination.z)-destinationRadius)/4);return destination.y+(y-destination.y)*blend;}
   const preparedHeight=(x,z)=>flattenDestination(x,z,rawHeight(x,z));
   const ascent=generateTrail({...landscape,height:preparedHeight},{...config,destinationRadius});
-  const route=ascent.route, buckets=new Map(), cell=24, half=config.trailWidth/2;
+  const route=ascent.route,half=config.trailWidth/2;
   let totalLength=0,maxGrade=0,maxEarthwork=0;
   for(let i=0;i<route.length;i++) {
     const p=route[i]; p.distance=totalLength;
@@ -24,26 +25,10 @@ export function createWorld(options = {}) {
     if(!i)continue;
     const a=route[i-1],d=Math.hypot(p.x-a.x,p.z-a.z),len=Math.hypot(d,p.y-a.y);
     totalLength+=len;p.distance=totalLength;maxGrade=Math.max(maxGrade,Math.abs(p.y-a.y)/d);
-    const margin=half+12;
-    for(let bx=Math.floor((Math.min(a.x,p.x)-margin)/cell);bx<=Math.floor((Math.max(a.x,p.x)+margin)/cell);bx++)
-      for(let bz=Math.floor((Math.min(a.z,p.z)-margin)/cell);bz<=Math.floor((Math.max(a.z,p.z)+margin)/cell);bz++) {
-        const key=bx+','+bz; if(!buckets.has(key))buckets.set(key,[]); buckets.get(key).push(i-1);
-      }
   }
   if(maxGrade>.301 || totalLength<100) throw Error('Route validation failed; revise world parameters');
   const profile=route.map(p=>({...p}));
-  function project(x,z,out,global=false) {
-    const list=global?null:buckets.get(Math.floor(x/cell)+','+Math.floor(z/cell));
-    let nearest=Infinity,index=0,u=0;
-    for(let k=0;k<(global?route.length-1:list?.length??0);k++) {
-      const i=global?k:list[k],a=profile[i],b=profile[i+1],dx=b.x-a.x,dz=b.z-a.z;
-      const t=clamp(((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz),0,1),d=(x-a.x-t*dx)**2+(z-a.z-t*dz)**2;
-      if(d<nearest){nearest=d;index=i;u=t;}
-    }
-    const a=profile[index],b=profile[index+1];
-    out.distance=Math.sqrt(nearest);out.height=a.y+(b.y-a.y)*u;out.along=a.distance+(b.distance-a.distance)*u;
-    return out;
-  }
+  const project=createRouteQuery(profile,half);
   const scratch={};
   function coarseHeight(x,z) { const raw=preparedHeight(x,z);project(x,z,scratch); const weight=1-smooth((scratch.distance-half)/9); return raw+(scratch.height-raw)*weight; }
   let surface=null;
@@ -54,5 +39,5 @@ export function createWorld(options = {}) {
   for(let i=0;i<route.length;i++){const p=route[i];p.y=height(p.x,p.z);maxEarthwork=Math.max(maxEarthwork,Math.abs(p.y-rawHeight(p.x,p.z)));if(i){const a=route[i-1],d=Math.hypot(a.x-p.x,a.z-p.z);totalLength+=Math.hypot(d,p.y-a.y);maxGrade=Math.max(maxGrade,Math.abs(p.y-a.y)/(d||1));}p.distance=totalLength;profile[i].distance=totalLength;}
   surface.maxWalkingSlope=surface.walking.reduce((max,ids)=>Math.max(max,surface.slope(ids)),0);
   if(surface.maxWalkingSlope>30||maxGrade>.301)throw Error('The trail surface could not meet its walking slope limits');
-  return {surface,config,landscape,mountain:landscape,extent:landscape.extent,boundaryHeight:landscape.boundaryHeight,landmarks:[ascent.route[0],ascent.route.at(-1)],sections:[{kind:'ground',start:0,end:route.length-1}],generationMs:performance.now()-began,rawHeight,height,normal,trail:(x,z,out={},global=false)=>{project(x,z,out,global);if(out.distance<=half){const value=surface.sample(x,z);if(value!==null)out.height=value;}return out;},route,totalLength,maxGrade,maxEarthwork,start:route[0],summit:route.at(-1)};
+  return {samplingData:{config,destination,profile,surface:surface.queryData,landscape:{heights:landscape.heights,gridSize:landscape.gridSize,gridStep:landscape.gridStep,extent:landscape.extent,boundaryHeight:landscape.boundaryHeight,summit:landscape.summit}},surface,config,landscape,mountain:landscape,extent:landscape.extent,boundaryHeight:landscape.boundaryHeight,landmarks:[ascent.route[0],ascent.route.at(-1)],sections:[{kind:'ground',start:0,end:route.length-1}],generationMs:performance.now()-began,rawHeight,height,normal,trail:(x,z,out={},global=false)=>{project(x,z,out,global);if(out.distance<=half){const value=surface.sample(x,z);if(value!==null)out.height=value;}return out;},route,totalLength,maxGrade,maxEarthwork,start:route[0],summit:route.at(-1)};
 }

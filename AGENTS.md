@@ -10,7 +10,7 @@ Read this file, inspect `git status`, then read the target project's handoff and
 
 | Project | Start here | Source/build overview |
 | --- | --- | --- |
-| The Hike | [Handoff](projects/hike/HANDOFF.md) | Buildless `projects/hike/`; procedural massif, carved trail and persistent terrain LOD |
+| The Hike | [Handoff](projects/hike/HANDOFF.md) | Buildless `projects/hike/`; procedural massif, carved trail and a single snapped terrain grid |
 | Secret Garden | [Handoff](projects/secretGarden/HANDOFF.md) | Buildless `projects/secretGarden/`; deterministic procedural plants and animated growth |
 | Scene Test | [Handoff](projects/sceneTest/HANDOFF.md) | Buildless `projects/sceneTest/`; interactive WebXR objects, materials and lighting lab |
 | Clouds | [Handoff](projects/clouds/HANDOFF.md) | Buildless `projects/clouds/`; per-eye depth-aware ray marching |
