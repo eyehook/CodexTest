@@ -6,7 +6,18 @@ Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Current release: **v0.6.0** (2026-11-11), with dense all-3D pine forests,
+Current release: **v0.7.5**, adding momentum-based gliding. The user reported
+“Looks good” after testing and authorized publication on 2026-11-11. All **68 Hike
+tests pass** on the final release; app syntax and `git diff --check` pass.
+
+Final defaults: 60 m/s glide speed cap, 60 deg/s flight turn cap, yaw gain 1.5,
+5-degree yaw dead zone, no banking, half-rate climb deceleration and 8 m/s² landing
+friction. Movement takes over when requested walking speed reaches slide speed.
+Startup and Reset are at the trailhead; the temporary summit spawn is removed.
+Formal sustained Quest profiling remains unrecorded. Sections below retain
+implementation history; these release settings take precedence.
+
+Previous published baseline: **v0.6.0**, commit `ddad67f` (2026-11-11), with dense all-3D pine forests,
 a 450–500 m distance fade and incremental vegetation updates. The user reported
 “Performance is good” and authorized pushing this release on 2026-11-11. This is
 user test feedback, not a formal standalone Quest frame-time benchmark. Previous
@@ -16,10 +27,13 @@ collisions remain unimplemented.
 ## Controls and gameplay
 
 - Desktop: Start walking, WASD / up/down arrows, mouse look after clicking the
-  world, left/right arrows turn. Esc releases mouse, P toggles diagnostics, R resets.
+  world, left/right arrows turn. Space launches gliding; mouse look steers flight.
+  Esc releases mouse, P toggles diagnostics, R resets.
 - Quest: left stick walks relative to horizontal headset heading; right stick
   turns smoothly at 90°/s about the physical headset. B/Y opens field notes 45°
   right at 2.1 m; controller ray + trigger adjusts controls. Panel stays world locked.
+  A/X launches gliding. In flight, headset yaw/pitch steers; both sticks are ignored.
+  Landing restores walking. A fresh press is required for another launch.
 - Testing speed is **14 m/s**, ten times normal walking. Desktop/VR share the same
   0.7–30 m/s range and 0.1 m/s step.
 - Above **35°**, downhill sliding starts at 1.15× walking speed, accelerates, and
@@ -548,3 +562,140 @@ uniforms with no shader/page errors; screenshots were reviewed. `git diff --chec
 and runtime module-link checks pass. The user subsequently reported good
 performance and authorized publication. Formal sustained Quest CPU/GPU frame-time,
 memory and binocular/fade-quality measurements remain unrecorded.
+
+
+### Momentum gliding — local v0.7.0
+
+`gliding.mjs` provides reusable position/velocity state and bounded, dt-based arcade
+flight physics. Launch preserves walking momentum (including limited positive
+uphill floor velocity), supplies at least 4 m/s horizontal speed, and adds an
+impulse for roughly 0.9 m stationary rise. Repeated activation cannot boost flight.
+Gravity and quadratic drag trade speed for height; neutral flight approaches an
+8:1 glide ratio, dives build speed, and low speed reduces lift and forces descent.
+Defaults cap normal flight at 32 m/s. All tuning lives in `GLIDE_DEFAULTS`.
+
+Head yaw outside a 5-degree dead zone drives inertial steering capped at 90 deg/s.
+Head pitch outside a 5-degree dead zone controls climb/dive, with smooth rate and
+angle limits. There is no stick navigation or turning during flight. The field
+notes expose maximum glide speed, glide ratio, and bank amplitude (0 disables it).
+`flight-input.mjs` samples fresh A/X and independent B/Y edges, absorbs held
+buttons during landing/resume/tracking recovery, and seeds reconnected sources.
+Desktop Space provides a fresh-press launch for testing.
+
+`flight-view.mjs` composes rig and raw headset orientation exactly once, excluding
+presentation banking from steering. Camera/controllers live under a bank parent;
+its compensated transform rolls at most 5 degrees around the current tracked
+head center without modifying the tracked pose or moving the head center. Bank
+returns smoothly to neutral after landing; disabling it or resetting clears it.
+Hidden/untracked XR pauses motion; reset and session exit clear flight state.
+
+Collision follows the player floor under actual tracked-head world X/Z, preserving
+live headset height rather than subtracting a fixed eye height. Flight caps elapsed
+time at 50 ms and subdivides at 1/120 s and at most 0.25 m travel. Detailed ground
+queries at segment midpoint/end plus 12-step contact bisection catch fast descent
+and narrow ridges. Landing places the floor on authoritative ground, clears all
+velocity and restores walking. Terrain snapping remains independent; world
+generation, placement, vegetation and terrain rendering are unchanged. Trees still
+have no collision. No glider models, effects, audio or stamina were added.
+
+Validation: **64/64 Hike tests pass**, including launch/momentum, energy behavior,
+30/72/120 Hz consistency, swept landing, held/reconnected input, and translated/
+yawed rigs with physical head offsets and bank. Syntax and `git diff --check` pass.
+Chrome integration exercised the actual frame loop with simulated XR poses and
+gamepads: A/X launch, ignored sticks, head steering/dive acceleration, landing,
+fresh-press relaunch, pause, bank disable and reset passed. Desktop Space and a
+real rendered airborne view passed with no page/shader errors; terrain stayed
+visible through four snaps. Simulated XR is not a physical headset test.
+
+A 720-frame CPU-only detailed-world flight probe measured about 0.021 ms mean,
+0.034 ms p95 and 2.34 ms maximum; position/velocity objects retained identity.
+These figures do not establish Quest frame time or globally allocation-free
+height queries. Physical Quest mapping, comfort (especially banking), terrain
+contact and sustained performance still need user testing before publication.
+
+
+### Flight steering correction — local v0.7.1
+
+The initial flight implementation changed velocity heading without rotating the
+player rig, producing sideways-looking travel. `FlightView.advance` now uses head
+yaw relative to the rig as steering input and applies the resulting trajectory yaw
+delta to the rig. Holding a sideways look continues the turn; facing forward
+eases angular velocity to zero. Rotation pivots at the live head X/Z after flight
+displacement, preserving collision position with nonzero room-scale offsets. Bank
+still stays out of steering, and raw tracking is unchanged. Both signs, yaw-wrap
+crossing, offset rigs, pause and neutral settling have regression coverage.
+
+Validation for the steering correction: all **65 Hike tests pass**, including the
+new coupled trajectory/rig-turn regression; syntax and `git diff --check` pass.
+Physical headset turn feel and comfort still require user testing. Changes remain
+local and unpushed.
+
+
+### Temporary summit spawn for gliding tests
+
+`START_AT_TRAIL_END=true` in `app.mjs` temporarily starts desktop, XR and Reset at
+the trail endpoint, facing back downhill along the route. Set it false to restore
+the trailhead. Terrain's optional `initialPosition` and initial pine visibility
+use the same spawn so the first view is prepared there. World generation and
+canonical route start/end remain unchanged. This is temporary and local.
+
+
+### Gentler flight steering — local v0.7.2
+
+Flight turn-rate cap is now **60 degrees/second** (previously 90), and yaw gain
+is **1.5** (previously 2.2). The 5-degree dead zone and exponential turn response
+4/s remain: approximately 0.25 s time constant. A 20-degree sideways look requests
+22.5 deg/s rather than 33 deg/s before smoothing. Walking turn speed remains
+90 deg/s. Temporary summit spawn remains enabled.
+
+
+Default glide banking is now **0 degrees** (disabled). Diagnostics still allows
+0–5 degrees; the bank behavior test explicitly enables 5 degrees.
+
+
+Default maximum glide speed is now **60 m/s** (previously 32). This is the
+combined velocity cap; gravity, drag and dive angle still determine attainable
+speed. The existing Diagnostics speed control remains 8–60 m/s.
+
+
+### Gentler climb speed loss — local v0.7.3
+
+`climbDeceleration:0.5` halves the combined gravity/drag deceleration while the
+actual flight path pitches upward. Level/descent behavior, launch impulse and
+low-speed stall behavior remain unchanged. This intentionally makes arcade
+climbing more forgiving rather than preserving a strict energy budget. A regression
+checks the exact half-rate upward loss and unchanged level/descent velocities.
+
+
+### Landing momentum — local v0.7.4
+
+Landing now captures horizontal impact velocity before flight velocity is cleared.
+`LandingRunout` carries it along detailed ground with constant **8 m/s² friction**
+until exact rest (12 m/s takes 1.5 s and 9 m). Vertical impact speed is discarded.
+Ground following uses steps no longer than 0.25 m; runout adds no slope gravity.
+Walking, turning, launch and XR controller panel interaction are blocked throughout
+runout, including its final frame. Button edges continue sampling, so held launch
+buttons cannot retrigger afterward. Head tracking remains live. Reset/session exit
+clear runout; hidden/untracked frames pause it. Diagnostics identifies Landing runout.
+Temporary summit spawn remains enabled.
+
+Landing validation: all **67 Hike tests pass**, including exact friction stopping
+distance, ground following, velocity reuse, pause/reset, and 30/72/120 Hz agreement.
+App syntax and `git diff --check` pass. Quest landing feel remains to be tested.
+
+
+### Landing-to-walking handoff — local v0.7.5
+
+Landing runout now hands off before full rest whenever requested walking speed
+is positive and at least the current horizontal slide speed. Requested speed uses
+the same shared stick dead zone/rescaling and diagonal cap as Locomotion, times
+the configured walking speed. Desktop movement keys use the same rule. The normal
+walking branch runs immediately on handoff; controller turning/panel controls
+unlock too. While slide speed is greater, friction and input lock remain. With no
+movement input, runout still stops naturally; turn-only input cannot end it.
+Handoff follows the player's requested direction, including sideways/backward.
+
+
+The temporary summit spawn has been removed. Startup, XR entry and Reset again
+place the player at the canonical trailhead facing up the trail. Initial terrain
+and pine visibility use that same trailhead position.

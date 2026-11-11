@@ -4,7 +4,7 @@ import {createTerrainGrid,CELL_SIZE,TERRAIN_RADIUS} from './terrain-grid.mjs?v=r
 import {TerrainSamples} from './terrain-samples.mjs?v=async-1';
 const radialFog=shader=>{shader.vertexShader=shader.vertexShader.replace('#include <fog_vertex>','#ifdef USE_FOG\nvFogDepth = length(mvPosition.xyz);\n#endif');};
 export class Terrain {
- constructor(scene,world,{workerFactory,onProgress}={}){
+ constructor(scene,world,{workerFactory,onProgress,initialPosition=world.start}={}){
   this.onProgress=onProgress;this.began=performance.now();this.grid=world.renderGrid??createTerrainGrid();this.vertexCount=this.grid.vertexCount;this.triangles=this.grid.indices.length/3;
   this.originX=Infinity;this.originZ=Infinity;this.requestedX=Infinity;this.requestedZ=Infinity;this.updateMs=0;this.sampleMs=0;this.latencyMs=0;this.snapCount=0;this.sampledVertices=0;this.inFlight=false;this.disposed=false;this.error=null;
   this.ready=new Promise((resolve,reject)=>{this.resolveReady=resolve;this.rejectReady=reject;});
@@ -23,7 +23,7 @@ export class Terrain {
    this.worker=factory();this.worker.onmessage=({data})=>this.receive(data);this.worker.onerror=event=>this.fail(new Error(event.message||'Terrain sampling worker failed'));
    this.worker.postMessage({type:'init',world:world.samplingData,coordinates:this.grid.coordinates});
   }else this.samples=new TerrainSamples(world,this.grid.coordinates);
-  this.update(world.start.x,world.start.z);
+  this.update(initialPosition.x,initialPosition.z);
  }
  update(x,z){
   if(this.disposed||this.error)return false;
