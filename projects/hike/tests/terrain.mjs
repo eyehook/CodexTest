@@ -38,7 +38,7 @@ test('stationary buffers, 16 m negative/diagonal/multi-cell snaps, stable shared
  for(const [x,z,ox,oz] of [[16,0,16,0],[-.01,-.01,-16,-16],[-16,-16,-16,-16],[1025,-1025,1024,-1040],[0,0,0,0]]){
   terrain.update(x,z);assert.equal(terrain.originX,ox);assert.equal(terrain.originZ,oz);assert.equal(g.index.array,index);assert.equal(g.index.version,0);
   assert.ok(x>=ox-16&&x<=ox+32&&z>=oz-16&&z<=oz+32);
-  for(let i=0;i<terrain.vertexCount;i+=97){const p=g.attributes.position,x=ox+p.getX(i),z=oz+p.getZ(i);assert.equal(p.getY(i),Math.fround(world.height(x,z)));assert.ok(g.boundingBox.containsPoint(new T.Vector3(p.getX(i),p.getY(i),p.getZ(i))));assert.ok(g.boundingSphere.containsPoint(new T.Vector3(p.getX(i),p.getY(i),p.getZ(i))));}
+  for(let i=0;i<terrain.vertexCount;i+=97){const p=g.attributes.position,x=ox+p.getX(i),z=oz+p.getZ(i);assert.ok(Math.abs(p.getY(i)-world.height(x,z))<1e-4,'averaging preserves a plane');assert.ok(g.boundingBox.containsPoint(new T.Vector3(p.getX(i),p.getY(i),p.getZ(i))));assert.ok(g.boundingSphere.containsPoint(new T.Vector3(p.getX(i),p.getY(i),p.getZ(i))));}
  }
  assert.deepEqual(g.attributes.position.array,before);attrs.forEach(([a,array],i)=>{assert.equal(a.array,array);assert.deepEqual(a.array,beforeAttributes[i]);});terrain.dispose();assert.equal(scene.children.length,0);
 });
@@ -47,7 +47,8 @@ class FakeWorker {
  finish(){const m=this.messages.filter(m=>m.type==='sample').at(-1);this.onmessage({data:{...m,min:0,max:0,sampled:0,sampleMs:1}});}
 }
 test('completed worker results stay visible and apply before catching up to the latest cell',async()=>{
- const worker=new FakeWorker(),terrain=new Terrain(new T.Scene(),syntheticWorld(),{workerFactory:()=>worker});
+ const progress=[],worker=new FakeWorker(),terrain=new Terrain(new T.Scene(),syntheticWorld(),{workerFactory:()=>worker,onProgress:value=>progress.push(value)});
+ worker.onmessage({data:{type:'progress',value:.5}});assert.deepEqual(progress,[.5]);assert.equal(terrain.inFlight,true);assert.equal(terrain.snapCount,0);
  terrain.update(20,1);terrain.update(200,-100);assert.equal(terrain.snapCount,0);assert.equal(terrain.mesh.visible,false);assert.equal(worker.messages.length,2);
  worker.finish();await terrain.ready;
  assert.equal(terrain.snapCount,1);assert.equal(terrain.originX,0);assert.equal(terrain.mesh.visible,true);assert.equal(worker.messages.length,3);

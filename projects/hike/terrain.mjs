@@ -1,11 +1,11 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {createDetailTexture,DETAIL_TILE_METERS} from './detail-texture.mjs';
 import {createTerrainGrid,CELL_SIZE,TERRAIN_RADIUS} from './terrain-grid.mjs?v=rings-300k-1';
-import {TerrainSamples} from './terrain-samples.mjs?v=rings-300k-1';
+import {TerrainSamples} from './terrain-samples.mjs?v=async-1';
 const radialFog=shader=>{shader.vertexShader=shader.vertexShader.replace('#include <fog_vertex>','#ifdef USE_FOG\nvFogDepth = length(mvPosition.xyz);\n#endif');};
 export class Terrain {
- constructor(scene,world,{workerFactory}={}){
-  this.began=performance.now();this.grid=createTerrainGrid();this.vertexCount=this.grid.vertexCount;this.triangles=this.grid.indices.length/3;
+ constructor(scene,world,{workerFactory,onProgress}={}){
+  this.onProgress=onProgress;this.began=performance.now();this.grid=world.renderGrid??createTerrainGrid();this.vertexCount=this.grid.vertexCount;this.triangles=this.grid.indices.length/3;
   this.originX=Infinity;this.originZ=Infinity;this.requestedX=Infinity;this.requestedZ=Infinity;this.updateMs=0;this.sampleMs=0;this.latencyMs=0;this.snapCount=0;this.sampledVertices=0;this.inFlight=false;this.disposed=false;this.error=null;
   this.ready=new Promise((resolve,reject)=>{this.resolveReady=resolve;this.rejectReady=reject;});
   const geometry=new T.BufferGeometry();
@@ -18,7 +18,7 @@ export class Terrain {
   this.mesh=new T.Mesh(geometry,this.material);this.mesh.name='Snapped terrain';this.mesh.visible=false;scene.add(this.mesh);
   // Browser sampling is off-thread. Node's synchronous adapter exercises the
   // identical sampling path in deterministic tests without a browser worker.
-  const factory=workerFactory??(typeof Worker!=='undefined'?()=>new Worker(new URL('./terrain-worker.mjs?v=banks-1',import.meta.url),{type:'module'}):null);
+  const factory=workerFactory??(typeof Worker!=='undefined'?()=>new Worker(new URL('./terrain-worker.mjs?v=async-1',import.meta.url),{type:'module'}):null);
   if(factory){
    this.worker=factory();this.worker.onmessage=({data})=>this.receive(data);this.worker.onerror=event=>this.fail(new Error(event.message||'Terrain sampling worker failed'));
    this.worker.postMessage({type:'init',world:world.samplingData,coordinates:this.grid.coordinates});
@@ -42,6 +42,7 @@ export class Terrain {
  }
  receive(data){
   if(this.disposed||this.error)return;
+  if(data.type==='progress'){this.onProgress?.(data.value);return;}
   if(data.error){this.fail(new Error(data.error));return;}
   this.inFlight=false;this.buffer=new Float32Array(data.buffer);
   // One job is in flight: display its completed grid, then catch up to the
@@ -58,7 +59,7 @@ export class Terrain {
   // X/Z bounds/topology never change; only the sampled height extent does.
   const box=this.geometry.boundingBox,sphere=this.geometry.boundingSphere;
   box.min.y=data.min;box.max.y=data.max;sphere.center.set(8,(data.min+data.max)/2,8);sphere.radius=Math.hypot(TERRAIN_RADIUS+Math.SQRT2*8,(data.max-data.min)/2);
-  this.sampledVertices=data.sampled;this.sampleMs=data.sampleMs;this.snapCount++;this.updateMs=performance.now()-began;this.latencyMs=performance.now()-this.jobRequestedAt;
+  this.heightmapNodes=data.heightmapNodes;this.heightmapBytes=data.heightmapBytes;this.sampledVertices=data.sampled;this.sampleMs=data.sampleMs;this.snapCount++;this.updateMs=performance.now()-began;this.latencyMs=performance.now()-this.jobRequestedAt;
   if(this.snapCount===1){this.generationMs=performance.now()-this.began;this.resolveReady();}
  }
  fail(error){this.error=error;this.inFlight=false;this.mesh.visible=false;this.worker?.terminate();this.rejectReady(error);this.onError?.(error);}

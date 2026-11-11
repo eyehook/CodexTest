@@ -7,11 +7,22 @@ import {FrameRateCounter} from '../../shared/performance/frame-rate.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
-import {createWorld} from './world.mjs?v=banks-1';
-import {Terrain} from './terrain.mjs?v=visible-snaps-1';
+import {createWorldAsync} from './world-async.mjs?v=async-1';
+import {APP_VERSION} from './version.mjs?v=0.4.0';
+import {Terrain} from './terrain.mjs?v=async-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
 const $=s=>document.querySelector(s);
+$('#version').textContent=`v${APP_VERSION}`;
+document.title=`The Hike v${APP_VERSION} · CodexTest`;
+let loadingProgress=0;
+function showProgress(value,label){
+ loadingProgress=Math.max(loadingProgress,Math.min(1,value));
+ $('#loading-progress').value=loadingProgress;
+ $('#loading-stage').textContent=`${Math.round(loadingProgress*100)}% · ${label}`;
+}
+const generationAbort=new AbortController();
+addEventListener('pagehide',()=>generationAbort.abort(),{once:true});
 const rawSeed=new URLSearchParams(location.search).get('seed');
 const seed=rawSeed!==null&&Number.isFinite(Number(rawSeed))?Number(rawSeed):41729;
 let panelOpen=false;
@@ -30,9 +41,9 @@ addEventListener('keydown',e=>{
 });
 $('#route-info').textContent=`Seed ${seed}`;
 try {
-// Give the loading card a paint before synchronous world generation begins.
-await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-const world=createWorld({seed});
+showProgress(0,'Starting mountain generation');
+const world=await createWorldAsync({seed},{onProgress:showProgress,signal:generationAbort.signal});
+showProgress(.93,'Preparing the landscape view');
 const settings={speed:14,slideSlope:35};
 const scene=new T.Scene();scene.background=new T.Color(0x9fbac6);scene.fog=new T.Fog(0x9fbac6,650,950);
 const camera=new T.PerspectiveCamera(70,innerWidth/innerHeight,.08,1200);camera.position.y=1.7;camera.rotation.order='YXZ';camera.rotation.x=.18;
@@ -41,9 +52,10 @@ const renderer=new T.WebGLRenderer({canvas:$('#world'),antialias:true,powerPrefe
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
 renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1;renderer.outputColorSpace=T.SRGBColorSpace;renderer.setClearColor(scene.background);
 scene.add(new T.HemisphereLight(0xe2edf0,0x665644,1.2));const sun=new T.DirectionalLight(0xffe5b5,2.2);sun.position.set(-450,650,-150);scene.add(sun);
-const terrain=new Terrain(scene,world);
+const terrain=new Terrain(scene,world,{onProgress:value=>showProgress(.93+value*.06,'Sampling detailed and distant terrain')});
 terrain.onError=error=>{renderer.setAnimationLoop(null);document.body.classList.remove('loading');$('#error').hidden=false;$('#error').textContent=error.message+' · Choose another seed to reload.';setPanel(true);};
 await terrain.ready;
+showProgress(.99,'Preparing to walk');
 const marker=new T.Group();marker.position.set(world.summit.x,world.summit.y,world.summit.z);scene.add(marker);
 const mast=new T.Mesh(new T.CylinderGeometry(.2,.25,9,6),new T.MeshLambertMaterial({color:0x302b24}));mast.position.y=4.5;marker.add(mast);
 const pennant=new T.Mesh(new T.BoxGeometry(3.4,1.6,.08),new T.MeshLambertMaterial({color:0xeab04c}));pennant.position.set(1.6,8,0);marker.add(pennant);
@@ -116,10 +128,10 @@ renderer.setAnimationLoop((time,frame)=>{
   const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
   uiElapsed+=elapsed;
   if(uiElapsed>.5){uiElapsed=0;world.trail(head.x,head.z,projected,true);stats.along=projected.along;stats.remaining=world.totalLength-projected.along;stats.elevation=ground;model.refresh();$('#status').textContent=`${Math.round(ground)} m elevation · ${(stats.remaining/1000).toFixed(2)} km to summit${projected.distance>20?' · off trail':''}${stats.remaining<8&&projected.distance<10?' · Summit reached':''}`;}
-  renderer.render(scene,camera);if(frameCount===0)document.body.classList.remove('loading');stats.triangles=renderer.info.render.triangles;frameCount++;
+  renderer.render(scene,camera);if(frameCount===0){showProgress(1,'Ready');document.body.classList.remove('loading');}stats.triangles=renderer.info.render.triangles;frameCount++;
 });
 // Desktop inspection surface for desktop acceptance checks.
-window.hike={world,terrain,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
+window.hike={version:APP_VERSION,world,terrain,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
 } catch(error) {
   document.body.classList.remove('loading');
   $('#intro').hidden=true;$('#status').textContent='Mountain generation failed · choose another seed';

@@ -135,9 +135,11 @@ origin+32 on each axis. There is no continuous movement or height resampling whi
 the player stays within the same snap cell.
 
 `terrain-samples.mjs` fills reusable height/normal/color arrays using the existing
-CPU height function. Samples shared with the prior origin are copied exactly;
-a normal cardinal snap samples 19,506 new points instead of all 150,057. Sampling
-never changes terrain heights according to resolution. World-space normals and
+CPU height function. Samples shared with the prior origin are copied in stable detailed/distant regions;
+the moving blend annulus is refreshed from retained detailed source data. Before
+averaging, a cardinal snap sampled 19,506 new points instead of all 150,057.
+Collision heights never change according to resolution; distant render heights
+now use the averaged cache described below. World-space normals and
 UVs, nested spacings and consistent diagonals keep common points and lighting
 stable. The fine core keeps the nearest resolution transition away from the player.
 Coarser triangle interpolation can still pop at a snap; no temporal geomorphing or
@@ -224,8 +226,9 @@ Quest benchmark. GPU buffer-upload cost, stereo rendering, sustained FPS, worker
 latency under headset load and perceptibility of snapping still need Quest checks.
 The one mesh submits its full triangle count; there is no tile-level frustum culling.
 
-World generation remains synchronous at startup, though earlier routing/drainage
-optimizations are retained. Other remaining limits: steep banks/large earthworks,
+Browser world generation and fixed topology now run in a dedicated startup
+worker; the synchronous generator remains available for tests/tools. Earlier
+routing/drainage optimizations are retained. Other remaining limits: steep banks/large earthworks,
 finite seed coverage, possible unhandled inside-turn spikes, and no bridges.
 Route-aligned trail-grid refinement remains explicitly deferred. New renderer
 cache versions are advanced for the 300k experiment. This release includes the tuning; Quest validation remains outstanding.
@@ -333,3 +336,120 @@ Validation: all 33 Hike tests passed in 7.07 seconds with warm fixtures;
 disappearance and authorized pushing to GitHub on 2026-11-11. This release
 includes visible terrain catch-up; formal headset performance profiling remains
 outstanding.
+
+
+### Averaged distant render heightmap — v0.4.0, 2026-11-11
+
+`averaged-heightmap.mjs` adds a render-only cache over the existing finished
+`world.height`, including trail banks and the landing. World/trail generation,
+collision, sliding and authoritative queries are unchanged. All 299,612 triangles,
+150,057 vertices, current resolution bands, stitched indices and the one draw call
+remain unchanged. The older two-cell band widths in the request were not restored,
+as doing so would change the current triangle budget.
+
+`AVERAGED_TERRAIN` exposes 16 m spacing, a 16×16 m footprint, 3×3 deterministic
+stratified samples (supports 4×4), and blend distances. Float32 averages sit on
+fixed world multiples of 16 m and are bilinearly interpolated. Numeric column/tile
+lookups store 16×16-node arrays plus ready flags; each node is generated only once.
+Initial sampling fills the rendered footprint and its normal/interpolation halo;
+new world regions are cached lazily in the worker. There is no per-frame work or
+full cache regeneration at snaps. Initial coverage used 12,883 nodes / 85,760 bytes
+of tile arrays; eight cardinal snaps grew this to 13,999 nodes / 90,880 bytes in
+an offline start-area run. Maps/objects add overhead beyond these array sizes.
+There is no eviction, so exploring new regions grows the cache until disposal.
+
+Detailed heights remain exact within 120 m of mesh center (origin+8 in X/Z).
+Smoothstep blends from 120 to **336 m**, then uses only averaged heights. The
+suggested 184 m outer distance caused large sampled snap changes, so the wider
+blend was selected. Normals blend detailed and averaged gradients, including the
+radial weight derivative. Bilinear heightmap grid lines can still change gradient;
+finite differences across 0.7 m soften those changes. No per-frame morphing is used.
+
+`TerrainSamples` reuses stable detailed/distant values, recalculating shared blend
+vertices instead of incorrectly copying center-dependent heights. Two compact
+annulus-only source arrays retain detailed heights/normals for subsequent snaps;
+region/slot arrays avoid repeated classifications. These arrays total about
+1.74 MB for the current grid. Float32 retained sources can cause tiny roundoff
+changes (tests allow 0.02 mm). Colors use rendered elevations/normals. Mesh buffers,
+bounds updates, worker transfer reuse and visible completed-result catch-up stay
+in place. Worker results expose `heightmapNodes`/`heightmapBytes` through Terrain
+for inspection; existing sampling/apply timings remain. Cache versions advanced.
+
+Validation: all 40 Hike tests pass, covering deterministic averages, negative/tile
+coordinates, cache reuse/growth, attenuation of high-frequency detail, untouched
+near heights, zero detailed evaluations for warmed distant queries, blend-boundary
+continuity, gradient correctness and shared-vertex refresh. Existing generation,
+collision/landing, topology, worker and near-tread alignment tests pass. Chrome
+reviewed trailhead and same-camera direct-versus-averaged midpoint screenshots;
+distant jagged silhouettes were softened with no visible cracks in those views.
+Chrome reported no errors, one terrain draw, persistent buffers and no hidden
+terrain during pending snaps. These checks do not establish Quest performance.
+
+Run `node projects/hike/tools/measure-averaged.mjs [seed]` for reproducible offline
+startup/cardinal snap timings, cache sizes and geometric snap probes. A desktop
+run observed direct versus averaged startup sampling of 460 / 500 ms; warm snap
+means of 72 / 88 ms. Thus this is **not yet an overall sampling speedup**, despite
+avoiding detailed height queries in warmed distant regions. Chrome's isolated
+midpoint worker snaps took 70–89 ms; applies were usually 0.3–1.1 ms with one
+15.9 ms outlier. Main-thread uploads and sustained Quest costs remain unmeasured.
+
+At five default-route locations, 50,520 comparisons of fixed world points 96–208 m
+from mesh center over six cardinal/diagonal snap directions found mean blend-only
+height changes of 6.2 cm, 95th percentile 26.0 cm and maximum 2.08 m with the wider
+blend. The initial 120–184 m version measured 15.0 cm / 74.2 cm / 6.25 m. These
+probes exclude interpolation/topology popping and do not cover all seeds or the
+whole blend range. Sharp ravines/banks still permit visible snap movement and
+averaging can flatten peaks or fill valleys; no claim of movement-free snapping
+is made. Quest appearance, actual sustained latency and acceptable smoothing need
+user testing. This enhancement is included in the v0.4.0 release.
+
+
+### Version, loading progress and asynchronous startup — v0.4.0
+
+`version.mjs` defines `APP_VERSION` (currently **0.4.0**), displayed in the page
+header and document title and available as `hike.version`. Advance it together
+with entry/import cache versions when shipping a new version.
+
+`app.mjs` now awaits `createWorldAsync` from `world-async.mjs`. Its dedicated module
+worker runs the unchanged deterministic generation algorithms: geology/erosion,
+routing, carving/slope correction, validation and fixed terrain-grid construction.
+`world.mjs`/`geology.mjs` accept optional progress callbacks without changing RNG
+or numerical ordering. The worker sends stage updates, then a plain world
+snapshot. Geology and grid typed-array buffers are transferred once rather than
+copied. The worker terminates after success, errors or cancellation. Page exit
+aborts generation; worker failures retain the existing seed/random recovery UI.
+There is deliberately no synchronous browser fallback that would freeze the UI.
+
+`world-snapshot.mjs` promotes the already-tested fixture serialization/restoration
+format to runtime use; the test fixture helper imports the same functions. Main
+thread reconstruction restores only read-only height/normal/trail queries and
+metadata. It does not regenerate erosion, routes, walking triangles or topology.
+`Terrain` consumes the transferred grid; standalone synchronous tests/tools can
+still construct their own grid. The separate long-lived terrain-sampling worker
+continues to own the distant-heightmap cache and snap sampling.
+
+The native progress bar shows weighted completed stages, not a predicted duration:
+2–45% shaping/erosion, 45% route planning, 68% walking surface, 86–90% validation,
+91–92% grid/snapshot, 93% scene setup, 93–99% first terrain sampling, and 100% on
+the first rendered frame. Coarse stages may hold their percentage while working.
+First-sample worker progress is emitted at bounded intervals; subsequent snaps do
+not send loading progress. The loading value is monotonic. Version and bar remain
+visible while the intro is hidden during loading. Desktop/mobile screenshots were
+reviewed for legibility and layout.
+
+Validation: 43 Hike tests pass, including a real worker-thread execution with a
+live main-thread timer and exact route/geology plus sampled height/normal/trail
+parity. Fake-worker tests cover progress, cancellation (including pre-abort),
+launch/runtime/message failures and termination. Terrain progress messages do
+not complete or disturb an in-flight job. Chrome showed version 0.4.0, progressing
+stages, final 100%, responsive diagnostic buttons during generation and no page
+errors; blocking the generation-worker module produced usable seed recovery.
+The worker-built topology remained 150,057 vertices / 299,612 triangles. A separate
+Chrome startup probe saw one 61 ms long task during data restoration/scene setup;
+startup is not claimed to be completely free of main-thread pauses, and total
+CPU generation time is not inherently reduced by running it off-thread.
+
+The earlier averaged-heightmap enhancement is included in this release. The user
+reported “Works well” and authorized publication to GitHub on 2026-11-11. All 43
+Hike tests passed on the final code; `git diff --check` passed. Formal Quest
+loading-latency, memory-pressure and performance measurements remain outstanding.

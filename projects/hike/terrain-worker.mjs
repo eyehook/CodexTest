@@ -1,12 +1,12 @@
 import {createTerrainSampler} from './terrain-sampler.mjs?v=banks-1';
-import {TerrainSamples} from './terrain-samples.mjs?v=rings-300k-1';
-let samples;
+import {TerrainSamples} from './terrain-samples.mjs?v=async-1';
+let samples,initialized=false;
 self.onmessage=({data})=>{
  try{
-  if(data.type==='init'){samples=new TerrainSamples(createTerrainSampler(data.world),data.coordinates);return;}
+  if(data.type==='init'){samples=new TerrainSamples(createTerrainSampler(data.world),data.coordinates,{onProgress:value=>{if(!initialized)self.postMessage({type:'progress',value});}});return;}
   if(data.type==='sample'){
    const output=new Float32Array(data.buffer),result=samples.fill(data.originX,data.originZ,output);
-   self.postMessage({...result,buffer:data.buffer},[data.buffer]);
+   initialized=true;self.postMessage({...result,buffer:data.buffer},[data.buffer]);
   }
  }catch(error){self.postMessage({error:error.message});}
 };

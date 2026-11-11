@@ -2,7 +2,7 @@
 export const GRID_SIZE=1025,GRID_MIN=-1920,GRID_STEP=3840/(GRID_SIZE-1);
 export function randomSource(seed){let state=seed>>>0;return ()=>{state+=0x6d2b79f5;let n=Math.imul(state^(state>>>15),1|state);n^=n+Math.imul(n^(n>>>7),61|n);return ((n^(n>>>14))>>>0)/4294967296;};}
 const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
-export function generateLandscape(config){
+export function generateLandscape(config,onProgress=()=>{}){
  const began=performance.now(),random=randomSource(config.seed),seed=config.seed|0;
  const parameters={height:config.elevation*(1.35+random()*.30),frequency:350+random()*260,rotation:random()*Math.PI*2,stretch:.7+random()*.65,warp:110+random()*120,erosion:100000+Math.floor(random()*40000)};
  const p=parameters,cos=Math.cos(p.rotation),sin=Math.sin(p.rotation);
@@ -13,6 +13,7 @@ export function generateLandscape(config){
  const boundaryHeight=20;
  const hash=(x,z)=>{let n=Math.imul(x,374761393)^Math.imul(z,668265263)^seed;n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967295;};
  function noise(x,z){const ix=Math.floor(x),iz=Math.floor(z),u=smooth(x-ix),v=smooth(z-iz);return (hash(ix,iz)*(1-u)+hash(ix+1,iz)*u)*(1-v)+(hash(ix,iz+1)*(1-u)+hash(ix+1,iz+1)*u)*v;}
+ onProgress(0,'Raising ridges');
  const heights=new Float32Array(GRID_SIZE*GRID_SIZE);
  for(let z=0;z<GRID_SIZE;z++)for(let x=0;x<GRID_SIZE;x++){
   const wx=GRID_MIN+x*GRID_STEP,wz=GRID_MIN+z*GRID_STEP;
@@ -46,7 +47,9 @@ export function generateLandscape(config){
  // Work is bounded and paid only once, before terrain tiles or collision queries.
  const n=GRID_SIZE,gradient={};
  function sample(x,z,out){const ix=Math.floor(x),iz=Math.floor(z),u=x-ix,v=z-iz,i=iz*n+ix,a=heights[i],b=heights[i+1],c=heights[i+n],d=heights[i+n+1];out.y=(a*(1-u)+b*u)*(1-v)+(c*(1-u)+d*u)*v;out.x=(b-a)*(1-v)+(d-c)*v;out.z=(c-a)*(1-u)+(d-b)*u;return out;}
+ onProgress(.25,'Eroding the mountain');
  for(let drop=0;drop<p.erosion;drop++){
+  if(drop%8192===0)onProgress(.25+.5*drop/p.erosion,'Eroding the mountain');
   let x=2+random()*(n-5),z=2+random()*(n-5),vx=0,vz=0,sediment=0,water=1,speed=1;
   for(let life=0;life<55;life++){
    sample(x,z,gradient);const oldHeight=gradient.y;if(oldHeight<.15)break;
@@ -66,6 +69,7 @@ export function generateLandscape(config){
  // Brief talus relaxation removes isolated erosion needles without smoothing ridges away.
  const delta=new Float32Array(heights.length),talus=Math.tan(48*Math.PI/180)*GRID_STEP;
  for(let pass=0;pass<5;pass++){
+  onProgress(.75+.2*pass/5,'Settling rock and sediment');
   delta.fill(0);
   for(let z=1;z<n-1;z++)for(let x=1;x<n-1;x++){
    const i=z*n+x;let low=i;for(const j of [i-1,i+1,i-n,i+n])if(heights[j]<heights[low])low=j;
@@ -85,5 +89,6 @@ export function generateLandscape(config){
  const summit={x:GRID_MIN+(peakIndex%n)*GRID_STEP,z:GRID_MIN+Math.floor(peakIndex/n)*GRID_STEP,y:heights[peakIndex]};
  const start={x:GRID_MIN+(minIndex%n)*GRID_STEP,z:GRID_MIN+Math.floor(minIndex/n)*GRID_STEP,y:heights[minIndex]};
  function height(x,z){const gx=(x-GRID_MIN)/GRID_STEP,gz=(z-GRID_MIN)/GRID_STEP;if(gx<0||gz<0||gx>=n-1||gz>=n-1)return boundaryHeight;return sample(gx,gz,gradient).y;}
+ onProgress(1,'Mountain shape complete');
  return {height,summit,start,boundaryHeight,extent:1920,gridSize:n,gridStep:GRID_STEP,parameters,heights,generationMs:performance.now()-began};
 }
