@@ -74,3 +74,11 @@ test('cell boundary retirement is bounded and interrupted movement preserves pac
  for(const record of field.cells.values())for(let i=0;i<record.count;i++)assert.equal(field.owners[record.bladeSlots[i]],record);
  field.dispose();
 });
+
+test('wind changes only a shared uniform without touching geometry or instance buffers',()=>{
+ const field=new TriangleField(new T.Scene(),world(),{coverageSamples:0,coverageStep:{value:1}});drain(field,new T.Vector3(0,32,30));
+ const attributes=Object.values(field.geometry.attributes),versions=attributes.map(a=>a.version),arrays=attributes.map(a=>a.array.slice()),count=field.geometry.instanceCount;
+ for(const time of [0,2,5,7,11,12,14])field.setTime(time);
+ assert.equal(field.material.uniforms.fieldWindTime,field.windTime);assert.equal(field.windTime.value,14);assert.equal(field.geometry.instanceCount,count);
+ attributes.forEach((a,i)=>{assert.equal(a.version,versions[i]);assert.deepEqual(a.array,arrays[i]);});field.dispose();
+});

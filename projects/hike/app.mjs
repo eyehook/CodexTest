@@ -4,7 +4,7 @@ import {FlightView} from './flight-view.mjs?v=glide-17';
 import {applyHeightOffset} from './height-offset.mjs?v=seated-1';
 import {HikeProfiler} from './profiler.mjs?v=capture-1';
 import {CaptureNotice} from './capture-notice.mjs?v=capture-1';
-import {TriangleField} from './triangle-field.mjs?v=maintenance-3';
+import {TriangleField} from './triangle-field.mjs?v=wind-8';
 import {PineShadows} from './pine-shadows.mjs?v=incremental-1';
 import {Flora} from './flora.mjs?v=3d-fade-2';
 import * as T from '../../shared/vendor/three-r180/three.module.js';
@@ -18,7 +18,7 @@ import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {createWorldAsync} from './world-async.mjs?v=pines-dense-1';
 import {placeAtEndpoint} from './teleport.mjs?v=settings-tabs-1';
 import {SettingsMenu} from './settings-menu.mjs?v=capture-1';
-import {APP_VERSION} from './version.mjs?v=0.20.1';
+import {APP_VERSION} from './version.mjs?v=0.20.9';
 import {Terrain} from './terrain.mjs?v=overlap-4';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -226,7 +226,7 @@ function stepFrame(time,frame){
   if(tracing){profiler.set('pineMs',performance.now()-capturePhase);capturePhase=performance.now();}
   pineShadows.setEnabled(settingsMenu.saved.shadows);pineShadows.update(head);
   if(tracing){profiler.set('shadowMs',performance.now()-capturePhase);capturePhase=performance.now();}
-  triangleField.update(head,!terrainApplied);
+  triangleField.setTime(time*.001);triangleField.update(head,!terrainApplied);
   if(tracing)profiler.set('grassMs',performance.now()-capturePhase);
   const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
   uiElapsed+=elapsed;

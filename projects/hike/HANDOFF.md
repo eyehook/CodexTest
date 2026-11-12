@@ -25,7 +25,7 @@ Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Local working version: **v0.20.1**, with tabbed Settings, Base/Summit teleport
+Local working version: **v0.20.9**, with tabbed Settings, Base/Summit teleport
 and optional nearby pine shadows. The expensive grass patches are removed; an experimental, capped single-triangle
 surface field replaces them.
 B/Y open Settings or Save and Close it. The standalone VR Field Notes panel is
@@ -1375,3 +1375,37 @@ plus Bash syntax and whitespace checks. Prior browser integration and actual
 Quest capture uploads established the end-to-end workflow. Captures stay ignored
 and are excluded from publication. Do not check GitHub Pages after this push.
 Historical local/unpublished notes above are superseded by this release review.
+
+
+### Release review — GPU grass wind v0.20.9, 2026-11-12
+
+The user accepted the current motion and authorized GitHub publication. This
+release starts from restored v0.20.1 and adds only GPU grass wind. The reverted
+pine LOD, denser grass, teleport refresh, black loading and automatic startup
+capture experiments are not included. Existing placement, 75% cell probability,
+1–3 clumps, 237,600 allocated blade cap, geometry, colors, snow/path exclusions
+and 40–50 m root-distance fade/clipping are preserved.
+
+The existing vertex shader bends only the tip along world direction (0.8,0.6).
+Broad ~79 m fronts travel continuously at ~8.75 m/s, with one slower crosswind
+sine slightly warping them. There are no timed global gust/calm periods. The
+asymmetric wave curve is wave * (0.75 + 0.25 * wave): +40% of blade height forward,
+then -20% backward, returning through upright without clipped peaks or pauses.
+Existing yaw sine varies blade response from 50–100%, producing 20–40% forward
+and 10–20% reverse peaks. Vertical height is sqrt(height²-offset²), approximately
+preserving length with the existing small blade lean. Both bases remain fixed.
+Fade dithering stays anchored to undeformed geometry.
+
+The app writes one shared time-uniform scalar from the frame timestamp. Wind
+adds no per-frame allocations, CPU blade simulation, geometry/instance uploads,
+attributes, draw calls, textures or controls. Only in-range tips evaluate the
+wind (two sine evaluations). The user reported that the final motion looks good;
+sustained Quest GPU performance has not been formally measured.
+
+Final validation: all 95 Hike tests pass, including unchanged buffers when time
+advances, plus runtime syntax and whitespace checks. Chrome GPU transform-feedback
+checks ran the actual GLSL: bases remained exact, the current curve stayed within
++40%/-20%, and motion was continuous over a 20-second sweep. Earlier close-up
+render checks had no shader errors and confirmed unchanged draw-call/triangle
+counts and buffer versions. Per user preference, do not check GitHub Pages after
+pushing. This release review supersedes prior local/unpublished wind tuning notes.

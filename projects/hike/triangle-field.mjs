@@ -1,6 +1,25 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=worker-3';
 export {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=worker-3';
+// Shared GLSL is also exercised directly in the browser deformation check.
+export const grassWindVertex=`
+uniform float fieldWindTime;
+vec3 bendGrassTip(vec3 blade,vec3 root,vec4 shape){
+ // Both base vertices bypass all wind arithmetic.
+ if(blade.y<=0.0)return blade;
+ // Broad ~79 m fronts travel at ~8.75 m/s along the fixed (0.8,0.6) direction.
+ // One slower crosswind sine gently warps fronts; existing yaw varies response.
+ float along=dot(root.xz,vec2(0.8,0.6));
+ float across=dot(root.xz,vec2(-0.6,0.8));
+ float wave=sin(along*0.08-fieldWindTime*0.7+0.22*sin(across*0.035));
+ // A single asymmetric sine has no clipped peaks or pause at upright.
+ // +1 gives full forward bend; -1 gives half-strength reverse bend.
+ float strength=wave*(0.75+0.25*wave)*(0.75+0.25*shape.z);
+ float offset=blade.y*(0.40*strength);
+ blade.xz+=vec2(0.8,0.6)*offset;
+ blade.y=sqrt(max(0.0,blade.y*blade.y-offset*offset));
+ return blade;
+}`;
 const vertexShader=`
 #include <common>
 #include <fog_pars_vertex>
@@ -11,6 +30,7 @@ attribute vec3 fieldColor;
 varying vec3 vFieldColor;
 varying vec3 vFieldPattern;
 varying float vFieldDistance;
+${grassWindVertex}
 void main(){
  vFieldDistance=length(fieldRoot.xz-fieldViewer.xz);vFieldColor=fieldColor;vFieldPattern=fieldRoot;
  if(vFieldDistance>=50.0){gl_Position=vec4(2.0,2.0,2.0,1.0);
@@ -21,7 +41,8 @@ void main(){
  vec3 blade=vec3(position.x*fieldShape.x,position.y*fieldShape.y,position.z*fieldShape.y);
  vec3 rotated=vec3(blade.x*fieldShape.w+blade.z*fieldShape.z,blade.y,-blade.x*fieldShape.z+blade.z*fieldShape.w);
  vec3 world=fieldRoot+rotated;
- vFieldDistance=length(fieldRoot.xz-fieldViewer.xz);vFieldPattern=world;
+ vFieldPattern=world;
+ world=fieldRoot+bendGrassTip(rotated,fieldRoot,fieldShape);
  vFieldColor=fieldColor;
  vec4 mvPosition=modelViewMatrix*vec4(world,1.0);gl_Position=projectionMatrix*mvPosition;
  #ifdef USE_FOG
@@ -54,11 +75,11 @@ export class TriangleField {
  constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'||typeof Worker!=='undefined'?()=>new Worker(new URL('./field-worker.mjs?v=worker-3',import.meta.url),{type:'module'}):null}={}){
   this.world=world;this.flora=flora;this.settings=TRIANGLE_FIELD;this.capacity=(2*TRIANGLE_FIELD.halfWindow+1)**2;this.maxTriangles=this.capacity*TRIANGLE_FIELD.bladesPerCell;
   if(this.maxTriangles>TRIANGLE_CAP)throw Error('Triangle field exceeds budget');
-  this.viewer={value:new T.Vector3()};this.geometry=new T.InstancedBufferGeometry();
+  this.windTime={value:0};this.viewer={value:new T.Vector3()};this.geometry=new T.InstancedBufferGeometry();
   this.geometry.setAttribute('position',new T.Float32BufferAttribute([-.5,0,0,.5,0,0,.12,1,.1],3));
   this.attributes={};for(const [name,size] of [['fieldRoot',3],['fieldShape',4],['fieldColor',3]]){const attribute=new T.InstancedBufferAttribute(new Float32Array(this.maxTriangles*size),size).setUsage(T.DynamicDrawUsage);attribute.onUpload(()=>attribute.clearUpdateRanges());this.geometry.setAttribute(name,attribute);this.attributes[name]=attribute;}
   this.geometry.instanceCount=0;
-  this.material=new T.ShaderMaterial({uniforms:{...T.UniformsUtils.clone(T.UniformsLib.fog),fieldViewer:this.viewer,fieldCoverageStep:flora.coverageStep},vertexShader,fragmentShader,side:T.DoubleSide,alphaToCoverage:flora.coverageSamples>1,fog:true});
+  this.material=new T.ShaderMaterial({uniforms:{...T.UniformsUtils.clone(T.UniformsLib.fog),fieldViewer:this.viewer,fieldWindTime:this.windTime,fieldCoverageStep:flora.coverageStep},vertexShader,fragmentShader,side:T.DoubleSide,alphaToCoverage:flora.coverageSamples>1,fog:true});
   this.mesh=new T.Mesh(this.geometry,this.material);this.mesh.name='Capped triangle surface field';this.mesh.castShadow=false;this.mesh.receiveShadow=false;this.mesh.frustumCulled=false;this.mesh.visible=false;scene.add(this.mesh);
   this.evictions=[];this.cells=new Map();this.slots=[];this.queue=[];this.next=0;this.cellX=Infinity;this.cellZ=Infinity;this.instanceCount=0;this.updateMs=0;this.disposed=false;
   this.owners=new Array(this.maxTriangles);this.ownerLocal=new Uint16Array(this.maxTriangles);this.dirtyBlocks=new Uint8Array(Math.ceil(this.maxTriangles/128));this.hasDirty=false;
@@ -72,6 +93,7 @@ export class TriangleField {
   }catch(error){this.fail(error);}
 
  }
+ setTime(seconds){this.windTime.value=seconds;}
  markDirty(start,count){if(count){this.dirtyBlocks.fill(1,Math.floor(start/128),Math.ceil((start+count)/128));this.hasDirty=true;}}
  remove(record){
   const start=record.bladeSlots[0],contiguous=record.count>0&&record.bladeSlots.every((slot,i)=>slot===start+i);
