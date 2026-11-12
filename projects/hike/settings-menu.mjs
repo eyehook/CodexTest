@@ -1,12 +1,36 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
+import {ButtonEdges} from '../../shared/xr/input.mjs';
+import {sliderValue} from '../../shared/ui/slider.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
 export const SETTINGS_KEY='hike.settings';
-export function loadSettings(storage){try{return {shadows:JSON.parse(storage.getItem(SETTINGS_KEY))?.shadows===true};}catch{return {shadows:false};}}
-export function saveSettings(storage,settings){storage.setItem(SETTINGS_KEY,JSON.stringify({shadows:settings.shadows===true}));}
+const defaults=()=>({shadows:false,heightOffset:0});
+function normalizeSettings(value){return {shadows:value?.shadows===true,heightOffset:typeof value?.heightOffset==='number'&&Number.isFinite(value.heightOffset)?Math.max(0,Math.min(1.5,value.heightOffset)):0};}
+export function loadSettings(storage){try{return normalizeSettings(JSON.parse(storage.getItem(SETTINGS_KEY)));}catch{return defaults();}}
+export function saveSettings(storage,settings){storage.setItem(SETTINGS_KEY,JSON.stringify(normalizeSettings(settings)));}
 const TABS=['General','Teleport','Debug'];
 const PAGE_SIZE=7;
 class SettingsPanel extends VRControlPanel {
+ constructor(...args){super(...args);this.triggers=new ButtonEdges();this.drags=new Map();this.seen=new Set();this.seedTriggers=true;}
+ cancelInteraction(){this.drags?.clear();this.seedTriggers=true;}
+ hideRays(){super.hideRays();this.cancelInteraction();}
+ update(){
+  if(!this.enabled||!this.mesh.visible){this.hideRays();return;}
+  const sources=this.controllers.map(c=>c.userData.source).filter(Boolean);this.triggers.retain(sources);
+  for(const source of this.seen)if(!sources.includes(source))this.seen.delete(source);
+  for(const controller of this.controllers){
+   if(!this.enabled||!this.mesh.visible)break;
+   const source=controller.userData.source,connected=this.controllerStates.get(controller).connected;
+   if(!source||!connected){this.drags.delete(controller);if(source)this.seen.delete(source);continue;}
+   const edge=this.triggers.sample(source,0,this.seedTriggers||!this.seen.has(source));this.seen.add(source);
+   if(!edge.down){this.drags.delete(controller);continue;}
+   const hit=this.hit(controller),definition=hit?.slider?this.pageRows[hit.row]:null;
+   if(edge.pressed){if(definition)this.drags.set(controller,definition.id);else this.activate(hit);}
+   if(definition&&this.drags.get(controller)===definition.id)this.model.set(definition.id,hit.value,{source:'vr'});
+  }
+  this.seedTriggers=false;super.update();
+ }
+
  get pageRows(){return this.rows.concat(this.actions).slice((this.page??0)*PAGE_SIZE,((this.page??0)+1)*PAGE_SIZE);}
  draw(){
   const ctx=this.ctx,c=this.theme,tab=this.tab??'General',page=this.page??0;
@@ -21,6 +45,10 @@ class SettingsPanel extends VRControlPanel {
    if(d.kind==='toggle'){
     ctx.strokeStyle=c.accent;ctx.lineWidth=3;ctx.strokeRect(940,y+15,28,28);
     if(d.get()){ctx.beginPath();ctx.moveTo(945,y+28);ctx.lineTo(953,y+36);ctx.lineTo(964,y+20);ctx.stroke();}
+   }else if(d.slider){
+    ctx.fillStyle=c.row;ctx.fillRect(250,y,754,60);ctx.fillStyle=c.text;ctx.font='22px system-ui';ctx.fillText(this.model.label(d,'vr'),268,y+23);ctx.fillText(this.model.format(d),900,y+23);
+    ctx.fillStyle=c.button;ctx.fillRect(280,y+40,690,8);const x=280+690*(d.get()-d.min)/(d.max-d.min);
+    ctx.fillStyle=c.accent;ctx.fillRect(280,y+40,x-280,8);ctx.beginPath();ctx.arc(x,y+44,9,0,Math.PI*2);ctx.fill();
    }else if(d.kind==='number'){
     ctx.fillText(this.model.format(d),730,y+37);
     for(let j=0;j<2;j++){ctx.fillStyle=c.button;ctx.fillRect(850+j*76,y+5,64,50);ctx.fillStyle=c.text;ctx.fillText(j?'+':'−',871+j*76,y+37);}
@@ -40,6 +68,7 @@ class SettingsPanel extends VRControlPanel {
   if(y>=700&&y<=760)return {save:true,row:20,sign:1,distance};
   if(y>=620&&y<=670&&this.rows.length+this.actions.length>PAGE_SIZE){if(x<=430)return {page:-1,row:21,sign:1,distance};if(x>=824)return {page:1,row:22,sign:1,distance};}
   const row=Math.floor((y-100)/72),d=this.pageRows[row];if(!d||y<100||y>=100+row*72+60||d.kind==='readout'||this.model.disabled(d))return null;
+  if(d.slider)return x>=280&&x<=970&&y>=100+row*72+30?{row,slider:true,value:sliderValue(d,x,280,690),sign:1,distance}:null;
   const sign=d.kind==='number'?(x>=850&&x<=914?-1:x>=926&&x<=990?1:0):1;
   return sign?{row,sign,distance}:null;
  }
@@ -49,24 +78,26 @@ class SettingsPanel extends VRControlPanel {
   if(hit.save){this.onSave();return;}
   if(hit.page){this.page=Math.max(0,Math.min(Math.ceil((this.rows.length+this.actions.length)/PAGE_SIZE)-1,(this.page??0)+hit.page));this.hover=-1;this.draw();return;}
   const d=this.pageRows[hit.row];if(!d)return;
+  if(hit.slider){this.model.set(d.id,hit.value,{source:'vr'});return;}
   if(d.kind==='number')this.model.adjust(d.id,hit.sign);else this.model.activate(d.id,{source:'vr'});
  }
  resizeLayout(){this.resizeCanvas(820);}
 }
 export class SettingsMenu {
  constructor(scene,rig,renderer,controllers,{debugModel=null,onTeleport=()=>{}}={}){
-  this.scene=scene;this.rig=rig;this.open=false;this.saved={shadows:false};try{this.saved=loadSettings(globalThis.localStorage);}catch{}this.draft={...this.saved};
+  this.scene=scene;this.rig=rig;this.open=false;this.saved=defaults();try{this.saved=loadSettings(globalThis.localStorage);}catch{}this.draft={...this.saved};
   this.model=new ControlModel([
    {id:'shadows',kind:'toggle',label:'Shadows',get:()=>this.draft.shadows,set:v=>this.draft.shadows=v},
+   {id:'heightOffset',kind:'number',slider:true,label:'Height offset',min:0,max:1.5,step:.05,stepBase:0,get:()=>this.draft.heightOffset,set:v=>this.draft.heightOffset=v,format:v=>`${v.toFixed(2)} m`},
   ]);
-  this.panel=new SettingsPanel(scene,rig,renderer,this.model,{title:'SETTINGS',subtitle:'Point either controller · Trigger to select',distance:2,angle:0,width:1.7,controllers,enabled:false});
+  this.panel=new SettingsPanel(scene,rig,renderer,this.model,{title:'SETTINGS',subtitle:'Point either controller · Trigger to select',distance:2,angle:0,width:1.7,controllers,controllerEvents:false,enabled:false});
   this.models={General:this.model,Teleport:new ControlModel(['base','summit'].map(id=>({id,kind:'action',label:id==='base'?'Base':'Summit',run:()=>{if(this.saveAndExit())onTeleport(id);}}))),Debug:debugModel??new ControlModel([])};
   this.panel.onTab=tab=>this.selectTab(tab);this.panel.onSave=()=>this.saveAndExit();
   this.panel.resizeCanvas(820);this.selectTab('General');
  }
  selectTab(tab){
   if(!this.models[tab])return;
-  this.panel.tab=tab;this.panel.page=0;this.panel.hover=-1;this.panel.setModel(this.models[tab]);
+  this.panel.cancelInteraction();this.panel.tab=tab;this.panel.page=0;this.panel.hover=-1;this.panel.setModel(this.models[tab]);
  }
  show(position,heading){
   if(this.open)return;

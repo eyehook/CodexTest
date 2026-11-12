@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Worker as NodeWorker} from 'node:worker_threads';
 import * as T from '../../../shared/vendor/three-r180/three.module.js';
-import {TriangleField,fieldCell} from '../triangle-field.mjs';
+import {TriangleField,fieldCell,BLADES_PER_CELL} from '../triangle-field.mjs';
 import {cachedWorld} from './helpers/world-fixture.mjs';
 import {elevationRange} from '../flora-placement.mjs';
 const flora={coverageSamples:0,coverageStep:{value:1}};
@@ -43,7 +43,7 @@ test('real grass worker matches exact synchronous cell data and keeps the main e
   assert.ok(ticks>5);assert.ok(field.workerMs>=0);
   for(const record of field.cells.values()){
    const expected=fieldCell(world,record.cx,record.cz);assert.equal(record.count,expected.count);
-   for(const [name,data] of [['fieldRoot',expected.root],['fieldShape',expected.shape],['fieldColor',expected.color]]){const attribute=field.attributes[name],offset=record.slot*352*attribute.itemSize;assert.deepEqual(attribute.array.slice(offset,offset+data.length),data);}
+   for(const [name,data] of [['fieldRoot',expected.root],['fieldShape',expected.shape],['fieldColor',expected.color]]){const attribute=field.attributes[name],offset=record.slot*BLADES_PER_CELL*attribute.itemSize;assert.deepEqual(attribute.array.slice(offset,offset+data.length),data);}
   }
  }finally{clearInterval(timer);field.dispose();}
 });

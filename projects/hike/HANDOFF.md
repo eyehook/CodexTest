@@ -1,17 +1,36 @@
 # The Hike — single snapped terrain grid
 
+## Testing policy — reduced iteration checks
+
+User preference, agreed 2026-11-11: keep checks proportional to the change.
+Do not run the full Hike suite after every small edit.
+
+- Simple tuning (height, density, color, spawn): syntax and diff checks, plus
+  directly affected tests where useful. Avoid new tests for trivial reversible
+  tuning unless they protect a meaningful constraint.
+- Placement or rendering changes: focused grass, terrain or shadow tests.
+- Worker, input or structural changes: the relevant regression suites.
+- Before a push: run the full Hike suite once on the final code.
+- Shared runtime changes: follow root AGENTS.md requirements for broader
+  repository and affected-consumer checks.
+- Browser checks: reserve for visual changes or integration behavior that
+  automated tests cannot establish. Do not repeat successful checks unless new
+  changes, failures or unresolved concerns justify it.
+- Documentation-only edits: check content/links as applicable and run
+  `git diff --check`; no runtime tests.
+
 ## State and preview
 
 Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Release version: **v0.17.0**, with tabbed Settings, Base/Summit teleport
+Release version: **v0.18.1**, with tabbed Settings, Base/Summit teleport
 and optional nearby pine shadows. The expensive grass patches are removed; an experimental, capped single-triangle
 surface field replaces them.
 B/Y open Settings or Save and Close it. The standalone VR Field Notes panel is
 removed; its controls/readouts are on Debug. General controls the persisted
-Shadows setting (default off). All **82 Hike tests pass**; syntax and whitespace checks
+Shadows setting (default off). All **85 Hike tests pass**; syntax and whitespace checks
 pass. Chrome simulated XR checks pass for B/Y transitions and both endpoint
 teleports with physical offsets, with no page errors. The user reported “Better”
 after worker-backed grass generation and authorized GitHub publication on
@@ -1117,3 +1136,83 @@ real worker use and zero main-thread grass generation queries, with no page or
 shader errors. Formal sustained Quest CPU/GPU timing, memory and stereo-quality
 measurements remain unrecorded. Publication is authorized for this reviewed
 release; deployment is verified separately after pushing.
+
+
+### Snow-line grass exclusion — local v0.17.1
+
+Grass candidates now stop at the same snow-onset elevation coordinate as terrain
+coloring: height relative to the geology summit plus seeded broad patch noise,
+with threshold .82. `surfaceAltitude` and `SNOW_LINE` in `surface.mjs` are shared
+by the terrain palette and worker cell placement, preventing mismatched cutoffs.
+This excludes grass above the snow line even where slope exposes bare rock.
+The prior cliff/high-elevation restrictions remain; terrain appearance is
+unchanged. Worker/cache entry versions advance so existing cached cells rebuild.
+
+Validation: Hike tests, syntax and whitespace checks pass. New regression checks
+cover snowy elevations that passed the old cutoff, lower grass-bearing ground,
+and every generated root across the seeded snow transition. Changes are local
+and unpublished.
+
+
+### Multiple grass clumps per cell — local v0.17.2
+
+Each 8 m cell now has a seeded 75% chance of getting 1–3 clumps, with equal
+probability among the three clump counts. Each clump retains 352 candidate blades;
+the user explicitly allowed the blade budget to increase. Cell capacity is now
+1,056 blades, and the fixed 225-cell window caps geometry at 237,600 triangles
+per eye (240,000 hard budget), using 9,504,000 instance bytes. Actual accepted
+counts remain subject to paths, snow, slopes, landing and boundary exclusions.
+The worker, fixed buffers, heights/widths, colors and 40–50 m fade are retained.
+
+Validation includes seeded occupancy/clump-count distribution and full worker
+parity/buffer-cap checks. Changes are local and unpublished; Quest performance
+at the increased density remains to be tested.
+
+
+### Seated height offset — local v0.18.0
+
+General adds a true laser/trigger-drag Height offset slider: 0–1.5 m in .05 m
+steps, default 0, saved with Shadows in `hike.settings`. Existing saved settings
+without this field default to zero; invalid values default/clamp safely. B/Y,
+Save and Close, and Teleport persist the draft value. The saved offset applies
+on the next tracked/world frame. Tabs/release/disconnection/suspension cancel
+drag ownership; held triggers are absorbed when entering/resuming.
+
+The camera/controllers share a height parent under the bank rig. Gameplay adds
+the same offset once to the freshly copied raw viewer position; collision and
+flight keep the floor rig at ground height. Bank pivots use the effective head
+position, preserving render/gameplay agreement with translated/yawed rigs and
+physical head offsets. Reset and teleport retain the saved seated preference.
+
+All 20 focused Settings/input/flight checks pass, along with syntax/whitespace
+validation under the reduced testing policy. A lightweight Chrome scene passed
+slider midpoint/end dragging, persistence and head/floor composition checks,
+with no page errors; the rendered slider was reviewed. Physical Quest seated
+comfort/interaction remains to be tested. Changes are local and unpublished.
+
+
+### Random startup seed — local v0.18.1
+
+Loading without a valid, nonblank `?seed=` now chooses a fresh uint32 seed with
+`crypto.getRandomValues`, rather than always using 41729. Explicit seed links
+(including zero), manual seed entry and Random seed recovery remain reproducible
+and unchanged. Reloading a seedless URL chooses again; the generated seed is
+shown in the existing diagnostics/seed field. Generator/test defaults remain
+41729. Syntax and whitespace checks pass under the reduced testing policy;
+no runtime suite was needed for this small startup-default edit. Local/unpublished.
+
+
+### Release review — v0.18.1, 2026-11-11
+
+The user explicitly requested pushing this release to GitHub. It includes grass
+snow-line exclusion, a 75% per-cell chance of 1–3 full-density clumps (237,600
+triangle cap), the saved General height-offset slider (0–1.5 m, default zero),
+and random startup seeds while preserving explicit seed links. The reduced
+iteration-testing policy is recorded near the top of this handoff.
+
+Final checks: all 85 Hike tests pass, changed runtime modules pass syntax checks,
+and `git diff --check` passes. Prior focused Chrome checks verified the seated
+slider and saved height composition; no additional browser sweep was required.
+Changes are confined to Hike. Publication is authorized for this reviewed
+release. Per user preference, do not poll GitHub Pages after pushing.
+Historical local/unpublished notes above are superseded by this release review.

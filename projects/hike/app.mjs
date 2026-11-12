@@ -1,7 +1,8 @@
 import {Glider,LandingRunout} from './gliding.mjs?v=glide-17';
 import {FlightButtons} from './flight-input.mjs?v=settings-tabs-1';
 import {FlightView} from './flight-view.mjs?v=glide-17';
-import {TriangleField} from './triangle-field.mjs?v=worker-1';
+import {applyHeightOffset} from './height-offset.mjs?v=seated-1';
+import {TriangleField} from './triangle-field.mjs?v=worker-3';
 import {PineShadows} from './pine-shadows.mjs?v=pines-2';
 import {Flora} from './flora.mjs?v=3d-fade-2';
 import * as T from '../../shared/vendor/three-r180/three.module.js';
@@ -14,8 +15,8 @@ import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {createWorldAsync} from './world-async.mjs?v=pines-dense-1';
 import {placeAtEndpoint} from './teleport.mjs?v=settings-tabs-1';
-import {SettingsMenu} from './settings-menu.mjs?v=settings-tabs-1';
-import {APP_VERSION} from './version.mjs?v=0.17.0';
+import {SettingsMenu} from './settings-menu.mjs?v=seated-1';
+import {APP_VERSION} from './version.mjs?v=0.18.1';
 import {Terrain} from './terrain.mjs?v=summit-async-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -31,7 +32,7 @@ function showProgress(value,label){
 const generationAbort=new AbortController();
 addEventListener('pagehide',()=>generationAbort.abort(),{once:true});
 const rawSeed=new URLSearchParams(location.search).get('seed');
-const seed=rawSeed!==null&&Number.isFinite(Number(rawSeed))?Number(rawSeed):41729;
+const seed=rawSeed!==null&&rawSeed.trim()!==''&&Number.isFinite(Number(rawSeed))?Number(rawSeed):crypto.getRandomValues(new Uint32Array(1))[0];
 let panelOpen=false;
 function setPanel(open){panelOpen=open;$('#diagnostics').hidden=!open;if(open&&document.pointerLockElement)document.exitPointerLock();}
 $('#panel-toggle').onclick=()=>setPanel(!panelOpen);$('#close').onclick=()=>setPanel(false);
@@ -56,7 +57,7 @@ const spawn=world.start;
 const settings={speed:14,slideSlope:35};
 const scene=new T.Scene();scene.background=new T.Color(0x9fbac6);scene.fog=new T.Fog(0x9fbac6,650,950);
 const camera=new T.PerspectiveCamera(70,innerWidth/innerHeight,.08,1200);camera.position.y=1.7;camera.rotation.order='YXZ';camera.rotation.x=.18;
-const rig=new T.Group(),bankRig=new T.Group();scene.add(rig);rig.add(bankRig);bankRig.add(camera);
+const rig=new T.Group(),bankRig=new T.Group(),heightRig=new T.Group();scene.add(rig);rig.add(bankRig);bankRig.add(heightRig);heightRig.add(camera);
 const renderer=new T.WebGLRenderer({canvas:$('#world'),antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
 renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1;renderer.outputColorSpace=T.SRGBColorSpace;renderer.setClearColor(scene.background);
@@ -100,7 +101,7 @@ const defs=[
 const model=new ControlModel(defs);
 const desktop=new DesktopControls($('#controls'),model);
 const controllers=[renderer.xr.getController(0),renderer.xr.getController(1)];
-for(const c of controllers){bankRig.add(c);c.addEventListener('connected',e=>c.userData.source=e.data);c.addEventListener('disconnected',()=>delete c.userData.source);}
+for(const c of controllers){heightRig.add(c);c.addEventListener('connected',e=>c.userData.source=e.data);c.addEventListener('disconnected',()=>delete c.userData.source);}
 const settingsMenu=new SettingsMenu(scene,rig,renderer,controllers,{debugModel:model,onTeleport:destination=>{pendingTeleport=destination;}});
 $('#route-info').textContent=`Seed ${seed} · ${(world.totalLength/1000).toFixed(2)} km · ${Math.round(world.totalLength/settings.speed/60)} minutes · summit ${Math.round(world.summit.y)} m`;
 $('#explore').onclick=()=>{$('#explore').blur();walk=true;document.body.classList.add('walking');$('#world').requestPointerLock?.();};
@@ -124,6 +125,7 @@ function stepFrame(time,frame){
   if(!state.active){settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();fps.reset();return;}
   if(session){viewer.position.copy(state.pose.transform.position);viewer.orientation.copy(state.pose.transform.orientation);if(state.firstTracked){reset();const gl=renderer.getContext();flora.setCoverageSamples(gl.getParameter(gl.SAMPLES));}}
   else {viewer.position.copy(camera.position);viewer.orientation.copy(camera.quaternion);}
+  applyHeightOffset(heightRig,viewer,settingsMenu.saved.heightOffset);
   const teleported=!!pendingTeleport;
   if(teleported){reset(pendingTeleport);pendingTeleport=null;dt=0;}
   let launchPressed=launchQueued;launchQueued=false;
@@ -195,7 +197,7 @@ function stepFrame(time,frame){
 }
 renderer.setAnimationLoop(stepFrame);
 // Desktop inspection surface for desktop acceptance checks.
-window.hike={triangleField,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
+window.hike={heightRig,triangleField,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
 } catch(error) {
   document.body.classList.remove('loading');
   $('#intro').hidden=true;$('#status').textContent='Mountain generation failed · choose another seed';
