@@ -50,7 +50,8 @@ test('completed worker results stay visible and apply before catching up to the 
  const progress=[],worker=new FakeWorker(),terrain=new Terrain(new T.Scene(),syntheticWorld(),{workerFactory:()=>worker,onProgress:value=>progress.push(value)});
  worker.onmessage({data:{type:'progress',value:.5}});assert.deepEqual(progress,[.5]);assert.equal(terrain.inFlight,true);assert.equal(terrain.snapCount,0);
  terrain.update(20,1);terrain.update(200,-100);assert.equal(terrain.snapCount,0);assert.equal(terrain.mesh.visible,false);assert.equal(worker.messages.length,2);
- worker.finish();await terrain.ready;
+ const recordedLatency=[];terrain.onApply=()=>recordedLatency.push(terrain.latencyMs);
+ worker.finish();await terrain.ready;assert.equal(recordedLatency[0],terrain.latencyMs);assert.ok(Number.isFinite(recordedLatency[0]));
  assert.equal(terrain.snapCount,1);assert.equal(terrain.originX,0);assert.equal(terrain.mesh.visible,true);assert.equal(worker.messages.length,3);
  assert.equal(worker.messages.at(-1).originX,192);assert.equal(worker.messages.at(-1).originZ,-112);
  terrain.update(400,-200);assert.equal(terrain.mesh.visible,true,'old grid remains visible outside its fine core');

@@ -64,3 +64,14 @@ test('transition normals include the spatial derivative of the blend',()=>{
  const dx=(render.height(x+e,z,0,0)-render.height(x-e,z,0,0))/(2*e),dz=(render.height(x,z+e,0,0)-render.height(x,z-e,0,0))/(2*e);
  assert.ok(Math.abs(-n.x/n.y-dx)<.0001);assert.ok(Math.abs(-n.z/n.y-dz)<.0001);
 });
+
+test('overlap plans reuse snap directions, stay bounded and preserve uncached output',()=>{
+ const coordinates=[];for(let z=-20;z<=20;z++)for(let x=-20;x<=20;x++)coordinates.push(x*4,z*4);
+ const w=world(),cached=new TerrainSamples(w,new Int16Array(coordinates)),reference=new TerrainSamples(w,new Int16Array(coordinates));
+ const a=new Float32Array(cached.count*7),b=a.slice();
+ for(const [x,z] of [[0,0],[16,0],[32,0],[16,16],[-16,-16],[0,0],[2000,2000],[0,0]]){
+  reference.overlapPlans.clear();cached.fill(x,z,a);reference.fill(x,z,b);assert.deepEqual(a,b);
+ }
+ const plan=cached.overlapPlan(64,0),builds=cached.overlapPlanBuilds;assert.equal(cached.overlapPlan(64,0),plan);assert.equal(cached.overlapPlanBuilds,builds);
+ for(let i=1;i<20;i++)cached.overlapPlan(i*64,0);assert.equal(cached.overlapPlans.size,8);
+});

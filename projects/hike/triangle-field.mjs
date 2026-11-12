@@ -60,9 +60,9 @@ export class TriangleField {
   this.geometry.instanceCount=0;
   this.material=new T.ShaderMaterial({uniforms:{...T.UniformsUtils.clone(T.UniformsLib.fog),fieldViewer:this.viewer,fieldCoverageStep:flora.coverageStep},vertexShader,fragmentShader,side:T.DoubleSide,alphaToCoverage:flora.coverageSamples>1,fog:true});
   this.mesh=new T.Mesh(this.geometry,this.material);this.mesh.name='Capped triangle surface field';this.mesh.castShadow=false;this.mesh.receiveShadow=false;this.mesh.frustumCulled=false;this.mesh.visible=false;scene.add(this.mesh);
-  this.cells=new Map();this.slots=[];this.queue=[];this.next=0;this.cellX=Infinity;this.cellZ=Infinity;this.instanceCount=0;this.updateMs=0;this.disposed=false;
+  this.evictions=[];this.cells=new Map();this.slots=[];this.queue=[];this.next=0;this.cellX=Infinity;this.cellZ=Infinity;this.instanceCount=0;this.updateMs=0;this.disposed=false;
   this.owners=new Array(this.maxTriangles);this.ownerLocal=new Uint16Array(this.maxTriangles);this.dirtyBlocks=new Uint8Array(Math.ceil(this.maxTriangles/128));this.hasDirty=false;
-  this.worker=null;this.inFlight=false;this.completed=null;this.requestId=0;this.pendingCells=[];this.recycle=null;this.error=null;this.workerMs=0;
+  this.worker=null;this.inFlight=false;this.completed=null;this.requestId=0;this.pendingCells=[];this.recycle=null;this.error=null;this.workerMs=0;this.appliedJobs=0;
   if(workerFactory)try{
    this.worker=workerFactory();
    this.worker.onmessage=({data})=>this.receive(data);
@@ -101,7 +101,8 @@ export class TriangleField {
    this.cells.clear();this.slots.length=0;this.instanceCount=0;this.owners.fill(undefined);this.dirtyBlocks.fill(0);this.hasDirty=false;
    for(const attribute of Object.values(this.attributes))attribute.clearUpdateRanges();
   }
-  for(const [key,record] of this.cells)if(Math.abs(record.cx-cx)>half||Math.abs(record.cz-cz)>half){this.remove(record);this.cells.delete(key);}
+  this.evictions=[];
+  for(const record of this.cells.values())if(Math.abs(record.cx-cx)>half||Math.abs(record.cz-cz)>half)this.evictions.push(record);
   this.queue=[];this.next=0;
   for(let z=cz-half;z<=cz+half;z++)for(let x=cx-half;x<=cx+half;x++){const key=`${x},${z}`;if(!this.cells.has(key))this.queue.push({key,cx:x,cz:z,distance:(x-cx)**2+(z-cz)**2});}
   this.queue.sort((a,b)=>a.distance-b.distance);this.cellX=cx;this.cellZ=cz;
@@ -112,18 +113,24 @@ export class TriangleField {
   if(!allowWork){this.updateMs=0;return;}
   const began=performance.now(),s=this.settings,cx=Math.floor(viewer.x/s.cellSize),cz=Math.floor(viewer.z/s.cellSize);
   if(cx!==this.cellX||cz!==this.cellZ)this.plan(cx,cz);
-  if(this.completed){
-   const result=this.completed;this.completed=null;this.workerMs=result.workerMs;this.recycle=result.cells.map(record=>record.data);
+  // Departing cells are at the fading outer edge; retire at most two per
+  // frame, with a soft time budget. Keep packed storage and its fixed cap.
+  for(let removed=0;this.evictions.length&&removed<2;removed++){
+   const record=this.evictions.pop();this.remove(record);this.cells.delete(record.key);
+   if(performance.now()-began>=.35)break;
+  }
+  if(this.completed&&this.slots.length+this.completed.cells.filter(record=>Math.abs(record.cx-cx)<=s.halfWindow&&Math.abs(record.cz-cz)<=s.halfWindow&&!this.cells.has(record.key)).length<=this.capacity){
+   const result=this.completed;this.completed=null;this.workerMs=result.workerMs;this.appliedJobs++;this.recycle=result.cells.map(record=>record.data);
    for(const record of result.cells)if(Math.abs(record.cx-cx)<=s.halfWindow&&Math.abs(record.cz-cz)<=s.halfWindow&&!this.cells.has(record.key))this.applyCell(record,record.data);
   }
   if(this.worker){
-   if(!this.inFlight){
-    const cells=[];while(this.next<this.queue.length&&cells.length<s.maxCellsPerFrame){const record=this.queue[this.next++];if(!this.cells.has(record.key))cells.push(record);}
+   if(!this.inFlight&&!this.completed&&this.slots.length<this.capacity){
+    const cells=[];while(this.next<this.queue.length&&cells.length<Math.min(s.maxCellsPerFrame,this.capacity-this.slots.length)){const record=this.queue[this.next++];if(!this.cells.has(record.key))cells.push(record);}
     if(cells.length){this.inFlight=true;this.pendingCells=cells;try{const buffers=this.recycle,transfer=buffers?buffers.flatMap(cell=>[cell.root.buffer,cell.shape.buffer,cell.color.buffer]):[];this.worker.postMessage({type:'cells',id:++this.requestId,cells,buffers},transfer);this.recycle=null;}catch(error){this.fail(error);return;}}
    }
   }else{
    // Synchronous adapter for dependency-free Node tests; browsers use the worker.
-   for(let done=0;this.next<this.queue.length&&done<s.maxCellsPerFrame;done++){
+   for(let done=0;this.next<this.queue.length&&done<s.maxCellsPerFrame&&this.slots.length<this.capacity;done++){
     const record=this.queue[this.next++];if(!this.cells.has(record.key))this.applyCell(record,fieldCell(this.world,record.cx,record.cz));
     if(performance.now()-began>=s.budgetMs)break;
    }
@@ -163,5 +170,5 @@ export class TriangleField {
  }
  fail(error){if(this.disposed||this.error)return;this.error=error;this.worker?.terminate();this.inFlight=false;this.completed=null;this.recycle=null;this.mesh.visible=false;this.geometry.instanceCount=0;}
  async initialize(viewer){this.update(viewer);while(!this.error&&(this.next<this.queue.length||this.inFlight||this.completed)&&!this.disposed){await new Promise(resolve=>requestAnimationFrame(resolve));this.update(viewer);}}
- dispose(){if(this.disposed)return;this.disposed=true;this.worker?.terminate();this.completed=null;this.recycle=null;this.inFlight=false;this.mesh.removeFromParent();this.geometry.dispose();this.material.dispose();this.cells.clear();this.slots.length=0;this.owners.length=0;this.queue.length=0;}
+ dispose(){if(this.disposed)return;this.disposed=true;this.worker?.terminate();this.completed=null;this.recycle=null;this.inFlight=false;this.mesh.removeFromParent();this.geometry.dispose();this.material.dispose();this.cells.clear();this.slots.length=0;this.owners.length=0;this.queue.length=0;this.evictions.length=0;}
 }

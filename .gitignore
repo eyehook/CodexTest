@@ -6,3 +6,6 @@ node_modules/
 
 # Rebuilt automatically when Hike generation sources change
 /projects/hike/.test-cache/
+
+# Local Quest/browser JSON captures
+/.captures/

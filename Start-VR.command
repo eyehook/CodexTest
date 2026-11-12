@@ -11,6 +11,7 @@ fail() {
   exit 1
 }
 [[ -f "$SITE_DIR/index.html" && -f "$SITE_DIR/projects/forest/index.html" ]] || fail "Cannot find the website at $SITE_DIR"
+[[ -f "$SITE_DIR/tools/vr_server.py" ]] || fail 'Cannot find tools/vr_server.py in this checkout.'
 [[ -x "$ADB" ]] || fail 'Install Meta Quest Developer Hub in Applications first.'
 command -v python3 >/dev/null 2>&1 || fail 'Python 3 was not found.'
 
@@ -27,22 +28,25 @@ fi
 [[ ${#SERIALS[@]} -eq 1 ]] || fail 'More than one ADB device is connected. Disconnect the others and run this script again.'
 SERIAL="${SERIALS[0]}"
 
-# Reuse a server only if its project index matches this checkout.
-if curl -fsS --max-time 3 "http://127.0.0.1:$PORT/index.html" | cmp -s "$SITE_DIR/index.html" -; then
-  printf 'The VR web server is already running.\n'
+# Reuse only an upload-capable server for this exact checkout.
+server_ready() {
+  curl -fsS --max-time 2 "http://127.0.0.1:$PORT/__debug/info" 2>/dev/null | python3 -c 'import json,os,sys; data=json.load(sys.stdin); sys.exit(0 if data.get("server")=="CodexTest VR" and data.get("version")==1 and data.get("siteDirectory")==os.path.realpath(sys.argv[1]) else 1)' "$SITE_DIR" 2>/dev/null
+}
+if server_ready; then
+  printf 'The VR web server and capture receiver are already running.\n'
   SERVER_PID=''
 else
   if /usr/sbin/lsof -nP -iTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
-    fail 'Port 8080 is being used by another server. Stop that server and try again.'
+    fail 'Port 8080 is used by another or older server. Stop it and rerun Start-VR.command to enable JSON capture uploads.'
   fi
-  python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$SITE_DIR" &
+  python3 "$SITE_DIR/tools/vr_server.py" --port "$PORT" --directory "$SITE_DIR" &
   SERVER_PID=$!
   cleanup() { [[ -z "$SERVER_PID" ]] || kill "$SERVER_PID" 2>/dev/null || true; }
   trap cleanup EXIT
   trap 'exit 0' INT TERM
   READY=0
   for attempt in {1..30}; do
-    if curl -fsS --max-time 1 "http://127.0.0.1:$PORT/index.html" 2>/dev/null | cmp -s "$SITE_DIR/index.html" -; then READY=1; break; fi
+    if server_ready; then READY=1; break; fi
     kill -0 "$SERVER_PID" 2>/dev/null || break
     sleep .2
   done
@@ -50,6 +54,7 @@ else
 fi
 
 "$ADB" -s "$SERIAL" reverse tcp:$PORT tcp:$PORT || fail 'USB forwarding failed. Reconnect the Quest and try again.'
+printf '\nJSON captures will be saved under: %s/.captures/<project>/\n' "$SITE_DIR"
 printf '\nReady! Open in Meta Quest Browser:\n\n  Projects: http://localhost:8080/\n  Forest:   http://localhost:8080/projects/forest/\n\nServing your local Documents/GitHub/CodexTest checkout.\nEdits here appear locally; commit and push to update GitHub Pages.\nKeep the USB cable connected. Run this script again after reconnecting if needed.\n'
 if [[ -n "$SERVER_PID" ]]; then
   printf '\nKeep this window open. Press Control-C to stop the server.\n'

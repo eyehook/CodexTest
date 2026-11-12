@@ -39,6 +39,13 @@ From the repository root, run `python3 -m http.server 8080` and open http://loca
 
 For local Quest testing over USB, double-click [Start-VR.command](Start-VR.command) in this repository with an unlocked, USB-debugging-authorized headset connected. It uses Meta Quest Developer Hub's ADB and Python 3 to serve this checkout on port 8080 and forward that port to the headset. Open `http://localhost:8080/` in Meta Quest Browser. Keep the server window and USB connection active; rerun after reconnecting. The launcher serves its own directory, so keep it in the repository root. Local edits appear here immediately; publishing to GitHub Pages still requires a commit and push.
 
+The launcher also receives JSON exports from any project at
+`POST /__debug/captures/<project>` and saves them under the Git-ignored
+`.captures/<project>/` folder. [Local server and capture API](tools/vr-server.md)
+documents discovery, uploads, file access and desktop-only startup. Restart any
+older server to enable this receiver. Profiling UIs are implemented separately
+by each project; this endpoint is available only on the local preview server.
+
 ## GitHub Pages and Quest 3
 
 Pages is already configured for `main`, `/(root)`. Test locally and publish only when the user requests commit/push. The following describes the existing setup:

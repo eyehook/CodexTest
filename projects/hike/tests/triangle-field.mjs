@@ -62,3 +62,15 @@ test('75 percent of cells choose one to three deterministic clumps',()=>{
  w.height=()=>30;w.normal=(x,z,out)=>Object.assign(out,{slope:0});w.trail=(x,z,out)=>Object.assign(out,{distance:1000});
  for(let cx=0;cx<20;cx++)assert.equal(fieldCell(w,cx,2).count,fieldClumps(w,cx,2).length*352);
 });
+
+test('cell boundary retirement is bounded and interrupted movement preserves packed owners',()=>{
+ const field=new TriangleField(new T.Scene(),world(),{coverageSamples:0,coverageStep:{value:1}}),viewer=new T.Vector3(0,32,30);drain(field,viewer);
+ let removed=0;const remove=field.remove.bind(field);field.remove=record=>{removed++;remove(record);};
+ for(const x of [8,16,-8,24]){
+  removed=0;field.update(new T.Vector3(x,32,30));assert.ok(removed<=2);assert.ok(field.evictions.length>0);
+  assert.ok(field.slots.length<=field.capacity);assert.equal(field.instanceCount,[...field.cells.values()].reduce((sum,r)=>sum+r.count,0));
+ }
+ drain(field,new T.Vector3(24,32,30));assert.equal(field.cells.size,225);assert.equal(field.evictions.length,0);
+ for(const record of field.cells.values())for(let i=0;i<record.count;i++)assert.equal(field.owners[record.bladeSlots[i]],record);
+ field.dispose();
+});

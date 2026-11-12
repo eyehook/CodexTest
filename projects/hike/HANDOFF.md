@@ -25,7 +25,7 @@ Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Release version: **v0.19.0**, with tabbed Settings, Base/Summit teleport
+Local working version: **v0.20.1**, with tabbed Settings, Base/Summit teleport
 and optional nearby pine shadows. The expensive grass patches are removed; an experimental, capped single-triangle
 surface field replaces them.
 B/Y open Settings or Save and Close it. The standalone VR Field Notes panel is
@@ -1273,3 +1273,105 @@ Final checks: all 85 Hike tests pass, changed runtime syntax checks pass, and
 was already reviewed during implementation; no repeated browser sweep was needed.
 Only Hike files are included. Historical local/unpublished notes above are
 superseded by this review. Per user preference, do not check GitHub Pages.
+
+
+### Local capture receiver infrastructure — 2026-11-11
+
+Root `Start-VR.command` now launches a capture-capable loopback server reusable
+by all projects. Hike can later POST its JSON profiler output to
+`/__debug/captures/hike`; files save under root `.captures/hike/`, Git-ignored
+and available to Codex as local files. Discovery is `GET /__debug/info`. See
+[root capture API documentation](../../tools/vr-server.md). The Hike recorder,
+Debug capture button and automatic uploader are not implemented by this server
+change. Older static servers need stopping before rerunning the launcher.
+
+Focused Python HTTP/launcher tests and Bash syntax/whitespace checks pass. No
+Hike runtime tests were rerun because project runtime code is unchanged.
+Physical Quest USB uploads still need integration testing. Local/unpublished.
+
+
+### Quest capture workflow — local v0.20.0
+
+Debug now replaces its old tuning/readout list with Start/Cancel capture, status,
+CPU/frame p95/max, optional GPU p95, Send capture to computer and Export JSON.
+Start saves/closes Settings and records 30 seconds of active gameplay. Settings,
+hidden/untracked sessions and leaving the capture's desktop/VR mode pause the
+clock. Captures finish automatically, show a brief world notice, persist the
+latest result in headset IndexedDB, and upload to `/__debug/captures/hike`.
+Failed uploads retain the result for retry/export. General/Teleport remain.
+The local server infrastructure is documented above and need not be restarted
+for these browser source changes; reload Hike.
+
+The fixed-buffer recorder measures navigation, terrain check/external snap apply,
+pine/shadow/grass work, worker results, render submission, estimated buffer bytes,
+scene counts, positions and movement. GPU render time uses feature-detected
+asynchronous disjoint timer queries every fourth frame, never a blocking wait.
+Report/JSON generation uses a worker after collection. Unsupported GPU results
+are unavailable, not guessed. Metadata identifies the scopes/limitations; these
+are app timings, not device/compositor dropped-frame metrics.
+
+See [profiling workflow and JSON schema](PROFILING.md) for instructions, retention
+and analysis guidance. Latest-only storage means exporting an unsent result
+before replacing it if the computer is unavailable. No live dashboard is drawn
+while recording, and completed-capture notices do not render during collection.
+
+Validation: focused profiler/settings/grass-worker checks pass, plus syntax and
+whitespace checks. An accelerated Chrome capture verified Debug ordering,
+automatic close, menu pause, report-worker processing, IndexedDB retention, real
+GPU samples, automatic receiver save and matching downloaded JSON. The test
+received 50 samples, one terrain snap and 12 grass jobs, with no page errors.
+Only the verified marked smoke-test file was removed afterward; user captures
+were untouched. Headset capture/overhead validation is next. Local/unpublished.
+
+
+### Capture-driven maintenance improvements — local v0.20.1
+
+The first Quest capture completed 30 seconds at about 90 callbacks/sec. Main-thread
+CPU p95 was 1.5 ms; 24 of 25 grass updates >=1 ms coincided with cell boundaries.
+Terrain worker sampling averaged 263 ms, with end-to-end latency averaging 282 ms
+and peaking at 505 ms. Browser GPU timer queries were unavailable. Device-side
+OVR Metrics profiling is deferred at the user's request until GPU concerns arise.
+
+Grass now queues departing cells and retires at most two per active update, with
+an approximately .35 ms soft maintenance budget (one cell can exceed it).
+Worker submissions/results and the synchronous test adapter respect the original
+225-cell / 237,600-blade allocation while retirement is pending. Replanning drops
+obsolete eviction work when direction changes; distant teleports still clear the
+cache directly. Density, height, colors, shader clipping and 40–50 m fade remain.
+
+Terrain sampling now caches overlap source-index plans by snap delta, avoiding
+150,057 repeated map lookups on a cache hit. An eight-entry LRU bounds additional
+worker memory to about 4.8 MB. Sampling, normals, colors and existing latest-request
+coalescing are preserved; no worker cancellation/restart is introduced. A local
+Node before/after comparison had exact buffer parity over 28 snaps; 20 measured
+snaps averaged 122.7 ms before and 114.1 ms after (about 7% faster). This desktop
+observation does not establish Quest latency or GPU performance.
+
+Validation: focused grass/worker/terrain/averaging regressions cover bounded
+retirement, interrupted movement, worker capacity, cache bounds/reuse and terrain
+parity. Syntax and diff checks pass. Reload Hike for v0.20.1; a fresh Quest capture
+is needed to compare boundary CPU spikes and worker latency. Local/unpublished.
+
+
+### Release review — v0.20.1, 2026-11-11
+
+User authorized publishing profiling, the reusable capture receiver and maintenance
+optimizations. Both Quest captures uploaded successfully. The new capture had
+61 grass boundaries versus 63 previously: average boundary grass work .44 ms
+versus .86 ms, p95 .9 versus 1.7 ms, and four total grass updates >=1 ms versus
+25. One isolated 2.2 ms grass update remained. Different seeds/routes and nearly
+twice the grass prevent a controlled performance comparison. Overall callback
+CPU p95 was 1.7 ms and cadence about 90/sec; GPU timing remained unavailable.
+
+Terrain worker sampling did not improve in this headset comparison (350 ms mean
+versus 263 ms). Further investigation should use the same seed/route. Review
+also found that the profiler callback read the previous snap's latency because
+notification preceded latency assignment. This release assigns current latency
+before notification and tests that ordering; earlier captured latency columns
+are shifted by one snap and should not be treated as exact per-snap attribution.
+
+Final validation: all 94 Hike tests and 10 focused receiver/launcher tests pass,
+plus Bash syntax and whitespace checks. Prior browser integration and actual
+Quest capture uploads established the end-to-end workflow. Captures stay ignored
+and are excluded from publication. Do not check GitHub Pages after this push.
+Historical local/unpublished notes above are superseded by this release review.

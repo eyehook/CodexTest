@@ -6,7 +6,7 @@ import {vertexKey} from './terrain-grid.mjs?v=rings-300k-1';
 export class TerrainSamples {
  constructor(world,coordinates,{averaged=true,onProgress,...options}={}){
   this.onProgress=onProgress;this.renderHeight=averaged?new RenderTerrainHeight(world,options):null;
-  this.world=world;this.coordinates=coordinates;this.count=coordinates.length/2;this.previous=new Float32Array(this.count*7);this.lookup=new Map();
+  this.world=world;this.coordinates=coordinates;this.count=coordinates.length/2;this.previous=new Float32Array(this.count*7);this.lookup=new Map();this.overlapPlans=new Map();this.overlapPlanBuilds=0;
   for(let i=0;i<this.count;i++)this.lookup.set(vertexKey(coordinates[i*2],coordinates[i*2+1]),i);
   // Only the moving blend annulus needs extra retained detailed source data.
   this.regions=new Uint8Array(this.count);this.sourceSlots=new Int32Array(this.count).fill(-1);let slots=0;
@@ -18,14 +18,28 @@ export class TerrainSamples {
   this.sourcePrevious=new Float32Array(slots*4);this.sourceNext=new Float32Array(slots*4);this.detailNormal={};
   this.originX=Infinity;this.originZ=Infinity;this.normal={};this.near={};this.color={r:0,g:0,b:0};
  }
+ overlapPlan(dx,dz){
+  if(!Number.isFinite(dx)||Math.abs(dx)>=8192||Math.abs(dz)>=8192)return null;
+  const key=`${dx},${dz}`;
+  let plan=this.overlapPlans.get(key);
+  if(plan){this.overlapPlans.delete(key);this.overlapPlans.set(key,plan);return plan;}
+  plan=new Int32Array(this.count).fill(-1);
+  for(let i=0;i<this.count;i++){
+   const px=this.coordinates[i*2]+dx,pz=this.coordinates[i*2+1]+dz;
+   if(px>=-4096&&px<=4096&&pz>=-4096&&pz<=4096)plan[i]=this.lookup.get(vertexKey(px,pz))??-1;
+  }
+  // Eight common adjacent/diagonal snap directions cost at most 4.8 MB.
+  if(this.overlapPlans.size===8)this.overlapPlans.delete(this.overlapPlans.keys().next().value);
+  this.overlapPlans.set(key,plan);this.overlapPlanBuilds++;return plan;
+ }
  fill(ox,oz,out){
-  const began=performance.now(),count=this.count,{world,coordinates,lookup,previous:old}=this,dx=(ox-this.originX)*4,dz=(oz-this.originZ)*4;
+  const began=performance.now(),count=this.count,{world,coordinates,previous:old}=this,dx=(ox-this.originX)*4,dz=(oz-this.originZ)*4;
   const cx=ox+8,cz=oz+8,previousX=this.originX+8,previousZ=this.originZ+8,render=this.renderHeight;
-  const reuse=Number.isFinite(dx)&&Math.abs(dx)<8192&&Math.abs(dz)<8192;let sampled=0,min=Infinity,max=-Infinity;
+  const plan=this.overlapPlan(dx,dz);let sampled=0,min=Infinity,max=-Infinity;
   for(let i=0;i<count;i++){
    if(i%8192===0)this.onProgress?.(i/count);
-   const qx=coordinates[i*2],qz=coordinates[i*2+1],wx=ox+qx/4,wz=oz+qz/4,px=qx+dx,pz=qz+dz,j=count+i*3,k=count*4+i*3;
-   const source=reuse&&px>=-4096&&px<=4096&&pz>=-4096&&pz<=4096?lookup.get(vertexKey(px,pz)):undefined;
+   const qx=coordinates[i*2],qz=coordinates[i*2+1],wx=ox+qx/4,wz=oz+qz/4,j=count+i*3,k=count*4+i*3;
+   const source=plan&&plan[i]>=0?plan[i]:undefined;
    if(source!==undefined&&(!render||this.regions[i]!==1&&this.regions[i]===this.regions[source])){
     const a=count+source*3,b=count*4+source*3;out[i]=old[source];out[j]=old[a];out[j+1]=old[a+1];out[j+2]=old[a+2];out[k]=old[b];out[k+1]=old[b+1];out[k+2]=old[b+2];
    }else{

@@ -47,3 +47,20 @@ test('real grass worker matches exact synchronous cell data and keeps the main e
   }
  }finally{clearInterval(timer);field.dispose();}
 });
+
+test('worker batches respect capacity while boundary retirements span frames',()=>{
+ const w=synthetic(),worker=new FakeWorker(),field=new TriangleField(new T.Scene(),w,flora,{workerFactory:()=>worker});
+ function settle(viewer){
+  for(let i=0;i<300;i++){
+   field.update(viewer);assert.ok(field.slots.length<=field.capacity);assert.ok(field.instanceCount<=field.maxTriangles);
+   if(field.inFlight)worker.complete(w);
+   if(!field.inFlight&&!field.completed&&!field.evictions.length&&field.next===field.queue.length)return;
+  }throw Error('Worker did not settle');
+ }
+ settle(new T.Vector3());assert.equal(field.cells.size,225);
+ for(const point of [new T.Vector3(8,0,8),new T.Vector3(-16,0,-8),new T.Vector3(0,0,0)]){
+  settle(point);assert.equal(field.cells.size,225);
+  for(const record of field.cells.values())for(let i=0;i<record.count;i++)assert.equal(field.owners[record.bladeSlots[i]],record);
+ }
+ field.dispose();
+});

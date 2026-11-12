@@ -31,7 +31,7 @@ class SettingsPanel extends VRControlPanel {
   this.seedTriggers=false;super.update();
  }
 
- get pageRows(){return this.rows.concat(this.actions).slice((this.page??0)*PAGE_SIZE,((this.page??0)+1)*PAGE_SIZE);}
+ get pageRows(){return (this.tab==='Debug'?this.model.definitions:this.rows.concat(this.actions)).slice((this.page??0)*PAGE_SIZE,((this.page??0)+1)*PAGE_SIZE);}
  draw(){
   const ctx=this.ctx,c=this.theme,tab=this.tab??'General',page=this.page??0;
   ctx.fillStyle=c.background;ctx.fillRect(0,0,1024,this.canvas.height);

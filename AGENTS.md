@@ -67,6 +67,14 @@ From the repository root, use `python3 -m http.server 8080 --bind 127.0.0.1` for
 
 For Quest, double-click `Start-VR.command` in the repository root (`/Users/mm/Documents/GitHub/CodexTest/Start-VR.command`) with a USB-connected, authorized headset. It serves this checkout on loopback port 8080 and uses Meta Quest Developer Hub's ADB to reverse-forward that port. Keep its terminal and USB connection active; rerun after reconnecting. An old server may need stopping first. The launcher serves its containing directory, so keep it in the repository root when moving the checkout.
 
+`Start-VR.command` uses the reusable JSON capture receiver in `tools/vr_server.py`.
+Projects can POST JSON to `/__debug/captures/<project>`; files are saved locally
+under the Git-ignored `.captures/<project>/` directory for Codex analysis. Reuse
+this endpoint for capture exports instead of adding project-specific servers.
+See [local VR server and capture contract](tools/vr-server.md) for discovery,
+client examples, limits, failure handling and focused server checks. Stop older
+static servers before restarting the launcher to enable uploads.
+
 Original experiments in `/Users/mm/Documents/Codex/Quest` are backups; edit this GitHub checkout. WebXR needs HTTPS or a trusted localhost context. When stale browser caches affect testing, advance the entry/import/asset query versions for the changed project.
 
 ## Validation and performance

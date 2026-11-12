@@ -2,7 +2,9 @@ import {Glider,LandingRunout} from './gliding.mjs?v=glide-17';
 import {FlightButtons} from './flight-input.mjs?v=settings-tabs-1';
 import {FlightView} from './flight-view.mjs?v=glide-17';
 import {applyHeightOffset} from './height-offset.mjs?v=seated-1';
-import {TriangleField} from './triangle-field.mjs?v=packed-1';
+import {HikeProfiler} from './profiler.mjs?v=capture-1';
+import {CaptureNotice} from './capture-notice.mjs?v=capture-1';
+import {TriangleField} from './triangle-field.mjs?v=maintenance-3';
 import {PineShadows} from './pine-shadows.mjs?v=incremental-1';
 import {Flora} from './flora.mjs?v=3d-fade-2';
 import * as T from '../../shared/vendor/three-r180/three.module.js';
@@ -15,9 +17,9 @@ import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {createWorldAsync} from './world-async.mjs?v=pines-dense-1';
 import {placeAtEndpoint} from './teleport.mjs?v=settings-tabs-1';
-import {SettingsMenu} from './settings-menu.mjs?v=seated-1';
-import {APP_VERSION} from './version.mjs?v=0.19.0';
-import {Terrain} from './terrain.mjs?v=height-attribute-1';
+import {SettingsMenu} from './settings-menu.mjs?v=capture-1';
+import {APP_VERSION} from './version.mjs?v=0.20.1';
+import {Terrain} from './terrain.mjs?v=overlap-4';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
 const $=s=>document.querySelector(s);
@@ -89,20 +91,46 @@ const pineShadows=new PineShadows(scene,renderer,sun,terrain,flora,world);
 showProgress(.995,'Preparing the triangle surface field');
 const triangleField=new TriangleField(scene,world,flora);
 await triangleField.initialize(spawn);
+const captureNotice=new CaptureNotice(scene);
+const profiler=new HikeProfiler({gl:renderer.getContext(),onNotice:message=>captureNotice.show(message)});
+function visitCaptureBuffers(visit){
+  visit(terrain.geometry.attributes.terrainHeight);visit(terrain.geometry.attributes.normal);visit(terrain.geometry.attributes.color);
+  for(const mesh of flora.batches){visit(mesh.instanceMatrix);visit(mesh.instanceColor);}
+  for(const mesh of pineShadows.batches)visit(mesh.instanceMatrix);
+  for(const name in triangleField.attributes)visit(triangleField.attributes[name]);
+}
+const seedCaptureBuffer=attribute=>profiler.seedUpload(attribute),countCaptureBuffer=attribute=>profiler.noteUpload(attribute);
+function captureMetadata(){
+ const session=renderer.xr.getSession(),size=renderer.getDrawingBufferSize(new T.Vector2()),layer=renderer.xr.getBaseLayer();
+ return {appVersion:APP_VERSION,seed,mode:session?'immersive-vr':'desktop',xrFrameRate:Number.isFinite(session?.frameRate)?session.frameRate:null,userAgent:navigator.userAgent,
+  settings:{...settings,...settingsMenu.saved,gliding:{...glider.settings}},graphics:{drawingBuffer:size.toArray(),pixelRatio:renderer.getPixelRatio(),xrFramebuffer:layer?[layer.framebufferWidth??layer.textureWidth,layer.framebufferHeight??layer.textureHeight]:null,msaaSamples:flora.coverageSamples},
+  world:{trailLength:world.totalLength,trees:flora.total,terrainTriangles:terrain.triangles,grassCapacity:triangleField.maxTriangles}};
+}
+function startCapture(){
+ if(profiler.running){profiler.cancel();return;}
+ if(settingsMenu.open&&!settingsMenu.saveAndExit())return;
+ setPanel(false);captureNotice.hide();
+ if(profiler.start(captureMetadata()))visitCaptureBuffers(seedCaptureBuffer);
+}
+const pair=key=>{const value=profiler.last?.summary?.timing?.[key];return value?.p95===null||!value?'—':`${value.p95.toFixed(1)} / ${value.max.toFixed(1)} ms`;};
 const defs=[
-  {id:'speed',kind:'number',label:'Walk speed (m/s)',min:.7,max:30,step:.1,get:()=>settings.speed,set:v=>settings.speed=v},
-  {id:'slope',kind:'number',label:'Slide above (degrees)',min:20,max:50,step:1,get:()=>settings.slideSlope,set:v=>settings.slideSlope=v},
-  {id:'glideBank',kind:'number',label:'Glide bank (degrees, 0 = off)',min:0,max:5,step:.5,get:()=>glider.settings.bankMax*180/Math.PI,set:v=>glider.settings.bankMax=v*Math.PI/180},
-  {id:'glideSpeed',kind:'number',label:'Maximum glide speed (m/s)',min:8,max:90,step:1,get:()=>glider.settings.maxSpeed,set:v=>glider.settings.maxSpeed=v},
-  {id:'glideRatio',kind:'number',label:'Level glide ratio',min:4,max:16,step:.5,get:()=>glider.settings.glideRatio,set:v=>glider.settings.glideRatio=v},
-  ...[['movement','Movement',()=>glider.active?'Gliding':runout.active?'Landing runout':'Walking'],['airspeed','Glide speed (m/s)',()=>glider.speed.toFixed(1)],['fps','FPS',()=>stats.fps.toFixed(0)],['triangles','Rendered triangles (~)',()=>stats.triangles.toLocaleString()],['update','Snap apply CPU (ms)',()=>terrain.updateMs.toFixed(1)],['sample','Snap worker (ms)',()=>terrain.sampleMs.toFixed(1)],['latency','Snap latency (ms)',()=>terrain.latencyMs.toFixed(1)],['generation','Generation (ms)',()=>(terrain.generationMs+world.generationMs+world.flora.generationMs).toFixed(0)],['vertices','Terrain vertices',()=>terrain.vertexCount.toLocaleString()],['snaps','Terrain snaps',()=>terrain.snapCount],['elevation','Elevation (m)',()=>stats.elevation.toFixed(1)],['remaining','Trail remaining (m)',()=>stats.remaining.toFixed(0)],['trees','Generated pines',()=>flora.total.toLocaleString()],['trees3d','3D pine instances',()=>flora.instanceCount],['floraCalls','Vegetation batches',()=>flora.drawCalls],['pineSamples','Tree fade MSAA samples',()=>flora.coverageSamples],['floraMs','Vegetation slice (ms)',()=>flora.updateMs.toFixed(2)],['floraPeak','Vegetation peak (ms)',()=>flora.peakUpdateMs.toFixed(2)],['shadowTrees','Shadow pine instances',()=>pineShadows.enabled?pineShadows.instanceCount:0],['shadowCpu','Shadow setup CPU (ms)',()=>pineShadows.updateMs.toFixed(2)],['fieldBlades','Field triangles (visible candidates)',()=>triangleField.instanceCount],['fieldCpu','Field apply CPU (ms)',()=>triangleField.updateMs.toFixed(2)],['fieldWorker','Field worker (ms)',()=>triangleField.workerMs.toFixed(2)],['fieldState','Field status',()=>triangleField.error?triangleField.error.message:triangleField.inFlight?'Generating':'Ready']].map(([id,label,get])=>({id,label,kind:'readout',get})),
-  {id:'reset',kind:'action',label:'Reset to trailhead',run:()=>{if(settingsMenu.open){if(settingsMenu.saveAndExit())pendingTeleport='base';}else reset();}}
+ {id:'capture',kind:'action',label:()=>profiler.running?'Cancel capture':'Start capture (30 seconds)',disabled:()=>profiler.busy,run:startCapture},
+ {id:'captureStatus',kind:'readout',label:'Capture status',get:()=>profiler.status},
+ {id:'captureCpu',kind:'readout',label:'CPU p95 / max',get:()=>pair('cpuMs')},
+ {id:'captureFrames',kind:'readout',label:'Frame p95 / max',get:()=>pair('intervalMs')},
+ {id:'captureGpu',kind:'readout',label:'GPU p95',get:()=>{const value=profiler.last?.summary?.timing?.gpuMs?.p95;return Number.isFinite(value)?`${value.toFixed(1)} ms`:'Unavailable';}},
+ {id:'captureSend',kind:'action',label:'Send capture to computer',disabled:()=>!profiler.last||profiler.running||profiler.busy,run:()=>profiler.upload()},
+ {id:'captureExport',kind:'action',label:'Export JSON',disabled:()=>!profiler.last||profiler.running||profiler.busy,run:()=>profiler.exportJSON()}
 ];
 const model=new ControlModel(defs);
 const desktop=new DesktopControls($('#controls'),model);
 const controllers=[renderer.xr.getController(0),renderer.xr.getController(1)];
 for(const c of controllers){heightRig.add(c);c.addEventListener('connected',e=>c.userData.source=e.data);c.addEventListener('disconnected',()=>delete c.userData.source);}
 const settingsMenu=new SettingsMenu(scene,rig,renderer,controllers,{debugModel:model,onTeleport:destination=>{pendingTeleport=destination;}});
+profiler.onChange=()=>{settingsMenu.panel.footer=profiler.lastError??'';model.refresh();};
+terrain.onApply=()=>profiler.noteTerrain(terrain);
+profiler.restore();
+addEventListener('pagehide',()=>{profiler.dispose();captureNotice.dispose();},{once:true});
 $('#route-info').textContent=`Seed ${seed} · ${(world.totalLength/1000).toFixed(2)} km · ${Math.round(world.totalLength/settings.speed/60)} minutes · summit ${Math.round(world.summit.y)} m`;
 $('#explore').onclick=()=>{$('#explore').blur();walk=true;document.body.classList.add('walking');$('#world').requestPointerLock?.();};
 $('#world').onclick=()=>{if(walk&&!panelOpen&&!renderer.xr.isPresenting)$('#world').requestPointerLock?.();};
@@ -112,17 +140,18 @@ addEventListener('keydown',e=>{
   if(!e.repeat&&e.code==='KeyR')reset();
   if(!e.repeat&&e.code==='Space'&&walk&&!panelOpen&&!runout.active)launchQueued=true;
 });
-addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();launchQueued=false;});document.addEventListener('visibilitychange',()=>{keys.clear();launchQueued=false;last=0;fps.reset();});
+addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();launchQueued=false;});document.addEventListener('visibilitychange',()=>{profiler.pause();keys.clear();launchQueued=false;last=0;fps.reset();});
 addEventListener('mousemove',e=>{if(document.pointerLockElement===$('#world')&&!renderer.xr.isPresenting){camera.rotation.y-=e.movementX*.002;camera.rotation.x=T.MathUtils.clamp(camera.rotation.x-e.movementY*.002,-1.35,1.35);}});
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 const vrButton=VRButton.createButton(renderer);document.body.append(vrButton);
-renderer.xr.addEventListener('sessionstart',()=>{glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;keys.clear();walk=true;document.body.classList.add('walking');camera.rotation.set(0,0,0);fps.reset();buttons.reset();last=0;});
-renderer.xr.addEventListener('sessionend',()=>{pendingTeleport=null;settingsMenu.close();flora.setCoverageSamples(flora.desktopSamples);state.reset();buttons.reset();fps.reset();last=0;camera.position.set(0,1.7,0);reset();});
+renderer.xr.addEventListener('sessionstart',()=>{const session=renderer.xr.getSession();session.addEventListener('visibilitychange',()=>{if(session.visibilityState!=='visible')profiler.pause();});glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;keys.clear();walk=true;document.body.classList.add('walking');camera.rotation.set(0,0,0);fps.reset();buttons.reset();last=0;});
+renderer.xr.addEventListener('sessionend',()=>{profiler.pause();pendingTeleport=null;settingsMenu.close();flora.setCoverageSamples(flora.desktopSamples);state.reset();buttons.reset();fps.reset();last=0;camera.position.set(0,1.7,0);reset();});
 reset();
 function stepFrame(time,frame){
+  const captureBegan=profiler.running?performance.now():0;
   const elapsed=last?Math.max(0,(time-last)/1000):0;last=time;let dt=Math.min(.05,elapsed);
   const session=renderer.xr.getSession();state.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden);
-  if(!state.active){settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();fps.reset();return;}
+  if(!state.active){profiler.pause();settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();fps.reset();return;}
   if(session){viewer.position.copy(state.pose.transform.position);viewer.orientation.copy(state.pose.transform.orientation);if(state.firstTracked){reset();const gl=renderer.getContext();flora.setCoverageSamples(gl.getParameter(gl.SAMPLES));}}
   else {viewer.position.copy(camera.position);viewer.orientation.copy(camera.quaternion);}
   applyHeightOffset(heightRig,viewer,settingsMenu.saved.heightOffset);
@@ -139,12 +168,16 @@ function stepFrame(time,frame){
     settingsMenu.show(head,heading);
   }
   if(settingsMenu.open){
+    profiler.pause();
     const panel=settingsMenu.panel;panel.enabled=true;
     for(const c of controllers)panel.controllerStates.get(c).connected=!!buttons.tracked.get(c.userData.source);
     const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
     uiElapsed+=elapsed;if(uiElapsed>.5){uiElapsed=0;panel.model.refresh();}
     panel.update();renderer.render(scene,camera);return;
   }
+  const tracing=profiler.beginFrame(captureBegan,session?'immersive-vr':'desktop');
+  let capturePhase=tracing?performance.now():0;
+  const grassJobsBefore=triangleField.appliedJobs,shadowRebuildsBefore=pineShadows.rebuilds;
   if(runout.active){
     let x=0,z=0;
     if(session){const axes=readMovementAxes(session.inputSources,locomotion.axes);x=axes.x;z=axes.z;}
@@ -185,19 +218,35 @@ function stepFrame(time,frame){
   }
   flightView.sample(rig,viewer);head.copy(flightView.head);flightView.bank(viewer,glider.bank);rig.updateMatrixWorld(true);
   if(ground===undefined)ground=world.height(head.x,head.z);
+  if(tracing){profiler.set('navigationMs',performance.now()-capturePhase);capturePhase=performance.now();}
   terrain.update(head.x,head.z);
+  if(tracing){profiler.set('terrainCheckMs',performance.now()-capturePhase);capturePhase=performance.now();}
   const terrainApplied=terrain.snapCount!==lastTerrainSnap;lastTerrainSnap=terrain.snapCount;
   flora.update(head,false,!terrainApplied);
+  if(tracing){profiler.set('pineMs',performance.now()-capturePhase);capturePhase=performance.now();}
   pineShadows.setEnabled(settingsMenu.saved.shadows);pineShadows.update(head);
+  if(tracing){profiler.set('shadowMs',performance.now()-capturePhase);capturePhase=performance.now();}
   triangleField.update(head,!terrainApplied);
+  if(tracing)profiler.set('grassMs',performance.now()-capturePhase);
   const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
   uiElapsed+=elapsed;
   if(uiElapsed>.5){uiElapsed=0;world.trail(head.x,head.z,projected,true);stats.along=projected.along;stats.remaining=world.totalLength-projected.along;stats.elevation=glider.active?rig.position.y:ground;if(panelOpen)model.refresh();$('#status').textContent=`${Math.round(stats.elevation)} m elevation · ${(stats.remaining/1000).toFixed(2)} km to summit${projected.distance>20?' · off trail':''}${stats.remaining<8&&projected.distance<10?' · Summit reached':''}${glider.active?' · Gliding · '+Math.max(0,Math.round(rig.position.y-ground))+' m above ground':''}`;}
-  renderer.render(scene,camera);if(frameCount===0){showProgress(1,'Ready');document.body.classList.remove('loading');}stats.triangles=renderer.info.render.triangles;frameCount++;
+  captureNotice.update(head,flightView.orientation,profiler.running);
+  if(tracing){visitCaptureBuffers(countCaptureBuffer);profiler.beginRender();capturePhase=performance.now();}
+  try{renderer.render(scene,camera);}finally{if(tracing)profiler.endRender();}
+  if(tracing){
+   profiler.set('renderSubmitMs',performance.now()-capturePhase);
+   profiler.set('grassJobs',triangleField.appliedJobs-grassJobsBefore);profiler.set('grassWorkerMs',triangleField.appliedJobs!==grassJobsBefore?triangleField.workerMs:0);
+   profiler.set('shadowRebuilds',pineShadows.rebuilds-shadowRebuildsBefore);profiler.set('pines',flora.instanceCount);profiler.set('grassBlades',triangleField.instanceCount);profiler.set('shadowCasters',pineShadows.enabled?pineShadows.instanceCount:0);
+   profiler.set('colorTriangles',renderer.info.render.triangles);profiler.set('colorDrawCalls',renderer.info.render.calls);
+   profiler.set('x',head.x);profiler.set('y',head.y);profiler.set('z',head.z);profiler.set('movement',glider.active?1:runout.active?2:0);profiler.set('airspeed',glider.speed);profiler.set('shadows',Number(pineShadows.enabled));profiler.set('heightOffset',settingsMenu.saved.heightOffset);
+   profiler.endFrame(performance.now());
+  }
+  if(frameCount===0){showProgress(1,'Ready');document.body.classList.remove('loading');}stats.triangles=renderer.info.render.triangles;frameCount++;
 }
 renderer.setAnimationLoop(stepFrame);
 // Desktop inspection surface for desktop acceptance checks.
-window.hike={heightRig,triangleField,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
+window.hike={profiler,captureNotice,heightRig,triangleField,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
 } catch(error) {
   document.body.classList.remove('loading');
   $('#intro').hidden=true;$('#status').textContent='Mountain generation failed · choose another seed';
