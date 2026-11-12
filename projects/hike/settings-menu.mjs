@@ -4,8 +4,8 @@ import {sliderValue} from '../../shared/ui/slider.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
 export const SETTINGS_KEY='hike.settings';
-const defaults=()=>({shadows:false,heightOffset:0});
-function normalizeSettings(value){return {shadows:value?.shadows===true,heightOffset:typeof value?.heightOffset==='number'&&Number.isFinite(value.heightOffset)?Math.max(0,Math.min(1.5,value.heightOffset)):0};}
+const defaults=()=>({shadows:false,heightOffset:0,sound:true});
+function normalizeSettings(value){return {sound:typeof value?.sound==='boolean'?value.sound:true,shadows:value?.shadows===true,heightOffset:typeof value?.heightOffset==='number'&&Number.isFinite(value.heightOffset)?Math.max(0,Math.min(1.5,value.heightOffset)):0};}
 export function loadSettings(storage){try{return normalizeSettings(JSON.parse(storage.getItem(SETTINGS_KEY)));}catch{return defaults();}}
 export function saveSettings(storage,settings){storage.setItem(SETTINGS_KEY,JSON.stringify(normalizeSettings(settings)));}
 const TABS=['General','Teleport','Debug'];
@@ -89,6 +89,7 @@ export class SettingsMenu {
   this.model=new ControlModel([
    {id:'shadows',kind:'toggle',label:'Shadows',get:()=>this.draft.shadows,set:v=>this.draft.shadows=v},
    {id:'heightOffset',kind:'number',slider:true,label:'Height offset',min:0,max:1.5,step:.05,stepBase:0,get:()=>this.draft.heightOffset,set:v=>this.draft.heightOffset=v,format:v=>`${v.toFixed(2)} m`},
+   {id:'sound',kind:'toggle',label:'Sound',get:()=>this.draft.sound,set:v=>this.draft.sound=v},
   ]);
   this.panel=new SettingsPanel(scene,rig,renderer,this.model,{title:'SETTINGS',subtitle:'Point either controller · Trigger to select',distance:2,angle:0,width:1.7,controllers,controllerEvents:false,enabled:false});
   this.models={General:this.model,Teleport:new ControlModel(['base','summit'].map(id=>({id,kind:'action',label:id==='base'?'Base':'Summit',run:()=>{if(this.saveAndExit())onTeleport(id);}}))),Debug:debugModel??new ControlModel([])};

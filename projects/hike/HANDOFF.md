@@ -6,8 +6,8 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Current release: **v0.23.1** (noise-hill grass, ±30° hue patches and graphics warm-up).
-- Previous published baseline: **v0.20.9**, commit `4b0d00f`.
+- Current release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
+- Previous published baseline: **v0.23.1**, commit `6283bc4` (noise-hill grass and graphics warm-up).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
   Follow [repository guidance](../../AGENTS.md) for shared modules and publication.
 - Preview: serve the repository root and open `/projects/hike/`. For USB Quest
@@ -64,7 +64,7 @@ press is required after landing.
 
 Settings hides world roots against black while preserving head/controller tracking:
 
-- **General:** persisted Shadows (default false) and seated height offset
+- **General:** persisted Sound (default true), Shadows (default false) and seated height offset
   0–1.5 m, .05 m steps, default zero. Offset is applied once through `heightRig`;
   collision/ground rig height stays independent.
 - **Teleport:** Base/Summit saves settings, closes the menu and queues placement.
@@ -256,7 +256,52 @@ Wind is entirely in the existing vertex shader, driven by one frame-time uniform
   per-blade CPU work, buffer writes, attributes, geometry, draw calls or textures.
   Fade dithering stays anchored to undeformed geometry.
 
+## Forest ambience
+
+`forest-audio.mjs` adds a non-positional stereo bed. General Settings has a
+persisted **Sound** checkbox (default on, including older saved settings).
+Save and Close applies it; disabling uses the existing fade/stop/suspend path,
+and enabling resumes during active gameplay using retained buffers. Start walking,
+Enter VR and existing controller/desktop gestures unlock Web Audio. Sound plays
+only during visible/tracked active gameplay outside settings, desktop diagnostics
+and graphics warm-up. Session exit stops it; a new gesture/VR entry restarts it.
+Page exit aborts downloads and disposes nodes, buffers, timers and the context.
+
+Five non-overlapping 20-second wind/vegetation clips from bruno.auzet's CC0
+recording are bundled in `assets/hike/audio/`: stereo 32 kHz Vorbis, plus MP3
+fallback. Four static cuts are attenuated and one boosted, all within ±3 dB,
+toward −23 LUFS. Two gain lanes alternate random clips without immediate repeats,
+with five-second equal-power gain automation. A five-second timer schedules
+60 seconds ahead, independently of rendering. Buffers/lanes/fade curves reuse;
+one-shot source nodes are renewed and released after playback. Requested 32 kHz
+decoded memory is 25.6 MB. Master gain is .35. No positional transforms, per-frame
+audio buffers, music or procedural wind coupling are added.
+
+The original WAV requires login, so clips use the source's public HQ MP3 preview.
+Waveform/spectral selection is complete; **auditory review is still pending**.
+Minimal bird/handling noise, natural event cuts, perceived crossfade quality and
+extended Quest playback require listening/headset confirmation. See [AUDIO.md](AUDIO.md)
+for architecture/activation/limits and [asset notes](../../assets/hike/audio/README.md)
+for timestamps, provenance, formats, measurements and the reproducible FFmpeg tool.
+
 ## Profiling, validation and known limits
+
+Sound setting validation: **13 focused settings/audio tests pass**; Chrome
+verified checkbox mute/unmute and persistence after reload without page errors.
+
+Release validation: the full root suite passed, including **108 Hike tests**.
+Documentation links, syntax and `git diff --check` pass. Publication is user-authorized;
+auditory/extended Quest acceptance remains pending.
+
+Audio validation: **8 audio tests pass**, including a simulated two-hour
+schedule, equal-power/no-repeat behavior, bounded nodes, loading/fallback races,
+rapid stop/restart, XR bindings and asset hashes. Chrome verified five Vorbis decodes at 32 kHz /
+25.6 MB, a 150-second native offline render with stereo, nonzero audio and no
+clipping, plus a 65-second live run with nine scheduled clips, no late recoveries
+and no browser errors. All five MP3 fallbacks decoded as stereo/20 seconds;
+final native stop/restart/rapid-restart/disposal checks also passed.
+These are desktop/simulated checks, not an audible-quality
+or sustained Quest benchmark.
 
 Use Debug's manual **30-second active-gameplay capture**. Settings, lost tracking
 and mode changes pause it. Completion builds JSON in a worker, retains the latest
@@ -273,7 +318,7 @@ disjoint queries every fourth frame; Quest captures so far lack that extension.
 Device-side OVR Metrics remains an option, deferred until needed. No automatic
 entry capture is currently enabled.
 
-Release validation: the full root suite passed, including **100 Hike tests**;
+Published v0.23.1 validation: the full root suite passed, including **100 Hike tests**;
 syntax, documentation links and `git diff --check` passed. Focused checks cover hue limits/wrapping,
 saturation/lightness, continuous cell edges, placement/worker parity, loading
 completion, GPU-fence fallback/timeout and cancellation. A 100-cell comparison

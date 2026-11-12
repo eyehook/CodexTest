@@ -1,3 +1,4 @@
+import {ForestAmbience,bindForestAudio} from './forest-audio.mjs?v=1';
 import {GraphicsWarmup} from './graphics-warmup.mjs?v=1';
 import {createLoadingView} from './loading-view.mjs?v=2';
 import {Glider,LandingRunout} from './gliding.mjs?v=glide-17';
@@ -19,8 +20,8 @@ import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {createWorldAsync} from './world-async.mjs?v=pines-dense-1';
 import {placeAtEndpoint} from './teleport.mjs?v=settings-tabs-1';
-import {SettingsMenu} from './settings-menu.mjs?v=capture-1';
-import {APP_VERSION} from './version.mjs?v=0.23.1';
+import {SettingsMenu} from './settings-menu.mjs?v=sound-1';
+import {APP_VERSION} from './version.mjs?v=0.24.1';
 import {Terrain} from './terrain.mjs?v=overlap-4';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -98,6 +99,7 @@ showProgress(.995,'Preparing vegetation');
 const triangleField=new TriangleField(scene,world,flora);
 await triangleField.initialize(spawn);
 const captureNotice=new CaptureNotice(scene);
+const ambience=new ForestAmbience();let audioRequested=false;
 const profiler=new HikeProfiler({gl:renderer.getContext(),onNotice:message=>captureNotice.show(message)});
 function visitCaptureBuffers(visit){
   visit(terrain.geometry.attributes.terrainHeight);visit(terrain.geometry.attributes.normal);visit(terrain.geometry.attributes.color);
@@ -141,15 +143,16 @@ terrain.onApply=()=>profiler.noteTerrain(terrain);
 profiler.restore();
 addEventListener('pagehide',()=>{profiler.dispose();captureNotice.dispose();},{once:true});
 $('#route-info').textContent=`Seed ${seed} · ${(world.totalLength/1000).toFixed(2)} km · ${Math.round(world.totalLength/settings.speed/60)} minutes · summit ${Math.round(world.summit.y)} m`;
-$('#explore').onclick=()=>{$('#explore').blur();walk=true;document.body.classList.add('walking');$('#world').requestPointerLock?.();};
-$('#world').onclick=()=>{if(walk&&!panelOpen&&!renderer.xr.isPresenting)$('#world').requestPointerLock?.();};
+$('#explore').onclick=()=>{$('#explore').blur();walk=true;audioRequested=true;void ambience.unlock();document.body.classList.add('walking');$('#world').requestPointerLock?.();};
+$('#world').onclick=()=>{if(walk){audioRequested=true;void ambience.unlock();}if(walk&&!panelOpen&&!renderer.xr.isPresenting)$('#world').requestPointerLock?.();};
 addEventListener('keydown',e=>{
   if(/INPUT|TEXTAREA|BUTTON/.test(e.target.tagName))return;
+  if(walk&&!e.repeat){audioRequested=true;void ambience.unlock();}
   if(['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}
   if(!e.repeat&&e.code==='KeyR'&&!warmup.active)reset();
   if(!e.repeat&&e.code==='Space'&&walk&&!panelOpen&&!runout.active)launchQueued=true;
 });
-addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();launchQueued=false;});document.addEventListener('visibilitychange',()=>{profiler.pause();keys.clear();launchQueued=false;last=0;fps.reset();});
+addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();launchQueued=false;});document.addEventListener('visibilitychange',()=>{if(document.hidden)ambience.setActive(false);profiler.pause();keys.clear();launchQueued=false;last=0;fps.reset();});
 addEventListener('mousemove',e=>{if(document.pointerLockElement===$('#world')&&!renderer.xr.isPresenting){camera.rotation.y-=e.movementX*.002;camera.rotation.x=T.MathUtils.clamp(camera.rotation.x-e.movementY*.002,-1.35,1.35);}});
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 const loadingView=createLoadingView(scene);
@@ -161,11 +164,12 @@ warmup=new GraphicsWarmup(renderer,scene,camera,{onFinish:()=>{
 }});
 const warmupKey=mode=>`${mode}:shadows=${settingsMenu.saved.shadows}:samples=${flora.coverageSamples}`;
 const vrButton=VRButton.createButton(renderer);vrButton.disabled=true;vrButton.style.pointerEvents='none';document.body.append(vrButton);
+vrButton.addEventListener('click',()=>void ambience.unlock());
 $('#explore').disabled=true;
 $('#world').addEventListener('webglcontextrestored',()=>warmup.invalidate());
-addEventListener('pagehide',()=>{warmup.cancel();loadingView.dispose();},{once:true});
-renderer.xr.addEventListener('sessionstart',()=>{const session=renderer.xr.getSession();session.addEventListener('visibilitychange',()=>{if(session.visibilityState!=='visible')profiler.pause();});glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;keys.clear();walk=true;document.body.classList.add('walking');camera.rotation.set(0,0,0);fps.reset();buttons.reset();last=0;});
-renderer.xr.addEventListener('sessionend',()=>{warmup.cancel();loadingView.mesh.visible=false;profiler.pause();pendingTeleport=null;settingsMenu.close();flora.setCoverageSamples(flora.desktopSamples);state.reset();buttons.reset();fps.reset();last=0;camera.position.set(0,1.7,0);reset();});
+addEventListener('pagehide',()=>{ambience.dispose();warmup.cancel();loadingView.dispose();},{once:true});
+renderer.xr.addEventListener('sessionstart',()=>{const session=renderer.xr.getSession();session.addEventListener('visibilitychange',()=>{if(session.visibilityState!=='visible')profiler.pause();});audioRequested=true;void ambience.unlock();bindForestAudio(session,ambience);glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;keys.clear();walk=true;document.body.classList.add('walking');camera.rotation.set(0,0,0);fps.reset();buttons.reset();last=0;});
+renderer.xr.addEventListener('sessionend',()=>{audioRequested=false;ambience.stop();warmup.cancel();loadingView.mesh.visible=false;profiler.pause();pendingTeleport=null;settingsMenu.close();flora.setCoverageSamples(flora.desktopSamples);state.reset();buttons.reset();fps.reset();last=0;camera.position.set(0,1.7,0);reset();});
 reset();
 startupTimings.preparationMs=performance.now()-preparationStarted;
 pineShadows.setEnabled(settingsMenu.saved.shadows);pineShadows.update(spawn);
@@ -174,7 +178,7 @@ function stepFrame(time,frame){
   const captureBegan=profiler.running?performance.now():0;
   const elapsed=last?Math.max(0,(time-last)/1000):0;last=time;let dt=Math.min(.05,elapsed);
   const session=renderer.xr.getSession();state.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden);
-  if(!state.active){profiler.pause();settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();fps.reset();return;}
+  if(!state.active){ambience.setActive(false);profiler.pause();settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();fps.reset();return;}
   if(session){viewer.position.copy(state.pose.transform.position);viewer.orientation.copy(state.pose.transform.orientation);if(state.firstTracked){reset();const gl=renderer.getContext();flora.setCoverageSamples(gl.getParameter(gl.SAMPLES));}}
   else {viewer.position.copy(camera.position);viewer.orientation.copy(camera.quaternion);}
   applyHeightOffset(heightRig,viewer,settingsMenu.saved.heightOffset);
@@ -184,7 +188,7 @@ function stepFrame(time,frame){
    loadingView.mesh.visible=true;warmup.begin(graphicsKey);
   }
   if(warmup.active){
-   profiler.pause();settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();keys.clear();launchQueued=false;buttons.reset();
+   ambience.setActive(false);profiler.pause();settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();keys.clear();launchQueued=false;buttons.reset();
    loadingView.mesh.visible=true;
    if(warmup.update()){
     // Do not force an unfinished program into use while compileAsync polls it.
@@ -207,13 +211,14 @@ function stepFrame(time,frame){
     settingsMenu.show(head,heading);
   }
   if(settingsMenu.open){
-    profiler.pause();
+    ambience.setActive(false);profiler.pause();
     const panel=settingsMenu.panel;panel.enabled=true;
     for(const c of controllers)panel.controllerStates.get(c).connected=!!buttons.tracked.get(c.userData.source);
     const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
     uiElapsed+=elapsed;if(uiElapsed>.5){uiElapsed=0;panel.model.refresh();}
     panel.update();renderer.render(scene,camera);return;
   }
+  ambience.setActive(audioRequested&&settingsMenu.saved.sound&&!panelOpen);
   const tracing=profiler.beginFrame(captureBegan,session?'immersive-vr':'desktop');
   let capturePhase=tracing?performance.now():0;
   const grassJobsBefore=triangleField.appliedJobs,shadowRebuildsBefore=pineShadows.rebuilds;
@@ -285,7 +290,7 @@ function stepFrame(time,frame){
 }
 renderer.setAnimationLoop(stepFrame);
 // Desktop inspection surface for desktop acceptance checks.
-window.hike={warmup,startupTimings,loadingView,profiler,captureNotice,heightRig,triangleField,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
+window.hike={ambience,warmup,startupTimings,loadingView,profiler,captureNotice,heightRig,triangleField,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
 } catch(error) {
   document.body.classList.remove('loading');
   $('#intro').hidden=true;$('#status').textContent='Mountain generation failed · choose another seed';

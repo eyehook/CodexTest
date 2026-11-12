@@ -1,0 +1,147 @@
+{
+  "source": {
+    "title": "silent windy pine forest.wav",
+    "author": "bruno.auzet",
+    "url": "https://freesound.org/people/bruno.auzet/sounds/670307/",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "inputKind": "public-hq-mp3-preview",
+    "downloadUrl": "https://cdn.freesound.org/previews/670/670307_11519060-hq.mp3",
+    "inputSha256": "a2ead39d080b346c46ed237adc46e83f747d19a81345f74a5e5d115be5f131ac"
+  },
+  "preparation": {
+    "sampleRate": 32000,
+    "channels": 2,
+    "targetLufs": -23,
+    "maxGainAdjustmentDb": 3,
+    "edgeFadeSeconds": 0.01,
+    "auditoryReview": "pending; selection based on waveform/spectral inspection"
+  },
+  "clips": [
+    {
+      "id": "forest-01",
+      "sourceStartSeconds": 47,
+      "sourceEndSeconds": 67,
+      "durationSeconds": 20,
+      "inputLufs": -20.4,
+      "inputTruePeakDbfs": -6.5,
+      "gainDb": -2.6,
+      "files": {
+        "ogg": {
+          "file": "forest-01.ogg",
+          "bytes": 251244,
+          "sha256": "9e3d84d584231242e9242718719d0dd8dc1e0c263a2ce6c9657821ffd2c498ff",
+          "integratedLufs": -23.2,
+          "truePeakDbfs": -9.2
+        },
+        "mp3": {
+          "file": "forest-01.mp3",
+          "bytes": 241130,
+          "sha256": "7021f89dee38a59e55c60f1e6307eff44e8621c3483efb6f3083ca803ab88fd8",
+          "integratedLufs": -23.3,
+          "truePeakDbfs": -9.7
+        }
+      }
+    },
+    {
+      "id": "forest-02",
+      "sourceStartSeconds": 87,
+      "sourceEndSeconds": 107,
+      "durationSeconds": 20,
+      "inputLufs": -24.3,
+      "inputTruePeakDbfs": -12.6,
+      "gainDb": 1.3,
+      "files": {
+        "ogg": {
+          "file": "forest-02.ogg",
+          "bytes": 252114,
+          "sha256": "e1f585fa7f6bbd47609ac18e2319c9ff87f23f3d23794854d6d267a756838604",
+          "integratedLufs": -23.2,
+          "truePeakDbfs": -11.9
+        },
+        "mp3": {
+          "file": "forest-02.mp3",
+          "bytes": 241130,
+          "sha256": "180f10ff3234f06bfd9dd67868e7852d6799bb75ff17572f12aa49caa78129d0",
+          "integratedLufs": -23.4,
+          "truePeakDbfs": -12.0
+        }
+      }
+    },
+    {
+      "id": "forest-03",
+      "sourceStartSeconds": 183,
+      "sourceEndSeconds": 203,
+      "durationSeconds": 20,
+      "inputLufs": -22.0,
+      "inputTruePeakDbfs": -8.0,
+      "gainDb": -1.0,
+      "files": {
+        "ogg": {
+          "file": "forest-03.ogg",
+          "bytes": 247042,
+          "sha256": "fd46c6176876463ad65838a40089f5f74009f09e6e5d69b8ca3d2203da0c10d0",
+          "integratedLufs": -23.2,
+          "truePeakDbfs": -9.1
+        },
+        "mp3": {
+          "file": "forest-03.mp3",
+          "bytes": 241130,
+          "sha256": "e84b9447801dfbca15746c2167dd405b9ed968c6cdf47cc2f373ebe841182da8",
+          "integratedLufs": -23.4,
+          "truePeakDbfs": -9.1
+        }
+      }
+    },
+    {
+      "id": "forest-04",
+      "sourceStartSeconds": 267,
+      "sourceEndSeconds": 287,
+      "durationSeconds": 20,
+      "inputLufs": -21.9,
+      "inputTruePeakDbfs": -9.1,
+      "gainDb": -1.1,
+      "files": {
+        "ogg": {
+          "file": "forest-04.ogg",
+          "bytes": 252684,
+          "sha256": "6dc5dcf05c7dc14c02c9fe26915d1d52fd3ff08d324f2bd546f0b7419905db2f",
+          "integratedLufs": -23.2,
+          "truePeakDbfs": -10.4
+        },
+        "mp3": {
+          "file": "forest-04.mp3",
+          "bytes": 241130,
+          "sha256": "281ea965995c584822c6375760627c5a7c1f229ce26a0f0d182fcbd7a1cc5c2a",
+          "integratedLufs": -23.3,
+          "truePeakDbfs": -10.7
+        }
+      }
+    },
+    {
+      "id": "forest-05",
+      "sourceStartSeconds": 307,
+      "sourceEndSeconds": 327,
+      "durationSeconds": 20,
+      "inputLufs": -22.7,
+      "inputTruePeakDbfs": -11.4,
+      "gainDb": -0.3,
+      "files": {
+        "ogg": {
+          "file": "forest-05.ogg",
+          "bytes": 249769,
+          "sha256": "347b11e8f2c6c553dcee83c9cd512a1de18d481b54b2e7aa1b2858c239bd76a1",
+          "integratedLufs": -23.2,
+          "truePeakDbfs": -12.0
+        },
+        "mp3": {
+          "file": "forest-05.mp3",
+          "bytes": 241130,
+          "sha256": "7b54651c4404682a492a318b442b768d59cea60b779cec99280154219b347e03",
+          "integratedLufs": -23.4,
+          "truePeakDbfs": -12.1
+        }
+      }
+    }
+  ]
+}

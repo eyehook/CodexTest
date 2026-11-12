@@ -7,12 +7,13 @@ import {placeAtEndpoint} from '../teleport.mjs';
 import {applyHeightOffset} from '../height-offset.mjs';
 import {FlightView} from '../flight-view.mjs';
 import {FlightButtons} from '../flight-input.mjs';
-test('settings validate and persist shadows and seated height offset',()=>{
+test('settings validate and persist sound, shadows and seated height offset',()=>{
  const storage={value:null,getItem(){return this.value;},setItem(k,v){this.value=v;}};
- assert.deepEqual(loadSettings(storage),{shadows:false,heightOffset:0});
+ assert.deepEqual(loadSettings(storage),{shadows:false,heightOffset:0,sound:true});
  storage.value='{broken';assert.equal(loadSettings(storage).shadows,false);
  storage.value='{"shadows":"true"}';assert.equal(loadSettings(storage).shadows,false);
- saveSettings(storage,{shadows:true,heightOffset:1.25});assert.deepEqual(loadSettings(storage),{shadows:true,heightOffset:1.25});
+ saveSettings(storage,{shadows:true,heightOffset:1.25,sound:false});assert.deepEqual(loadSettings(storage),{shadows:true,heightOffset:1.25,sound:false});
+ storage.value=JSON.stringify({shadows:true});assert.equal(loadSettings(storage).sound,true);storage.value=JSON.stringify({sound:"false"});assert.equal(loadSettings(storage).sound,true);
  storage.value=JSON.stringify({heightOffset:9});assert.equal(loadSettings(storage).heightOffset,1.5);storage.value=JSON.stringify({heightOffset:-1});assert.equal(loadSettings(storage).heightOffset,0);storage.value=JSON.stringify({heightOffset:'1'});assert.equal(loadSettings(storage).heightOffset,0);
 });
 test('Y and B open settings and absorbs held/reconnected buttons',()=>{
@@ -40,6 +41,7 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   menu.show(new T.Vector3(5,2,3),new T.Quaternion());
   assert.equal(scene.background.getHex(),0);assert.equal(scene.fog,null);assert.equal(world.visible,false);assert.equal(rig.visible,true);assert.equal(menu.panel.mesh.visible,true);
   menu.model.activate('shadows');assert.equal(globalThis.localStorage.value,null);
+  menu.panel.activate(menu.panel.hitAt(970,303));assert.equal(menu.draft.sound,false);assert.equal(menu.saved.sound,true);assert.equal(globalThis.localStorage.value,null);
   menu.panel.activate(menu.panel.hitAt(970,216));assert.equal(menu.draft.heightOffset,1.5);menu.panel.activate(menu.panel.hitAt(625,216));assert.equal(menu.draft.heightOffset,.75);menu.panel.activate(menu.panel.hitAt(280,216));assert.equal(menu.draft.heightOffset,0);
   menu.model.set('heightOffset',1.25);
   // Exercise real ray-to-tab mapping with a controller at the viewer position.
@@ -63,13 +65,15 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   assert.equal(panel.hitAt(120,170),null);
   menu.selectTab('General');assert.equal(menu.draft.shadows,true);
   menu.saveAndExit();assert.equal(menu.open,false);assert.equal(scene.background,background);assert.equal(scene.fog,fog);assert.equal(world.visible,true);assert.equal(hidden.visible,false);
+  assert.equal(loadSettings(globalThis.localStorage).sound,false);
   assert.equal(loadSettings(globalThis.localStorage).shadows,true);assert.equal(loadSettings(globalThis.localStorage).heightOffset,1.25);
   for(const destination of ['base','summit']){
    menu.show(new T.Vector3(),new T.Quaternion());assert.equal(menu.draft.shadows,true);
    menu.selectTab('Teleport');menu.panel.activate(menu.panel.hitAt(500,destination==='base'?130:202));
    assert.equal(menu.open,false);assert.equal(teleports.at(-1),destination);
   }
-  menu.show(new T.Vector3(),new T.Quaternion());menu.selectTab('Debug');
+  menu.show(new T.Vector3(),new T.Quaternion());menu.model.activate('sound');assert.equal(menu.draft.sound,true);menu.close();
+  menu.show(new T.Vector3(),new T.Quaternion());assert.equal(menu.draft.sound,false,'closing without saving discards sound draft');menu.selectTab('Debug');
   globalThis.localStorage.setItem=()=>{throw Error('quota');};
   assert.equal(menu.saveAndExit(),false);assert.equal(menu.open,true);assert.match(menu.panel.footer,/Could not save/);
   menu.close();menu.panel.dispose();
