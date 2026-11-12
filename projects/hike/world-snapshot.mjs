@@ -1,5 +1,5 @@
-import {createTerrainSampler} from './terrain-sampler.mjs?v=banks-1';
-import {createSurfaceQuery} from './surface-query.mjs';
+import {createTerrainSampler} from './terrain-sampler.mjs?v=numeric-1';
+import {createSurfaceQuery} from './surface-query.mjs?v=numeric-1';
 const dataOnly = object => Object.fromEntries(Object.entries(object).filter(([, value]) => typeof value !== 'function'));
 
 export function snapshotWorld(world) {

@@ -1,4 +1,4 @@
-import {createSurfaceQuery} from './surface-query.mjs';
+import {createSurfaceQuery} from './surface-query.mjs?v=numeric-1';
 import {SCALE,rect,offsetRoute,boolean,triangulate,PointIndex} from './planar.mjs?v=trail-detail-3';
 const SIZE=128,STEP_X=.5,STEP_Z=1;
 export function createTrailSurface({route,width,height,project,destinationRadius=0}){

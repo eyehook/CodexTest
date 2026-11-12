@@ -37,9 +37,11 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   const background=scene.background,fog=scene.fog,controllers=[new T.Group(),new T.Group()];controllers.forEach(c=>rig.add(c));
   const teleports=[];
   const debugModel=new ControlModel(Array.from({length:18},(_,i)=>({id:`stat${i}`,kind:'readout',label:`Stat ${i}`,get:()=>i})));
-  const menu=new SettingsMenu(scene,rig,{},controllers,{debugModel,onTeleport:id=>teleports.push(id)});
+  const xr={foveation:.65,getFoveation(){return this.foveation;},setFoveation(value){this.foveation=value;}};
+  const menu=new SettingsMenu(scene,rig,{xr},controllers,{debugModel,onTeleport:id=>teleports.push(id)});
   menu.show(new T.Vector3(5,2,3),new T.Quaternion());
   assert.equal(scene.background.getHex(),0);assert.equal(scene.fog,null);assert.equal(world.visible,false);assert.equal(rig.visible,true);assert.equal(menu.panel.mesh.visible,true);
+  assert.equal(xr.foveation,0);menu.show(new T.Vector3(),new T.Quaternion());assert.equal(xr.foveation,0);
   menu.model.activate('shadows');assert.equal(globalThis.localStorage.value,null);
   menu.panel.activate(menu.panel.hitAt(970,202));assert.equal(menu.draft.sound,false);assert.equal(menu.saved.sound,true);assert.equal(globalThis.localStorage.value,null);
   menu.selectTab('VR');assert.equal(menu.panel.pageRows[0].id,'heightOffset');
@@ -87,6 +89,7 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   assert.equal(panel.hitAt(120,170),null);
   menu.selectTab('General');assert.equal(menu.draft.shadows,true);
   menu.saveAndExit();assert.equal(menu.open,false);assert.equal(scene.background,background);assert.equal(scene.fog,fog);assert.equal(world.visible,true);assert.equal(hidden.visible,false);
+  assert.equal(xr.foveation,1);
   assert.equal(loadSettings(globalThis.localStorage).turnSpeed,120);
   assert.equal(loadSettings(globalThis.localStorage).moveSpeed,5.5);
   assert.equal(loadSettings(globalThis.localStorage).teleport,false);assert.equal(loadSettings(globalThis.localStorage).snapTurn,false);assert.equal(loadSettings(globalThis.localStorage).snapAngle,45);
@@ -95,13 +98,19 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   for(const destination of ['base','summit']){
    menu.show(new T.Vector3(),new T.Quaternion());assert.equal(menu.draft.shadows,true);
    menu.selectTab('Teleport');menu.panel.activate(menu.panel.hitAt(500,destination==='base'?130:202));
-   assert.equal(menu.open,false);assert.equal(teleports.at(-1),destination);
+   assert.equal(menu.open,false);assert.equal(xr.foveation,1);assert.equal(teleports.at(-1),destination);
   }
   menu.show(new T.Vector3(),new T.Quaternion());menu.model.activate('sound');assert.equal(menu.draft.sound,true);menu.close();
   menu.show(new T.Vector3(),new T.Quaternion());assert.equal(menu.draft.sound,false,'closing without saving discards sound draft');menu.selectTab('Debug');
   globalThis.localStorage.setItem=()=>{throw Error('quota');};
-  assert.equal(menu.saveAndExit(),false);assert.equal(menu.open,true);assert.match(menu.panel.footer,/Could not save/);
-  menu.close();menu.panel.dispose();
+  assert.equal(menu.saveAndExit(),false);assert.equal(menu.open,true);assert.match(menu.panel.footer,/Could not save/);assert.equal(xr.foveation,0);
+  menu.close();assert.equal(xr.foveation,1);menu.close();assert.equal(xr.foveation,1);menu.panel.dispose();
+  const desktopMenu=new SettingsMenu(scene,rig,{},controllers);
+  desktopMenu.show(new T.Vector3(),new T.Quaternion());desktopMenu.close();desktopMenu.panel.dispose();
+  xr.getFoveation=()=>undefined;xr.setFoveation=value=>{xr.foveation=value;};
+  const noLayerMenu=new SettingsMenu(scene,rig,{xr},controllers);
+  noLayerMenu.show(new T.Vector3(),new T.Quaternion());assert.equal(xr.foveation,0);
+  noLayerMenu.close();assert.equal(xr.foveation,1);noLayerMenu.panel.dispose();
  }finally{globalThis.document=oldDocument;globalThis.localStorage=oldStorage;}
 });
 

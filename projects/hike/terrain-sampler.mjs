@@ -1,5 +1,5 @@
 import {createBankHeight} from './bank-height.mjs';
-import {createSurfaceQuery} from './surface-query.mjs';
+import {createSurfaceQuery} from './surface-query.mjs?v=numeric-1';
 import {createRouteQuery} from './route-query.mjs';
 // Reconstruct only read-only queries from the existing world's data. No erosion,
 // routing, clipping, slope solving, mesh generation or random work in the worker.

@@ -72,7 +72,7 @@ void main(){
  #include <fog_fragment>
 }`;
 export class TriangleField {
- constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'||typeof Worker!=='undefined'?()=>new Worker(new URL('./field-worker.mjs?v=hue-2',import.meta.url),{type:'module'}):null}={}){
+ constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'||typeof Worker!=='undefined'?()=>new Worker(new URL('./field-worker.mjs?v=numeric-1',import.meta.url),{type:'module'}):null}={}){
   this.world=world;this.flora=flora;this.settings=TRIANGLE_FIELD;this.capacity=(2*TRIANGLE_FIELD.halfWindow+1)**2;this.maxTriangles=this.capacity*TRIANGLE_FIELD.bladesPerCell;
   if(this.maxTriangles>TRIANGLE_CAP)throw Error('Triangle field exceeds budget');
   this.windTime={value:0};this.viewer={value:new T.Vector3()};this.geometry=new T.InstancedBufferGeometry();

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from '../../../shared/vendor/three-r180/three.module.js';
-import {generatePines,plantSuitability,PINE_RULES,TREE_STRIDE} from '../flora-placement.mjs';
+import {generatePines,pineTint,plantSuitability,PINE_RULES,TREE_STRIDE} from '../flora-placement.mjs';
 import {AveragedHeightmap} from '../averaged-heightmap.mjs';
 import {createPineVariants} from '../pine-geometry.mjs';
 import {Flora,selectPineVisibility,pineFadeShader,FLORA_RENDER} from '../flora.mjs';
@@ -9,7 +9,7 @@ import {cachedWorld} from './helpers/world-fixture.mjs';
 function synthetic(seed=42){return {extent:360,config:{seed,trailWidth:5},landscape:{heights:new Float32Array([0,100])},height:(x,z)=>50+x*.04+z*.02,normal(x,z,out){Object.assign(out,{x:-.04,y:1,z:-.02,slope:2.56});return out;},trail(x,z,out){out.distance=Math.abs(z);return out;}};}
 test('pine clusters are deterministic, seed-dependent, spaced and clear of the trail',()=>{
  const world=synthetic(),a=generatePines(world,{densityMultiplier:1}),b=generatePines(world,{densityMultiplier:1}),other=generatePines(synthetic(43),{densityMultiplier:1}),near={};
- assert.deepEqual(a.trees,b.trees);assert.deepEqual(a.cells,b.cells);assert.notDeepEqual(a.trees,other.trees);assert.ok(a.count>100);assert.ok(a.clusters>10);
+ assert.deepEqual(a.tints,b.tints);assert.equal(a.tints.length,a.count*3);assert.deepEqual(a.trees,b.trees);assert.deepEqual(a.cells,b.cells);assert.notDeepEqual(a.trees,other.trees);assert.ok(a.count>100);assert.ok(a.clusters>10);
  let count=0;const variants=new Set();
  for(let c=0;c<a.cells.length;c+=2){assert.ok(a.cells[c+1]===0||(a.cells[c+1]>=5&&a.cells[c+1]<=20));count+=a.cells[c+1];}
  assert.equal(count,a.count);
@@ -18,16 +18,29 @@ test('pine clusters are deterministic, seed-dependent, spaced and clear of the t
   assert.ok(Math.abs(y-world.height(x,z))<.0001);world.trail(x,z,near);assert.ok(near.distance>=world.config.trailWidth/2+PINE_RULES.trailMargin);
   for(let j=0;j<i;j++){const q=j*TREE_STRIDE;assert.ok(Math.hypot(x-a.trees[q],z-a.trees[q+2])>=PINE_RULES.minSpacing-.0001);}
  }
- assert.equal(variants.size,4);
+ assert.equal(variants.size,3);
 });
 test('species suitability uses normalized elevation and soft slope/treeline fades',()=>{
  const range={min:100,max:300};assert.equal(plantSuitability(100,0,range),0);assert.equal(plantSuitability(280,0,range),0);assert.equal(plantSuitability(200,33,range),0);
  assert.ok(plantSuitability(200,0,range)>plantSuitability(250,0,range));assert.ok(plantSuitability(200,26,range)>plantSuitability(200,30,range));
  assert.equal(plantSuitability(200,10,range),plantSuitability(1200,10,{min:1100,max:1300}));
 });
-test('four reusable pine variants contain 3–5 low-poly foliage tiers and colored trunks',()=>{
- const variants=createPineVariants();assert.equal(variants.length,4);
- for(const v of variants){assert.ok(v.sections>=3&&v.sections<=5);assert.ok(v.geometry.attributes.position.count/3<100);assert.equal(v.geometry.attributes.color.count,v.geometry.attributes.position.count);const normals=v.geometry.attributes.normal.array;for(let i=0;i<normals.length;i+=9)for(let j=0;j<3;j++){assert.equal(normals[i+j],normals[i+3+j]);assert.equal(normals[i+j],normals[i+6+j]);}v.geometry.computeBoundingBox();assert.ok(v.geometry.boundingBox.min.y<0);assert.ok(Math.abs(v.geometry.boundingBox.max.y-v.height)<.0001);v.geometry.dispose();}
+test('three reusable pine variants contain 2–4 low-poly foliage tiers and colored trunks',()=>{
+ const variants=createPineVariants();assert.deepEqual(variants.map(v=>v.sections),[2,3,4]);
+ for(const v of variants){
+  // Inspect actual cone vertices: adjacent tiers must overlap vertically.
+  const positions=v.geometry.attributes.position;let previousTop=0,previousBottom=0,previousRadius=0;
+  for(let tier=0;tier<v.sections;tier++){
+   let bottom=Infinity,top=-Infinity,radius=0;
+   for(let i=60+tier*36;i<60+(tier+1)*36;i++){bottom=Math.min(bottom,positions.getY(i));top=Math.max(top,positions.getY(i));radius=Math.max(radius,Math.hypot(positions.getX(i),positions.getZ(i)));}
+   if(tier)assert.ok(previousTop-bottom>v.height*.1,'adjacent foliage tiers overlap');
+   if(v.sections===2&&tier){
+    const lowerRadius=previousRadius*(previousTop-bottom)/(previousTop-previousBottom);
+    assert.ok(radius>lowerRadius*1.25&&radius<lowerRadius*1.5,'upper skirt visibly overhangs the lower surface');
+   }
+   previousTop=top;previousBottom=bottom;previousRadius=radius;
+  }
+  assert.ok(v.sections>=2&&v.sections<=4);assert.ok(v.geometry.attributes.position.count/3<100);assert.equal(v.geometry.attributes.color.count,v.geometry.attributes.position.count);const normals=v.geometry.attributes.normal.array;for(let i=0;i<normals.length;i+=9)for(let j=0;j<3;j++){assert.equal(normals[i+j],normals[i+3+j]);assert.equal(normals[i+j],normals[i+6+j]);}v.geometry.computeBoundingBox();assert.ok(v.geometry.boundingBox.min.y<0);assert.ok(Math.abs(v.geometry.boundingBox.max.y-v.height)<.0001);v.geometry.dispose();}
 });
 test('3D visibility prefetches outside the fade boundary and retains a small removal hysteresis',()=>{
  assert.equal(selectPineVisibility(0),1);assert.equal(selectPineVisibility(450),1);assert.equal(selectPineVisibility(500),1);assert.equal(selectPineVisibility(516),1);assert.equal(selectPineVisibility(517),0);
@@ -47,7 +60,7 @@ test('instanced flora reuses buffers, throttles updates and keeps roots independ
  // A mesh-origin snap cannot affect world-space vegetation or its source data.
  const terrain=new T.Group();scene.add(terrain);terrain.position.set(16,0,-32);flora.update(viewer,true);assert.deepEqual(data.trees,original);assert.equal(flora.batches[1].instanceMatrix.array,buffer);
  viewer.set(900,0,900);flora.update(viewer,true);assert.equal(flora.instanceCount,0);
- flora.dispose();flora.dispose();assert.equal(flora.batches.length,4);assert.equal(flora.material.map,null);assert.equal(scene.children.includes(flora.group),false);
+ flora.dispose();flora.dispose();assert.equal(flora.batches.length,3);assert.equal(flora.material.map,null);assert.equal(scene.children.includes(flora.group),false);
 });
 test('3D fade shares a world-space root distance between both XR eyes and supports coverage/fallback',()=>{
  const viewer={value:new T.Vector3(20,2,-30)},fade={value:new T.Vector2(450,500)},shader={uniforms:{},vertexShader:'#include <begin_vertex>',fragmentShader:'#include <alphatest_fragment>'};
@@ -72,7 +85,7 @@ test('trees retain full 3D geometry and yaw in the distant fade band without tex
  const flora=new Flora(new T.Scene(),data,null);flora.update(new T.Vector3(0,40,0),true);
  const matrix=new T.Matrix4();flora.batches[0].getMatrixAt(0,matrix);
  assert.ok(Math.abs(matrix.elements[0]-Math.cos(.7))<1e-6);assert.ok(Math.abs(matrix.elements[8]-Math.sin(.7))<1e-6);assert.equal(matrix.elements[13],40);
- assert.ok(flora.batches[0].geometry.attributes.position.count>100);assert.equal(flora.material.map,null);assert.equal(flora.batches.length,4);assert.equal(FLORA_RENDER.fadeStart,450);assert.equal(FLORA_RENDER.far,500);flora.dispose();
+ assert.ok(flora.batches[0].geometry.attributes.position.count>100);assert.equal(flora.material.map,null);assert.equal(flora.batches.length,3);assert.equal(FLORA_RENDER.fadeStart,450);assert.equal(FLORA_RENDER.far,500);flora.dispose();
 });
 
 
@@ -107,4 +120,24 @@ test('a large move replaces unfinished visibility work and keeps latest viewer f
  const flora=new Flora(new T.Scene(),rendererFixture(),null,{maxWorkItems:1,budgetMs:100});
  flora.update(new T.Vector3(0,40,0));flora.update(new T.Vector3(1000,40,1000));assert.equal(flora.job.x,1000);assert.equal(flora.viewer.value.x,1000);
  let frames=0;while(flora.job.active&&frames++<100)flora.update(new T.Vector3(1000,40,1000));assert.equal(flora.instanceCount,0);flora.dispose();
+});
+
+test('pine tints form continuous seeded patches with yellow-green and cool endpoints',()=>{
+ const color=(seed,x,z,variation=.5)=>pineTint(seed,x,z,1,variation,new Float32Array(3));
+ const a=color(42,48-1e-5,20),b=color(42,48+1e-5,20);
+ for(let i=0;i<3;i++)assert.ok(Math.abs(a[i]-b[i])<1e-5);
+ assert.notDeepEqual(color(42,20,20),color(43,20,20));
+ assert.notDeepEqual(color(42,20,20,0),color(42,20,20,1));
+ let warm=false,cool=false;
+ for(let x=-300;x<=300;x+=12)for(let z=-300;z<=300;z+=12){
+  const [r,g,b]=color(42,x,z);assert.ok([r,g,b].every(v=>Number.isFinite(v)&&v>.6&&v<1.33));
+  warm||=r>g&&g>b;cool||=b>g&&g>r;
+ }
+ assert.ok(warm&&cool);
+ const data=generatePines(synthetic(),{densityMultiplier:1}),flora=new Flora(new T.Scene(),data,null);
+ flora.update(new T.Vector3(0,60,0),true);
+ for(const mesh of flora.batches)for(let slot=0;slot<mesh.count;slot++){
+  const id=mesh.userData.pineIds[slot];assert.deepEqual(mesh.instanceColor.array.slice(slot*3,slot*3+3),data.tints.slice(id*3,id*3+3));
+ }
+ flora.dispose();
 });

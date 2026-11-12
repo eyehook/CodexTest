@@ -1,5 +1,5 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
-import {TREE_STRIDE} from './flora-placement.mjs?v=dense-1';
+import {TREE_STRIDE} from './flora-placement.mjs?v=planting-fast-1';
 export const PINE_SHADOWS=Object.freeze({mapSize:2048,fadeStart:180,far:200,padding:8,selectionStep:2});
 export function shadowStrength(distance){const t=T.MathUtils.clamp((distance-180)/20,0,1);return 1-t*t*(3-2*t);}
 // Apply distance fading to direct-light occlusion, retaining ambient lighting.
@@ -34,7 +34,7 @@ export class PineShadows {
   // Conservative uphill reach includes the entire world's elevation envelope.
   this.selectionRadius=PINE_SHADOWS.far+(this.maxY-this.minY)*horizontal/this.direction.y+maxRadius+PINE_SHADOWS.padding;
   this.maxRadius=maxRadius;this.center=new T.Vector3();this.temp=new T.Vector3();this.matrix=new T.Matrix4();this.quaternion=new T.Quaternion();this.scale=new T.Vector3();this.axis=new T.Vector3(0,1,0);
-  this.slots=new Int32Array(flora.data.count).fill(-1);this.members=[[],[],[],[]];this.wanted=new Uint32Array(flora.data.count);this.epoch=0;this.changedTransforms=0;
+  this.slots=new Int32Array(flora.data.count).fill(-1);this.members=flora.variants.map(()=>[]);this.wanted=new Uint32Array(flora.data.count);this.epoch=0;this.changedTransforms=0;
   this.lastX=Infinity;this.lastZ=Infinity;this.lastU=Infinity;this.lastV=Infinity;this.lastD=Infinity;this.instanceCount=0;this.updateMs=0;this.rebuilds=0;this.candidates=0;
   this.group=new T.Group();this.group.name='Nearby pine shadow casters';scene.add(this.group);scene.add(sun.target);
   this.material=new T.MeshBasicMaterial({colorWrite:false,depthWrite:false});
@@ -62,7 +62,7 @@ export class PineShadows {
   if(!value)this.renderer.shadowMap.needsUpdate=false;
  }
  rebuild(x,z){
-  const {trees,cells,minCell,columns,cellSize}=this.flora.data,r=this.selectionRadius,ids=[[],[],[],[]];
+  const {trees,cells,minCell,columns,cellSize}=this.flora.data,r=this.selectionRadius,ids=this.flora.variants.map(()=>[]);
   const minX=Math.max(minCell,Math.floor((x-r)/cellSize)-1),maxX=Math.min(minCell+columns-1,Math.floor((x+r)/cellSize)+1);
   const minZ=Math.max(minCell,Math.floor((z-r)/cellSize)-1),maxZ=Math.min(minCell+columns-1,Math.floor((z+r)/cellSize)+1);
   this.candidates=0;

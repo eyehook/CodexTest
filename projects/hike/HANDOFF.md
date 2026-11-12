@@ -6,8 +6,9 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.2** (ground teleport/snap controls; Quest validation pending).
-- Current published release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
+- Release version: **v0.25.11** (faster pine planting, updated pines and full-resolution XR settings; Quest validation pending).
+- Previous pushed version: **v0.25.2** (ground teleport/snap controls).
+- Earlier audio release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
 - Previous published baseline: **v0.23.1**, commit `6283bc4` (noise-hill grass and graphics warm-up).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
   Follow [repository guidance](../../AGENTS.md) for shared modules and publication.
@@ -67,7 +68,13 @@ Banking defaults to zero. Landing preserves horizontal momentum in runout, uses
 8 m/s² friction and hands off to walking when input can keep up. A fresh launch
 press is required after landing.
 
-Settings hides world roots against black while preserving head/controller tracking:
+Settings hides world roots against black while preserving head/controller tracking.
+Startup explicitly sets XR foveation to **1**. Opening settings sets it to **0**
+for full-resolution menu rendering. Every close path sets it back to **1**, including
+session exit and Base/Summit actions; a failed save leaves the menu open at zero.
+The XR manager retains this policy even without an active layer. Desktop rendering
+is unaffected. Focused lifecycle tests cover disable/reenable and failed-save behavior;
+Quest menu sharpness still needs headset validation:
 
 - **General:** persisted Sound (default true) and Shadows (default false). Sound
   toggles take effect immediately while editing; opening settings leaves ambience
@@ -219,9 +226,44 @@ with slope/elevation suitability, spacing, trail clearance and detailed/averaged
 height agreement. Density multiplier is 11.5; seed 41729 produces about 130,000
 world trees. Counts vary by seed; trees have no collision.
 
-`pine-geometry.mjs` supplies four flat-shaded variants: five-sided trunks and
-3–5 six-sided foliage cones, **56/68/80/56 triangles**. `flora.mjs` renders four
-instanced batches using varied width, height, yaw and tint. All trees remain full
+Planting uses numeric spacing-bucket keys and one cached sine/cosine pair per
+cluster. `surface-query.mjs` reindexes serialized surface cells and vertex lookups
+into numeric column maps once per reader, avoiding query-time coordinate strings
+and boundary arrays. Triangle order, interpolation and boundary tolerances remain
+unchanged; serialized world data retains its original format. Numeric query indices
+add CPU-side map storage during each reader's lifetime.
+
+Release validation: the complete root suite passed, including all **117 Hike
+tests**, plus syntax, module/documentation references and whitespace checks. Alternating before/after runs (three pairs per seed, desktop
+Node, restored authoritative worlds) gave median planting times of **2606→1125 ms**
+(seed 41729), **2718→1187 ms** (1435171212) and **2446→1072 ms** (42), roughly
+**56–57% less time**. Tree records, tint buffers and cluster indices matched
+byte-for-byte, with identical counts/candidate totals. These are planting-only
+desktop measurements, not Quest load-time or frame-rate benchmarks.
+
+
+`pine-geometry.mjs` supplies three flat-shaded variants: five-sided trunks and
+2/3/4 six-sided foliage cones, **44/56/68 triangles**. The two-tier model
+extends the upper cone down 30% of its former height, placing its base at 32.4%
+of the foliage span (formerly 48%), with the tip fixed. Its bottom cone is 8%
+narrower. The upper base radius is 60% of the original bottom radius, giving
+about 37% overhang beyond the lower cone at their join, similar to the other
+variants. The three/four-tier profiles are unchanged. `pine-config.mjs`
+keeps placement and geometry variant counts aligned. `flora.mjs` renders three
+instanced batches using varied width, height, yaw and tint. Placement retains
+its previous density and positions; variant assignment now selects only these three.
+Existing instance RGB colors add smooth seeded 48 m patches spanning yellow-green,
+olive/deep green and blue-green, with smaller per-tree hue variation. Independent
+per-tree brightness spans **0.75–2.0** in linear RGB (previously 0.82–1.11),
+allowing visibly lighter trees without changing the hue selection. The same seeded
+random draw is reused so placement, scales, yaw and variant choices are unchanged.
+Generated once
+in the startup worker, tints transfer as three floats/tree (~1.6 MB at 130k trees)
+and reuse existing GPU color attributes. No shader, draw-call or per-frame color
+calculation is added. Trunks receive the same tint pending visual review.
+Local validation: 18 flora, pine-shadow and asynchronous-generation tests passed,
+including tint continuity, palette coverage and GPU instance-color correspondence.
+Updated tree silhouettes, tint strength and trunk appearance require Quest review. All trees remain full
 geometry: full contribution through **450 m**, fade to invisible at **500 m**.
 CPU membership prefetches to 516 m and retains existing members to 524 m.
 World-root distance and stable MSAA coverage/dither are shared between XR eyes.

@@ -1,6 +1,6 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
-import {TREE_STRIDE} from './flora-placement.mjs?v=dense-1';
-import {createPineVariants} from './pine-geometry.mjs?v=3d-only-1';
+import {TREE_STRIDE} from './flora-placement.mjs?v=planting-fast-1';
+import {createPineVariants} from './pine-geometry.mjs?v=skirt-1';
 export const FLORA_RENDER=Object.freeze({fadeStart:450,far:500,prefetch:16,hysteresis:8,updateStep:1.5,budgetMs:.75,maxWorkItems:2048});
 export function selectPineVisibility(distance,previous=0,settings=FLORA_RENDER){
  return distance<=settings.far+settings.prefetch+(previous?settings.hysteresis:0)?1:0;
@@ -58,7 +58,7 @@ export class Flora {
   this.viewer={value:new T.Vector3()};this.matrix=new T.Matrix4();this.position=new T.Vector3();this.scale=new T.Vector3();this.rotation=new T.Quaternion();this.axis=new T.Vector3(0,1,0);
   this.fadeRange={value:new T.Vector2(this.settings.fadeStart,this.settings.far)};this.coverageStep={value:.25};
   this.material=new T.MeshLambertMaterial({vertexColors:true,flatShading:true,alphaToCoverage:true});this.material.onBeforeCompile=shader=>pineFadeShader(shader,this.viewer,this.fadeRange,this.coverageStep);
-  this.group=new T.Group();this.group.name='Pine forest';scene.add(this.group);const counts=new Uint32Array(4);
+  this.group=new T.Group();this.group.name='Pine forest';scene.add(this.group);const counts=new Uint32Array(this.variants.length);
   for(let i=0;i<data.count;i++)counts[data.trees[i*TREE_STRIDE+7]]++;
   this.batches=this.variants.map((variant,i)=>{const mesh=new T.InstancedMesh(variant.geometry,this.material,Math.max(1,counts[i]));mesh.count=0;prepareInstances(mesh,Math.max(1,counts[i]));this.group.add(mesh);return mesh;});
   const gl=renderer?.getContext?.();this.desktopSamples=gl?gl.getParameter(gl.SAMPLES):0;this.setCoverageSamples(this.desktopSamples);
@@ -86,7 +86,8 @@ export class Flora {
   this.position.set(trees[k],trees[k+1],trees[k+2]);
   this.rotation.setFromAxisAngle(this.axis,trees[k+5]);this.scale.set(width,height,width);
   this.matrix.compose(this.position,this.rotation,this.scale);mesh.setMatrixAt(slot,this.matrix);
-  const color=mesh.instanceColor.array,tint=trees[k+6];color[slot*3]=color[slot*3+1]=color[slot*3+2]=tint;
+  const color=mesh.instanceColor.array,tints=this.data.tints,tint=trees[k+6];
+  for(let channel=0;channel<3;channel++)color[slot*3+channel]=tints?tints[id*3+channel]:tint;
   mesh.userData.pineIds[slot]=id;this.slots[id]=slot;this.states[id]=lod;dirty(mesh,slot);this.changedInstances++;
  }
  consider(id){

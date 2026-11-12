@@ -85,7 +85,7 @@ class SettingsPanel extends VRControlPanel {
 }
 export class SettingsMenu {
  constructor(scene,rig,renderer,controllers,{debugModel=null,onTeleport=()=>{}}={}){
-  this.scene=scene;this.rig=rig;this.open=false;this.saved=defaults();try{this.saved=loadSettings(globalThis.localStorage);}catch{}this.draft={...this.saved};
+  this.scene=scene;this.rig=rig;this.xr=renderer.xr;this.open=false;this.saved=defaults();try{this.saved=loadSettings(globalThis.localStorage);}catch{}this.draft={...this.saved};
   this.model=new ControlModel([
    {id:'shadows',kind:'toggle',label:'Shadows',get:()=>this.draft.shadows,set:v=>this.draft.shadows=v},
    {id:'sound',kind:'toggle',label:'Sound',get:()=>this.draft.sound,set:v=>this.draft.sound=v},
@@ -110,6 +110,7 @@ export class SettingsMenu {
  show(position,heading){
   if(this.open)return;
   this.draft={...this.saved};this.selectTab('General');this.model.refresh();this.previous={background:this.scene.background,fog:this.scene.fog,visible:new Map()};
+  this.xr?.setFoveation(0);
   for(const child of this.scene.children){if(child===this.panel.mesh||child===this.rig)continue;this.previous.visible.set(child,child.visible);child.visible=false;}
   this.scene.background=new T.Color(0);this.scene.fog=null;this.open=true;
   this.panel.mesh.visible=true;this.panel.enabled=true;this.panel.follow(position,heading);
@@ -120,6 +121,7 @@ export class SettingsMenu {
  }
  close(){
   if(!this.open)return;
+  this.xr?.setFoveation(1);
   this.scene.background=this.previous.background;this.scene.fog=this.previous.fog;
   for(const [child,visible] of this.previous.visible)child.visible=visible;
   this.open=false;this.panel.enabled=false;this.panel.mesh.visible=false;this.panel.hideRays();this.panel.footer='';
