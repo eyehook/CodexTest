@@ -2,7 +2,7 @@
 
 `forest-audio.mjs` implements a non-positional stereo wind/vegetation bed from
 five local clips. General Settings provides a saved Sound checkbox (default on),
-applied with Save and Close. There are no positional transforms, music,
+applied immediately and persisted with Save and Close. There are no positional transforms, music,
 synthetic layers or procedural-wind connections. Terrain, vegetation and movement
 algorithms are unchanged. Source provenance, timestamps, preparation and pending
 listening review are in [the asset notes](../../assets/hike/audio/README.md).
@@ -46,10 +46,12 @@ It is called from Start walking, the existing Enter VR button, session start,
 controller select/squeeze and subsequent desktop interaction. An immersive-session
 callback alone is not assumed to satisfy autoplay policy.
 
-`setActive(bool)` is idempotent. The saved Sound checkbox gates it; muted
-buffers are retained for reuse. Sound is active only after a play/VR request,
-with visible/tracked gameplay outside settings, desktop diagnostics and graphics
-warm-up. Hidden/untracked frames and session visibility events silence it. Stop
+`setActive(bool)` is idempotent. The Sound checkbox gates it; muted
+buffers are retained for reuse. Sound is active after a play/VR request while
+visible/tracked, including settings, desktop diagnostics and graphics warm-up.
+Opening settings preserves playback. Sound edits take effect immediately using
+the draft preference; Save and Close persists it, while discarding edits restores
+the saved preference. Turning Sound on also retries audio unlock. Hidden/untracked frames and session visibility events silence it. Stop
 fades the master over 150 ms, retires sources at 160 ms and suspends the context
 after 220 ms. Restart reuses the buffers and begins a fresh randomized sequence
 after the retiring sources. Session exit stops the bed; a new desktop gesture or

@@ -1,3 +1,4 @@
+import {GroundNavigation} from './ground-navigation.mjs?v=4';
 import {ForestAmbience,bindForestAudio} from './forest-audio.mjs?v=1';
 import {GraphicsWarmup} from './graphics-warmup.mjs?v=1';
 import {createLoadingView} from './loading-view.mjs?v=2';
@@ -20,8 +21,8 @@ import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {createWorldAsync} from './world-async.mjs?v=pines-dense-1';
 import {placeAtEndpoint} from './teleport.mjs?v=settings-tabs-1';
-import {SettingsMenu} from './settings-menu.mjs?v=sound-1';
-import {APP_VERSION} from './version.mjs?v=0.24.1';
+import {SettingsMenu} from './settings-menu.mjs?v=vr-4';
+import {APP_VERSION} from './version.mjs?v=0.25.2';
 import {Terrain} from './terrain.mjs?v=overlap-4';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -82,6 +83,13 @@ const marker=new T.Group();marker.position.set(world.summit.x,world.summit.y,wor
 const mast=new T.Mesh(new T.CylinderGeometry(.2,.25,9,6),new T.MeshLambertMaterial({color:0x302b24}));mast.position.y=4.5;marker.add(mast);
 const pennant=new T.Mesh(new T.BoxGeometry(3.4,1.6,.08),new T.MeshLambertMaterial({color:0xeab04c}));pennant.position.set(1.6,8,0);marker.add(pennant);
 const locomotion=new Locomotion(rig,{moveSpeed:settings.speed,turnSpeed:Math.PI/2});
+const groundNavigation=new GroundNavigation(scene,world);
+const rayQuaternion=new T.Quaternion();
+function getTeleportRay(frame,source,origin,direction){
+ const pose=frame?.getPose(source.targetRaySpace,renderer.xr.getReferenceSpace());if(!pose)return false;
+ heightRig.updateWorldMatrix(true,false);origin.copy(pose.transform.position).applyMatrix4(heightRig.matrixWorld);
+ rayQuaternion.copy(pose.transform.orientation);direction.set(0,0,-1).applyQuaternion(rayQuaternion);heightRig.getWorldQuaternion(rayQuaternion);direction.applyQuaternion(rayQuaternion);return true;
+}
 const sliding=new SlopeSlide(world),glider=new Glider(world),runout=new LandingRunout(world),flightView=new FlightView(bankRig),walkVelocity=new T.Vector3();
 const state=new XRFrameState(),buttons=new FlightButtons(),fps=new FrameRateCounter();
 const viewer={position:new T.Vector3(),orientation:new T.Quaternion()},head=new T.Vector3(),heading=new T.Quaternion(),euler=new T.Euler(0,0,0,'YXZ');
@@ -90,7 +98,7 @@ let pendingTeleport=null;
 let walk=false,last=0,uiElapsed=0,frameCount=0,launchQueued=false;
 const keys=new Set();
 function reset(destination='base') {
-  sliding.reset();glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;
+  groundNavigation.reset();sliding.reset();glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;
   placeAtEndpoint(rig,viewer,world,destination,renderer.xr.isPresenting&&!!state.pose);
   camera.rotation.set(.18,0,0);rig.updateMatrixWorld(true);
 }
@@ -138,6 +146,7 @@ const desktop=new DesktopControls($('#controls'),model);
 const controllers=[renderer.xr.getController(0),renderer.xr.getController(1)];
 for(const c of controllers){heightRig.add(c);c.addEventListener('connected',e=>c.userData.source=e.data);c.addEventListener('disconnected',()=>delete c.userData.source);}
 const settingsMenu=new SettingsMenu(scene,rig,renderer,controllers,{debugModel:model,onTeleport:destination=>{pendingTeleport=destination;}});
+settingsMenu.model.onChange=id=>{if(id==='sound'&&settingsMenu.draft.sound)void ambience.unlock();};
 profiler.onChange=()=>{settingsMenu.panel.footer=profiler.lastError??'';model.refresh();};
 terrain.onApply=()=>profiler.noteTerrain(terrain);
 profiler.restore();
@@ -178,7 +187,8 @@ function stepFrame(time,frame){
   const captureBegan=profiler.running?performance.now():0;
   const elapsed=last?Math.max(0,(time-last)/1000):0;last=time;let dt=Math.min(.05,elapsed);
   const session=renderer.xr.getSession();state.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden);
-  if(!state.active){ambience.setActive(false);profiler.pause();settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();fps.reset();return;}
+  if(!state.active){groundNavigation.reset();ambience.setActive(false);profiler.pause();settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();fps.reset();return;}
+  if(state.resumed)groundNavigation.reset();
   if(session){viewer.position.copy(state.pose.transform.position);viewer.orientation.copy(state.pose.transform.orientation);if(state.firstTracked){reset();const gl=renderer.getContext();flora.setCoverageSamples(gl.getParameter(gl.SAMPLES));}}
   else {viewer.position.copy(camera.position);viewer.orientation.copy(camera.quaternion);}
   applyHeightOffset(heightRig,viewer,settingsMenu.saved.heightOffset);
@@ -188,7 +198,8 @@ function stepFrame(time,frame){
    loadingView.mesh.visible=true;warmup.begin(graphicsKey);
   }
   if(warmup.active){
-   ambience.setActive(false);profiler.pause();settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();keys.clear();launchQueued=false;buttons.reset();
+   groundNavigation.reset();
+   ambience.setActive(audioRequested&&settingsMenu.saved.sound);profiler.pause();settingsMenu.panel.enabled=false;settingsMenu.panel.hideRays();keys.clear();launchQueued=false;buttons.reset();
    loadingView.mesh.visible=true;
    if(warmup.update()){
     // Do not force an unfinished program into use while compileAsync polls it.
@@ -203,61 +214,67 @@ function stepFrame(time,frame){
   let launchPressed=launchQueued;launchQueued=false;
   if(session){const input=buttons.update(session.inputSources,state);launchPressed=!teleported&&input.launch;}
   if(session&&buttons.result.settings&&settingsMenu.open){
-    settingsMenu.saveAndExit();renderer.render(scene,camera);return;
+    groundNavigation.reset();settingsMenu.saveAndExit();ambience.setActive(audioRequested&&(settingsMenu.open?settingsMenu.draft.sound:settingsMenu.saved.sound));renderer.render(scene,camera);return;
   }
   if(session&&buttons.result.settings&&!settingsMenu.open){
     euler.setFromQuaternion(viewer.orientation,'YXZ');heading.setFromAxisAngle(T.Object3D.DEFAULT_UP,euler.y+rig.rotation.y);
     rig.updateMatrixWorld(true);head.copy(viewer.position).applyMatrix4(rig.matrixWorld);
-    settingsMenu.show(head,heading);
+    groundNavigation.reset();settingsMenu.show(head,heading);
   }
   if(settingsMenu.open){
-    ambience.setActive(false);profiler.pause();
+    profiler.pause();
     const panel=settingsMenu.panel;panel.enabled=true;
     for(const c of controllers)panel.controllerStates.get(c).connected=!!buttons.tracked.get(c.userData.source);
     const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
     uiElapsed+=elapsed;if(uiElapsed>.5){uiElapsed=0;panel.model.refresh();}
-    panel.update();renderer.render(scene,camera);return;
+    panel.update();ambience.setActive(audioRequested&&(settingsMenu.open?settingsMenu.draft.sound:settingsMenu.saved.sound));renderer.render(scene,camera);return;
   }
-  ambience.setActive(audioRequested&&settingsMenu.saved.sound&&!panelOpen);
+  ambience.setActive(audioRequested&&settingsMenu.saved.sound);
   const tracing=profiler.beginFrame(captureBegan,session?'immersive-vr':'desktop');
   let capturePhase=tracing?performance.now():0;
   const grassJobsBefore=triangleField.appliedJobs,shadowRebuildsBefore=pineShadows.rebuilds;
+  const moveSpeed=session?settingsMenu.saved.moveSpeed:settings.speed;
   if(runout.active){
     let x=0,z=0;
-    if(session){const axes=readMovementAxes(session.inputSources,locomotion.axes);x=axes.x;z=axes.z;}
+    if(session&&!settingsMenu.saved.teleport){const axes=readMovementAxes(session.inputSources,locomotion.axes);x=axes.x;z=axes.z;}
     else if(walk&&!panelOpen){x=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));z=Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp'));}
     const c=locomotion.settings;
-    const requestedSpeed=settings.speed*Math.min(1,Math.hypot(deadzone(x,c.deadzone,c.rescaleDeadzone),deadzone(z,c.deadzone,c.rescaleDeadzone)));
+    const requestedSpeed=moveSpeed*Math.min(1,Math.hypot(deadzone(x,c.deadzone,c.rescaleDeadzone),deadzone(z,c.deadzone,c.rescaleDeadzone)));
     // Once input can keep up, use the normal walking branch this very frame.
     runout.takeOver(requestedSpeed);
   }
   const inputLocked=runout.active;
   flightView.sample(rig,viewer);head.copy(flightView.head);let ground;
   if(glider.active){
+    groundNavigation.reset();
     // The collision floor is beneath the current physical head X/Z. Its world
     // height is rig.y, preserving the live standing/headset height above it.
     const turn=session?readMovementAxes(session.inputSources,locomotion.axes).turn:walk&&!panelOpen?Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')):0;
     flightView.advance(glider,rig,viewer,dt,turn);
     if(glider.landed){sliding.reset();runout.start(glider.landingVelocity.x,glider.landingVelocity.z);walkVelocity.set(0,0,0);}
   }else if(inputLocked){
+    groundNavigation.reset();
     const point=runout.update(dt,head.x,head.z);
     rig.position.x+=point.x-head.x;rig.position.z+=point.z-head.z;rig.position.y=point.y;
     ground=point.y;glider.settle(dt);walkVelocity.set(0,0,0);
   }else{
     const beforeX=head.x,beforeZ=head.z,beforeFloor=rig.position.y;
-    locomotion.settings.moveSpeed=settings.speed;
-    if(session)locomotion.update(dt,session.inputSources,viewer);
-    else if(walk&&!panelOpen)locomotion.move(dt,Number(keys.has('KeyD'))-Number(keys.has('KeyA')),Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp')),Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),viewer);
+    locomotion.settings.moveSpeed=moveSpeed;
+    if(!session)locomotion.settings.turnSpeed=Math.PI/2;
+    let groundTeleported=false;
+    if(session)groundTeleported=groundNavigation.update(locomotion,dt,session.inputSources,viewer,settingsMenu.saved,s=>state.isTracked(s.targetRaySpace),(s,o,d)=>getTeleportRay(frame,s,o,d));
+    if(groundTeleported){sliding.reset();walkVelocity.set(0,0,0);launchPressed=false;}
+    if(!session&&walk&&!panelOpen)locomotion.move(dt,Number(keys.has('KeyD'))-Number(keys.has('KeyA')),Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp')),Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),viewer);
     flightView.sample(rig,viewer);head.copy(flightView.head);
     if(session||walk){
-      const slide=sliding.update(head.x,head.z,dt,settings.slideSlope,settings.speed);
+      const slide=sliding.update(head.x,head.z,dt,settings.slideSlope,moveSpeed);
       rig.position.x+=slide.x-head.x;rig.position.z+=slide.z-head.z;head.x=slide.x;head.z=slide.z;
     }
     ground=world.height(head.x,head.z);rig.position.y+=(ground-rig.position.y)*(1-Math.exp(-dt*18));
-    if(dt>0)walkVelocity.set((head.x-beforeX)/dt,(rig.position.y-beforeFloor)/dt,(head.z-beforeZ)/dt);
+    if(dt>0&&!groundTeleported)walkVelocity.set((head.x-beforeX)/dt,(rig.position.y-beforeFloor)/dt,(head.z-beforeZ)/dt);
     flightView.sample(rig,viewer);head.copy(flightView.head);
     if(launchPressed&&(session||walk)){
-      glider.launch(head.x,rig.position.y,head.z,flightView.heading,walkVelocity.x,walkVelocity.z,walkVelocity.y);rig.position.y=glider.position.y;sliding.reset();
+      groundNavigation.reset();glider.launch(head.x,rig.position.y,head.z,flightView.heading,walkVelocity.x,walkVelocity.z,walkVelocity.y);rig.position.y=glider.position.y;sliding.reset();
     }else glider.settle(dt);
   }
   flightView.sample(rig,viewer);head.copy(flightView.head);flightView.bank(viewer,glider.bank);rig.updateMatrixWorld(true);
@@ -290,7 +307,7 @@ function stepFrame(time,frame){
 }
 renderer.setAnimationLoop(stepFrame);
 // Desktop inspection surface for desktop acceptance checks.
-window.hike={ambience,warmup,startupTimings,loadingView,profiler,captureNotice,heightRig,triangleField,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
+window.hike={groundNavigation,ambience,warmup,startupTimings,loadingView,profiler,captureNotice,heightRig,triangleField,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
 } catch(error) {
   document.body.classList.remove('loading');
   $('#intro').hidden=true;$('#status').textContent='Mountain generation failed · choose another seed';

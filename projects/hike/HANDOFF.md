@@ -6,7 +6,8 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Current release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
+- Release version: **v0.25.2** (ground teleport/snap controls; Quest validation pending).
+- Current published release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
 - Previous published baseline: **v0.23.1**, commit `6283bc4` (noise-hill grass and graphics warm-up).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
   Follow [repository guidance](../../AGENTS.md) for shared modules and publication.
@@ -14,8 +15,11 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
   testing, run root `Start-VR.command`; keep its terminal and cable connected.
 - Startup uses a random uint32 seed. A valid, nonblank `?seed=41729` selects a
   repeatable world. Seed controls remain available if generation fails.
-- `version.mjs` supplies the header/title and `hike.version`. Advance the entry
-  and affected import query versions when changing cached runtime modules.
+- `version.mjs` supplies the header/title and `hike.version`. Increment the patch
+  for every completed update, including unpublished edits, so Quest testing can
+  identify the latest build. Patch numbers may grow without limit; reset to zero
+  when incrementing the minor version. Update the entry and version import queries
+  to match, and advance affected runtime import/asset queries to prevent stale caches.
 - Publish only on a new explicit request. **Do not check GitHub Pages after pushes.**
 - Reverted experiments are not part of this version: pyramid tree LODs, 1–5 grass
   clumps, explicit teleport terrain refresh, automatic
@@ -46,7 +50,7 @@ world determinism and cached/fresh/query parity checks remain in the suite.
 | Context | Controls |
 | --- | --- |
 | Desktop | Start walking, WASD/up/down, mouse look with pointer lock, left/right turn; Space launches glide; P diagnostics; R trailhead reset; Esc releases mouse |
-| Quest ground | Left stick walks relative to horizontal headset heading; right stick turns at 90°/s; A/X launches glide |
+| Quest ground | Default: either stick forward aims teleport, release travels; either stick sideways snaps 30°. VR settings offer smooth head-relative walking and 30–120°/s turning; A/X launches glide |
 | Quest flight | Right stick steers with inertia; headset pitch controls climb/dive; head yaw/roll do not steer; left-stick walking is disabled |
 | Settings | B/Y opens, or saves and closes from any tab; either controller laser and trigger select |
 
@@ -55,7 +59,8 @@ up the route. Teleports place the physical head over Base/Summit, accounting for
 rig rotation and physical X/Z offset exactly once. Hidden/untracked XR pauses
 movement and interaction; held buttons are absorbed on resume.
 
-Current walking speed is **14 m/s** for testing. Sliding begins above **35°**,
+VR smooth walking defaults to **2 m/s**, adjustable from **1–10 m/s** in **0.5 m/s**
+steps. Desktop retains **14 m/s** for testing. Sliding begins above **35°**,
 accelerates downhill and stops on gentler ground. Flight caps at **90 m/s**, with
 75° maximum dive, 60°/s turn cap, .15 rescaled stick dead zone and 3/s turn response.
 Banking defaults to zero. Landing preserves horizontal momentum in runout, uses
@@ -64,12 +69,39 @@ press is required after landing.
 
 Settings hides world roots against black while preserving head/controller tracking:
 
-- **General:** persisted Sound (default true), Shadows (default false) and seated height offset
-  0–1.5 m, .05 m steps, default zero. Offset is applied once through `heightRig`;
-  collision/ground rig height stays independent.
+- **General:** persisted Sound (default true) and Shadows (default false). Sound
+  toggles take effect immediately while editing; opening settings leaves ambience
+  playing. Closing without saving restores the saved Sound preference.
+- **VR:** Height offset first: 0–1.5 m, .05 m steps, default zero. Applied once
+  through `heightRig`; collision/ground rig height stays independent. Teleport movement and Snap turning default on (off selects smooth); snap
+  angle slider 15°/30°/45°, default 30°. With Snap turning off, the same row
+  becomes a Turn speed slider: 30/60/90/120°/s, default 90°/s. Both values are
+  remembered independently. Movement speed sits beneath Teleport movement,
+  is disabled while teleport is on, and retains its value. Preferences persist
+  through Save and Close.
+  Ground only; gliding and landing runout retain their existing physics.
 - **Teleport:** Base/Summit saves settings, closes the menu and queues placement.
 - **Debug:** Start/Cancel 30-second capture, status, CPU/frame/GPU summary,
   Send capture to computer and Export JSON. The standalone field guide is removed.
+
+Ground teleport uses a curved initiating-controller arc against `world.height`, with green
+valid/red invalid feedback. Maximum displacement is a fixed **15 m**, measured in 3D
+from the current ground position beneath the head; pointing selects the distance.
+Landings outside the world or steeper than 35° are rejected. Orientation is retained;
+physical head X/Z and seated height offsets are composed once. Release commits only
+a valid aim. New controllers, tracking recovery, menus and flight cancel aiming and
+require neutral input; snap turning likewise requires neutral between turns.
+With teleport on, either stick can aim with its own controller or turn sideways.
+The initiating hand owns the teleport until release; the other hand cannot take over.
+Equal simultaneous turns never double speed/angle, and equal opposite turns cancel.
+With teleport off, the left stick walks/strafes and only the right stick turns.
+`ground-navigation.mjs` owns these policies and reuses shared Locomotion for smooth
+movement and head-pivot turns. Desktop movement remains smooth.
+
+Release validation: the full root suite passed, including **116 Hike tests**,
+with physical-offset placement, pivot turns, neutral gating, slope/range rejection
+and smooth fallback. Syntax/whitespace and documentation link checks passed. Arc appearance, controller feel
+and comfort still require Quest validation.
 
 Storage failure leaves Settings open for retry; session exit discards unsaved drafts.
 For XR coordinate transforms, follow root AGENTS.md: use the current viewer pose
@@ -260,11 +292,11 @@ Wind is entirely in the existing vertex shader, driven by one frame-time uniform
 
 `forest-audio.mjs` adds a non-positional stereo bed. General Settings has a
 persisted **Sound** checkbox (default on, including older saved settings).
-Save and Close applies it; disabling uses the existing fade/stop/suspend path,
-and enabling resumes during active gameplay using retained buffers. Start walking,
+Edits apply immediately; Save and Close persists them. Disabling uses the existing
+fade/stop/suspend path; enabling resumes with retained buffers. Start walking,
 Enter VR and existing controller/desktop gestures unlock Web Audio. Sound plays
-only during visible/tracked active gameplay outside settings, desktop diagnostics
-and graphics warm-up. Session exit stops it; a new gesture/VR entry restarts it.
+during visible/tracked gameplay, including settings, desktop diagnostics
+and graphics warm-up; opening menus does not interrupt it. Session exit stops it; a new gesture/VR entry restarts it.
 Page exit aborts downloads and disposes nodes, buffers, timers and the context.
 
 Five non-overlapping 20-second wind/vegetation clips from bruno.auzet's CC0

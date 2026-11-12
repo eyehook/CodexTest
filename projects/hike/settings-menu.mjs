@@ -4,11 +4,11 @@ import {sliderValue} from '../../shared/ui/slider.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
 export const SETTINGS_KEY='hike.settings';
-const defaults=()=>({shadows:false,heightOffset:0,sound:true});
-function normalizeSettings(value){return {sound:typeof value?.sound==='boolean'?value.sound:true,shadows:value?.shadows===true,heightOffset:typeof value?.heightOffset==='number'&&Number.isFinite(value.heightOffset)?Math.max(0,Math.min(1.5,value.heightOffset)):0};}
+const defaults=()=>({shadows:false,heightOffset:0,sound:true,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2});
+function normalizeSettings(value){return {turnSpeed:[30,60,90,120].includes(value?.turnSpeed)?value.turnSpeed:90,moveSpeed:typeof value?.moveSpeed==='number'&&Number.isFinite(value.moveSpeed)?Math.round(Math.max(1,Math.min(10,value.moveSpeed))*2)/2:2,teleport:typeof value?.teleport==='boolean'?value.teleport:true,snapTurn:typeof value?.snapTurn==='boolean'?value.snapTurn:true,snapAngle:[15,30,45].includes(value?.snapAngle)?value.snapAngle:30,sound:typeof value?.sound==='boolean'?value.sound:true,shadows:value?.shadows===true,heightOffset:typeof value?.heightOffset==='number'&&Number.isFinite(value.heightOffset)?Math.max(0,Math.min(1.5,value.heightOffset)):0};}
 export function loadSettings(storage){try{return normalizeSettings(JSON.parse(storage.getItem(SETTINGS_KEY)));}catch{return defaults();}}
 export function saveSettings(storage,settings){storage.setItem(SETTINGS_KEY,JSON.stringify(normalizeSettings(settings)));}
-const TABS=['General','Teleport','Debug'];
+const TABS=['General','VR','Teleport','Debug'];
 const PAGE_SIZE=7;
 class SettingsPanel extends VRControlPanel {
  constructor(...args){super(...args);this.triggers=new ButtonEdges();this.drags=new Map();this.seen=new Set();this.seedTriggers=true;}
@@ -31,7 +31,7 @@ class SettingsPanel extends VRControlPanel {
   this.seedTriggers=false;super.update();
  }
 
- get pageRows(){return (this.tab==='Debug'?this.model.definitions:this.rows.concat(this.actions)).slice((this.page??0)*PAGE_SIZE,((this.page??0)+1)*PAGE_SIZE);}
+ get pageRows(){return (this.tab==='Debug'?this.model.definitions:this.rows.concat(this.actions).filter(d=>this.tab!=='VR'||(d.id!=='snapAngle'||this.model.value('snapTurn'))&&(d.id!=='turnSpeed'||!this.model.value('snapTurn')))).slice((this.page??0)*PAGE_SIZE,((this.page??0)+1)*PAGE_SIZE);}
  draw(){
   const ctx=this.ctx,c=this.theme,tab=this.tab??'General',page=this.page??0;
   ctx.fillStyle=c.background;ctx.fillRect(0,0,1024,this.canvas.height);
@@ -46,9 +46,9 @@ class SettingsPanel extends VRControlPanel {
     ctx.strokeStyle=c.accent;ctx.lineWidth=3;ctx.strokeRect(940,y+15,28,28);
     if(d.get()){ctx.beginPath();ctx.moveTo(945,y+28);ctx.lineTo(953,y+36);ctx.lineTo(964,y+20);ctx.stroke();}
    }else if(d.slider){
-    ctx.fillStyle=c.row;ctx.fillRect(250,y,754,60);ctx.fillStyle=c.text;ctx.font='22px system-ui';ctx.fillText(this.model.label(d,'vr'),268,y+23);ctx.fillText(this.model.format(d),900,y+23);
+    ctx.fillStyle=c.row;ctx.fillRect(250,y,754,60);ctx.fillStyle=disabled?c.muted:c.text;ctx.font='22px system-ui';ctx.fillText(this.model.label(d,'vr'),268,y+23);ctx.fillText(this.model.format(d),900,y+23);
     ctx.fillStyle=c.button;ctx.fillRect(280,y+40,690,8);const x=280+690*(d.get()-d.min)/(d.max-d.min);
-    ctx.fillStyle=c.accent;ctx.fillRect(280,y+40,x-280,8);ctx.beginPath();ctx.arc(x,y+44,9,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=disabled?c.muted:c.accent;ctx.fillRect(280,y+40,x-280,8);ctx.beginPath();ctx.arc(x,y+44,9,0,Math.PI*2);ctx.fill();
    }else if(d.kind==='number'){
     ctx.fillText(this.model.format(d),730,y+37);
     for(let j=0;j<2;j++){ctx.fillStyle=c.button;ctx.fillRect(850+j*76,y+5,64,50);ctx.fillStyle=c.text;ctx.fillText(j?'+':'−',871+j*76,y+37);}
@@ -63,7 +63,7 @@ class SettingsPanel extends VRControlPanel {
   return this.hitAt(hit.uv.x*1024,(1-hit.uv.y)*this.canvas.height,hit.distance);
  }
  hitAt(x,y,distance=2){
-  if(x>=20&&x<=230&&y>=100&&y<340){const i=Math.floor((y-100)/80);return y<100+i*80+64?{tab:TABS[i],row:-i-2,sign:1,distance}:null;}
+  if(x>=20&&x<=230&&y>=100&&y<100+TABS.length*80){const i=Math.floor((y-100)/80);return y<100+i*80+64?{tab:TABS[i],row:-i-2,sign:1,distance}:null;}
   if(x<250||x>1004)return null;
   if(y>=700&&y<=760)return {save:true,row:20,sign:1,distance};
   if(y>=620&&y<=670&&this.rows.length+this.actions.length>PAGE_SIZE){if(x<=430)return {page:-1,row:21,sign:1,distance};if(x>=824)return {page:1,row:22,sign:1,distance};}
@@ -88,11 +88,18 @@ export class SettingsMenu {
   this.scene=scene;this.rig=rig;this.open=false;this.saved=defaults();try{this.saved=loadSettings(globalThis.localStorage);}catch{}this.draft={...this.saved};
   this.model=new ControlModel([
    {id:'shadows',kind:'toggle',label:'Shadows',get:()=>this.draft.shadows,set:v=>this.draft.shadows=v},
-   {id:'heightOffset',kind:'number',slider:true,label:'Height offset',min:0,max:1.5,step:.05,stepBase:0,get:()=>this.draft.heightOffset,set:v=>this.draft.heightOffset=v,format:v=>`${v.toFixed(2)} m`},
    {id:'sound',kind:'toggle',label:'Sound',get:()=>this.draft.sound,set:v=>this.draft.sound=v},
   ]);
   this.panel=new SettingsPanel(scene,rig,renderer,this.model,{title:'SETTINGS',subtitle:'Point either controller · Trigger to select',distance:2,angle:0,width:1.7,controllers,controllerEvents:false,enabled:false});
-  this.models={General:this.model,Teleport:new ControlModel(['base','summit'].map(id=>({id,kind:'action',label:id==='base'?'Base':'Summit',run:()=>{if(this.saveAndExit())onTeleport(id);}}))),Debug:debugModel??new ControlModel([])};
+  this.models={General:this.model,VR:new ControlModel([
+   {id:'heightOffset',kind:'number',slider:true,label:'Height offset',min:0,max:1.5,step:.05,stepBase:0,get:()=>this.draft.heightOffset,set:v=>this.draft.heightOffset=v,format:v=>`${v.toFixed(2)} m`},
+   {id:'teleport',kind:'toggle',label:'Teleport movement',get:()=>this.draft.teleport,set:v=>this.draft.teleport=v},
+   {id:'moveSpeed',kind:'number',slider:true,label:'Movement speed',min:1,max:10,step:.5,stepBase:0,get:()=>this.draft.moveSpeed,set:v=>this.draft.moveSpeed=v,format:v=>`${v.toFixed(1)} m/s`,disabled:()=>this.draft.teleport},
+   {id:'snapTurn',kind:'toggle',label:'Snap turning',get:()=>this.draft.snapTurn,set:v=>this.draft.snapTurn=v},
+   {id:'turnSpeed',kind:'number',slider:true,label:'Turn speed',min:30,max:120,step:30,stepBase:0,get:()=>this.draft.turnSpeed,set:v=>this.draft.turnSpeed=v,format:v=>`${v}°/s`,disabled:()=>this.draft.snapTurn},
+   {id:'snapAngle',kind:'number',slider:true,label:'Snap angle',min:15,max:45,step:15,get:()=>this.draft.snapAngle,set:v=>this.draft.snapAngle=v,format:v=>`${v}°`,disabled:()=>!this.draft.snapTurn},
+  ]),Teleport:new ControlModel(['base','summit'].map(id=>({id,kind:'action',label:id==='base'?'Base':'Summit',run:()=>{if(this.saveAndExit())onTeleport(id);}}))),Debug:debugModel??new ControlModel([])};
+  this.models.VR.onChange=id=>{if(id==='snapTurn')this.panel.cancelInteraction();};
   this.panel.onTab=tab=>this.selectTab(tab);this.panel.onSave=()=>this.saveAndExit();
   this.panel.resizeCanvas(820);this.selectTab('General');
  }

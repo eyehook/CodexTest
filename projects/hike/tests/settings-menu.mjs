@@ -9,10 +9,10 @@ import {FlightView} from '../flight-view.mjs';
 import {FlightButtons} from '../flight-input.mjs';
 test('settings validate and persist sound, shadows and seated height offset',()=>{
  const storage={value:null,getItem(){return this.value;},setItem(k,v){this.value=v;}};
- assert.deepEqual(loadSettings(storage),{shadows:false,heightOffset:0,sound:true});
+ assert.deepEqual(loadSettings(storage),{shadows:false,heightOffset:0,sound:true,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2});
  storage.value='{broken';assert.equal(loadSettings(storage).shadows,false);
  storage.value='{"shadows":"true"}';assert.equal(loadSettings(storage).shadows,false);
- saveSettings(storage,{shadows:true,heightOffset:1.25,sound:false});assert.deepEqual(loadSettings(storage),{shadows:true,heightOffset:1.25,sound:false});
+ saveSettings(storage,{shadows:true,heightOffset:1.25,sound:false,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2});assert.deepEqual(loadSettings(storage),{shadows:true,heightOffset:1.25,sound:false,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2});
  storage.value=JSON.stringify({shadows:true});assert.equal(loadSettings(storage).sound,true);storage.value=JSON.stringify({sound:"false"});assert.equal(loadSettings(storage).sound,true);
  storage.value=JSON.stringify({heightOffset:9});assert.equal(loadSettings(storage).heightOffset,1.5);storage.value=JSON.stringify({heightOffset:-1});assert.equal(loadSettings(storage).heightOffset,0);storage.value=JSON.stringify({heightOffset:'1'});assert.equal(loadSettings(storage).heightOffset,0);
 });
@@ -41,21 +41,43 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   menu.show(new T.Vector3(5,2,3),new T.Quaternion());
   assert.equal(scene.background.getHex(),0);assert.equal(scene.fog,null);assert.equal(world.visible,false);assert.equal(rig.visible,true);assert.equal(menu.panel.mesh.visible,true);
   menu.model.activate('shadows');assert.equal(globalThis.localStorage.value,null);
-  menu.panel.activate(menu.panel.hitAt(970,303));assert.equal(menu.draft.sound,false);assert.equal(menu.saved.sound,true);assert.equal(globalThis.localStorage.value,null);
-  menu.panel.activate(menu.panel.hitAt(970,216));assert.equal(menu.draft.heightOffset,1.5);menu.panel.activate(menu.panel.hitAt(625,216));assert.equal(menu.draft.heightOffset,.75);menu.panel.activate(menu.panel.hitAt(280,216));assert.equal(menu.draft.heightOffset,0);
-  menu.model.set('heightOffset',1.25);
+  menu.panel.activate(menu.panel.hitAt(970,202));assert.equal(menu.draft.sound,false);assert.equal(menu.saved.sound,true);assert.equal(globalThis.localStorage.value,null);
+  menu.selectTab('VR');assert.equal(menu.panel.pageRows[0].id,'heightOffset');
+  menu.panel.activate(menu.panel.hitAt(970,144));assert.equal(menu.draft.heightOffset,1.5);menu.panel.activate(menu.panel.hitAt(625,144));assert.equal(menu.draft.heightOffset,.75);menu.panel.activate(menu.panel.hitAt(280,144));assert.equal(menu.draft.heightOffset,0);
+  menu.selectTab('VR');
+  assert.equal(menu.panel.hitAt(970,288),null,'teleport disables the speed slider');
+  menu.panel.activate(menu.panel.hitAt(970,202));assert.equal(menu.draft.teleport,false);
+  menu.panel.activate(menu.panel.hitAt(970,288));assert.equal(menu.draft.moveSpeed,10);
+  menu.panel.activate(menu.panel.hitAt(280,288));assert.equal(menu.draft.moveSpeed,1);
+  menu.panel.activate(menu.panel.hitAt(625,288));assert.equal(menu.draft.moveSpeed,5.5);
+  menu.models.VR.activate('teleport');assert.equal(menu.panel.hitAt(625,288),null);
+  assert.equal(menu.draft.moveSpeed,5.5,'teleport retains the selected speed');menu.models.VR.activate('teleport');
+  assert.equal(menu.panel.pageRows.at(-1).id,'snapAngle');
+  menu.panel.activate(menu.panel.hitAt(970,432));assert.equal(menu.draft.snapAngle,45);
+  menu.panel.activate(menu.panel.hitAt(280,432));assert.equal(menu.draft.snapAngle,15);
+  menu.panel.activate(menu.panel.hitAt(625,432));assert.equal(menu.draft.snapAngle,30);
+  menu.models.VR.set('snapAngle',45);menu.models.VR.activate('snapTurn');
+  assert.equal(menu.panel.pageRows.at(-1).id,'turnSpeed');
+  for(const [x,speed] of [[280,30],[510,60],[740,90],[970,120]]){
+   menu.panel.activate(menu.panel.hitAt(x,432));assert.equal(menu.draft.turnSpeed,speed);
+  }
+  menu.models.VR.activate('snapTurn');assert.equal(menu.panel.pageRows.at(-1).id,'snapAngle');
+  assert.equal(menu.draft.snapAngle,45);assert.equal(menu.draft.turnSpeed,120);menu.models.VR.activate('snapTurn');
+  assert.equal(menu.models.VR.disabled(menu.models.VR.definition('snapAngle')),true);
+  assert.equal(menu.saved.teleport,true);menu.selectTab('VR');
+  menu.models.VR.set('heightOffset',1.25);
   // Exercise real ray-to-tab mapping with a controller at the viewer position.
   const controller=controllers[0],panel=menu.panel;
   controller.position.set(5,2,3);
   const source={gamepad:{buttons:[{pressed:true}]}};controller.userData.source=source;panel.controllerStates.get(controller).connected=true;
   const aim=(x,y)=>{const target=panel.mesh.localToWorld(new T.Vector3((x/1024-.5)*panel.width,(.5-y/820)*panel.mesh.geometry.parameters.height,0));controller.quaternion.setFromUnitVectors(new T.Vector3(0,0,-1),target.sub(controller.position).normalize());};
-  aim(625,216);panel.update();assert.equal(menu.draft.heightOffset,1.25,'held trigger on entry is absorbed');
+  aim(625,144);panel.update();assert.equal(menu.draft.heightOffset,1.25,'held trigger on entry is absorbed');
   source.gamepad.buttons[0].pressed=false;panel.update();source.gamepad.buttons[0].pressed=true;panel.update();assert.equal(menu.draft.heightOffset,.75);
-  aim(970,216);panel.update();assert.equal(menu.draft.heightOffset,1.5,'held trigger drags slider');
-  aim(120,290);panel.update();assert.equal(panel.tab,'General','drag cannot activate another control');
-  source.gamepad.buttons[0].pressed=false;panel.update();menu.model.set('heightOffset',1.25);
+  aim(970,144);panel.update();assert.equal(menu.draft.heightOffset,1.5,'held trigger drags slider');
+  aim(120,290);panel.update();assert.equal(panel.tab,'VR','drag cannot activate another control');
+  source.gamepad.buttons[0].pressed=false;panel.update();menu.models.VR.set('heightOffset',1.25);
 
-  const target=panel.mesh.localToWorld(new T.Vector3((120/1024-.5)*panel.width,(.5-290/820)*panel.mesh.geometry.parameters.height,0));
+  const target=panel.mesh.localToWorld(new T.Vector3((120/1024-.5)*panel.width,(.5-370/820)*panel.mesh.geometry.parameters.height,0));
   controller.quaternion.setFromUnitVectors(new T.Vector3(0,0,-1),target.sub(controller.position).normalize());
   panel.activate(panel.hit(controller));assert.equal(panel.tab,'Debug');
   assert.equal(panel.pageRows.length,7);panel.activate(panel.hitAt(900,640));assert.equal(panel.page,1);
@@ -65,6 +87,9 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   assert.equal(panel.hitAt(120,170),null);
   menu.selectTab('General');assert.equal(menu.draft.shadows,true);
   menu.saveAndExit();assert.equal(menu.open,false);assert.equal(scene.background,background);assert.equal(scene.fog,fog);assert.equal(world.visible,true);assert.equal(hidden.visible,false);
+  assert.equal(loadSettings(globalThis.localStorage).turnSpeed,120);
+  assert.equal(loadSettings(globalThis.localStorage).moveSpeed,5.5);
+  assert.equal(loadSettings(globalThis.localStorage).teleport,false);assert.equal(loadSettings(globalThis.localStorage).snapTurn,false);assert.equal(loadSettings(globalThis.localStorage).snapAngle,45);
   assert.equal(loadSettings(globalThis.localStorage).sound,false);
   assert.equal(loadSettings(globalThis.localStorage).shadows,true);assert.equal(loadSettings(globalThis.localStorage).heightOffset,1.25);
   for(const destination of ['base','summit']){
