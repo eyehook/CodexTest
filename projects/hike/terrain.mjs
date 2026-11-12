@@ -2,19 +2,29 @@ import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {createDetailTexture,DETAIL_TILE_METERS} from './detail-texture.mjs';
 import {createTerrainGrid,CELL_SIZE,TERRAIN_RADIUS} from './terrain-grid.mjs?v=rings-300k-1';
 import {TerrainSamples} from './terrain-samples.mjs?v=async-1';
-const radialFog=shader=>{shader.vertexShader=shader.vertexShader.replace('#include <fog_vertex>','#ifdef USE_FOG\nvFogDepth = length(mvPosition.xyz);\n#endif');};
+export function terrainVertexShader(shader,origin){
+ shader.uniforms.terrainOrigin=origin;
+ shader.vertexShader='attribute float terrainHeight; uniform vec2 terrainOrigin;\n'+shader.vertexShader;
+ shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.y=terrainHeight;');
+ shader.vertexShader=shader.vertexShader.replace('#include <uv_vertex>',`#include <uv_vertex>
+ #ifdef USE_MAP
+ vMapUv=(mapTransform*vec3((position.xz+terrainOrigin)/${DETAIL_TILE_METERS.toFixed(1)},1.0)).xy;
+ #endif`);
+ shader.vertexShader=shader.vertexShader.replace('#include <fog_vertex>','#ifdef USE_FOG\nvFogDepth = length(mvPosition.xyz);\n#endif');
+}
 export class Terrain {
  constructor(scene,world,{workerFactory,onProgress,initialPosition=world.start}={}){
   this.onProgress=onProgress;this.began=performance.now();this.grid=world.renderGrid??createTerrainGrid();this.vertexCount=this.grid.vertexCount;this.triangles=this.grid.indices.length/3;
   this.originX=Infinity;this.originZ=Infinity;this.requestedX=Infinity;this.requestedZ=Infinity;this.updateMs=0;this.sampleMs=0;this.latencyMs=0;this.snapCount=0;this.sampledVertices=0;this.inFlight=false;this.disposed=false;this.error=null;
   this.ready=new Promise((resolve,reject)=>{this.resolveReady=resolve;this.rejectReady=reject;});
   const geometry=new T.BufferGeometry();
-  for(const [name,size] of [['position',3],['normal',3],['color',3],['uv',2]])geometry.setAttribute(name,new T.BufferAttribute(new Float32Array(this.vertexCount*size),size).setUsage(T.DynamicDrawUsage));
+  for(const [name,size] of [['position',3],['terrainHeight',1],['normal',3],['color',3]])geometry.setAttribute(name,new T.BufferAttribute(new Float32Array(this.vertexCount*size),size).setUsage(T.DynamicDrawUsage));
+  geometry.attributes.position.setUsage(T.StaticDrawUsage);
   const p=geometry.attributes.position.array;
   for(let i=0;i<this.vertexCount;i++){p[i*3]=this.grid.coordinates[i*2]/4;p[i*3+2]=this.grid.coordinates[i*2+1]/4;}
   geometry.setIndex(new T.BufferAttribute(this.grid.indices,1));geometry.computeBoundingBox();geometry.computeBoundingSphere();this.geometry=geometry;
   this.buffer=new Float32Array(this.vertexCount*7);
-  this.detailTexture=createDetailTexture();this.material=new T.MeshLambertMaterial({vertexColors:true,map:this.detailTexture});this.material.onBeforeCompile=radialFog;
+  this.detailTexture=createDetailTexture();this.material=new T.MeshLambertMaterial({vertexColors:true,map:this.detailTexture});this.shaderOrigin={value:new T.Vector2()};this.material.onBeforeCompile=shader=>terrainVertexShader(shader,this.shaderOrigin);
   this.mesh=new T.Mesh(geometry,this.material);this.mesh.name='Snapped terrain';this.mesh.visible=false;scene.add(this.mesh);
   // Browser sampling is off-thread. Node's synchronous adapter exercises the
   // identical sampling path in deterministic tests without a browser worker.
@@ -51,11 +61,12 @@ export class Terrain {
   if(this.originX!==this.requestedX||this.originZ!==this.requestedZ)this.request();
  }
  apply(data){
-  const began=performance.now(),count=this.vertexCount,p=this.geometry.attributes.position.array,uv=this.geometry.attributes.uv.array;
-  for(let i=0;i<count;i++){p[i*3+1]=this.buffer[i];uv[i*2]=(data.originX+p[i*3])/DETAIL_TILE_METERS;uv[i*2+1]=(data.originZ+p[i*3+2])/DETAIL_TILE_METERS;}
+  const began=performance.now(),count=this.vertexCount;
+  this.geometry.attributes.terrainHeight.array.set(this.buffer.subarray(0,count));
+  this.shaderOrigin.value.set(data.originX,data.originZ);
   this.geometry.attributes.normal.array.set(this.buffer.subarray(count,count*4));this.geometry.attributes.color.array.set(this.buffer.subarray(count*4));
   this.originX=data.originX;this.originZ=data.originZ;this.mesh.position.set(this.originX,0,this.originZ);this.mesh.visible=true;
-  for(const attribute of Object.values(this.geometry.attributes))attribute.needsUpdate=true;
+  for(const name of ['terrainHeight','normal','color'])this.geometry.attributes[name].needsUpdate=true;
   // X/Z bounds/topology never change; only the sampled height extent does.
   const box=this.geometry.boundingBox,sphere=this.geometry.boundingSphere;
   box.min.y=data.min;box.max.y=data.max;sphere.center.set(8,(data.min+data.max)/2,8);sphere.radius=Math.hypot(TERRAIN_RADIUS+Math.SQRT2*8,(data.max-data.min)/2);

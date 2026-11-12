@@ -43,7 +43,7 @@ test('real grass worker matches exact synchronous cell data and keeps the main e
   assert.ok(ticks>5);assert.ok(field.workerMs>=0);
   for(const record of field.cells.values()){
    const expected=fieldCell(world,record.cx,record.cz);assert.equal(record.count,expected.count);
-   for(const [name,data] of [['fieldRoot',expected.root],['fieldShape',expected.shape],['fieldColor',expected.color]]){const attribute=field.attributes[name],offset=record.slot*BLADES_PER_CELL*attribute.itemSize;assert.deepEqual(attribute.array.slice(offset,offset+data.length),data);}
+   for(const [name,data] of [['fieldRoot',expected.root],['fieldShape',expected.shape],['fieldColor',expected.color]]){const attribute=field.attributes[name],size=attribute.itemSize;for(let i=0;i<record.count;i++){const offset=record.bladeSlots[i]*size;assert.deepEqual(attribute.array.slice(offset,offset+size),data.slice(i*size,(i+1)*size));}}
   }
  }finally{clearInterval(timer);field.dispose();}
 });

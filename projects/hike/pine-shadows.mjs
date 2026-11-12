@@ -13,9 +13,10 @@ export function pineShadowReceiver(shader,viewer){
  #endif
  vHikeShadowWorld=(modelMatrix*hikeShadowPosition).xyz;`);
  shader.fragmentShader='uniform vec3 hikeShadowViewer; varying vec3 vHikeShadowWorld;\n'+shader.fragmentShader;
+ shader.fragmentShader='float hikeShadowFade;\n'+shader.fragmentShader;
  const lights=T.ShaderChunk.lights_fragment_begin.replace(/getShadow\( directionalShadowMap\[ i \],([^;]+?)\) : 1\.0;/g,
-  'mix(1.0,getShadow( directionalShadowMap[ i ],$1),1.0-smoothstep(180.0,200.0,length(vHikeShadowWorld.xz-hikeShadowViewer.xz))) : 1.0;');
- shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',lights);
+  '((hikeShadowFade>0.0)?mix(1.0,getShadow( directionalShadowMap[ i ],$1),hikeShadowFade):1.0) : 1.0;');
+ shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>','hikeShadowFade=1.0-smoothstep(180.0,200.0,length(vHikeShadowWorld.xz-hikeShadowViewer.xz));\n'+lights);
 }
 export class PineShadows {
  constructor(scene,renderer,sun,terrain,flora,world){
@@ -33,6 +34,7 @@ export class PineShadows {
   // Conservative uphill reach includes the entire world's elevation envelope.
   this.selectionRadius=PINE_SHADOWS.far+(this.maxY-this.minY)*horizontal/this.direction.y+maxRadius+PINE_SHADOWS.padding;
   this.maxRadius=maxRadius;this.center=new T.Vector3();this.temp=new T.Vector3();this.matrix=new T.Matrix4();this.quaternion=new T.Quaternion();this.scale=new T.Vector3();this.axis=new T.Vector3(0,1,0);
+  this.slots=new Int32Array(flora.data.count).fill(-1);this.members=[[],[],[],[]];this.wanted=new Uint32Array(flora.data.count);this.epoch=0;this.changedTransforms=0;
   this.lastX=Infinity;this.lastZ=Infinity;this.lastU=Infinity;this.lastV=Infinity;this.lastD=Infinity;this.instanceCount=0;this.updateMs=0;this.rebuilds=0;this.candidates=0;
   this.group=new T.Group();this.group.name='Nearby pine shadow casters';scene.add(this.group);scene.add(sun.target);
   this.material=new T.MeshBasicMaterial({colorWrite:false,depthWrite:false});
@@ -75,13 +77,20 @@ export class PineShadows {
     ids[trees[k+7]].push(id);
    }
   }
-  this.instanceCount=0;
+  this.instanceCount=0;this.changedTransforms=0;this.epoch++;if(this.epoch===4294967296){this.wanted.fill(0);this.epoch=1;}
+  for(const list of ids)for(const id of list)this.wanted[id]=this.epoch;
   ids.forEach((list,i)=>{
-   const mesh=this.batches[i];
-   if(list.length>mesh.instanceMatrix.count){mesh.dispose();mesh.instanceMatrix=new T.InstancedBufferAttribute(new Float32Array(2**Math.ceil(Math.log2(list.length))*16),16).setUsage(T.DynamicDrawUsage);}
-   mesh.count=list.length;mesh.visible=!!list.length;this.instanceCount+=list.length;
-   list.forEach((id,slot)=>{const k=id*TREE_STRIDE;this.temp.set(trees[k],trees[k+1],trees[k+2]);this.quaternion.setFromAxisAngle(this.axis,trees[k+5]);this.scale.set(trees[k+3],trees[k+4],trees[k+3]);this.matrix.compose(this.temp,this.quaternion,this.scale);mesh.setMatrixAt(slot,this.matrix);});
-   mesh.instanceMatrix.needsUpdate=true;
+   const mesh=this.batches[i],members=this.members[i];
+   if(list.length>mesh.instanceMatrix.count){const old=mesh.instanceMatrix.array;mesh.dispose();mesh.instanceMatrix=new T.InstancedBufferAttribute(new Float32Array(2**Math.ceil(Math.log2(list.length))*16),16).setUsage(T.DynamicDrawUsage);mesh.instanceMatrix.array.set(old);}
+   for(let slot=members.length-1;slot>=0;slot--){const id=members[slot];if(this.wanted[id]===this.epoch)continue;
+    const moved=members.pop();this.slots[id]=-1;
+    if(slot<members.length){members[slot]=moved;this.slots[moved]=slot;mesh.instanceMatrix.array.copyWithin(slot*16,members.length*16,(members.length+1)*16);mesh.instanceMatrix.addUpdateRange(slot*16,16);mesh.instanceMatrix.needsUpdate=true;}
+   }
+   for(const id of list)if(this.slots[id]===-1){
+    const slot=members.length,k=id*TREE_STRIDE;members.push(id);this.slots[id]=slot;
+    this.temp.set(trees[k],trees[k+1],trees[k+2]);this.quaternion.setFromAxisAngle(this.axis,trees[k+5]);this.scale.set(trees[k+3],trees[k+4],trees[k+3]);this.matrix.compose(this.temp,this.quaternion,this.scale);mesh.setMatrixAt(slot,this.matrix);mesh.instanceMatrix.addUpdateRange(slot*16,16);mesh.instanceMatrix.needsUpdate=true;this.changedTransforms++;
+   }
+   mesh.count=members.length;mesh.visible=!!mesh.count;this.instanceCount+=mesh.count;
   });
   this.lastX=x;this.lastZ=z;this.rebuilds++;
  }

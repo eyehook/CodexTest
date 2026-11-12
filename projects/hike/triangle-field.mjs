@@ -12,6 +12,12 @@ varying vec3 vFieldColor;
 varying vec3 vFieldPattern;
 varying float vFieldDistance;
 void main(){
+ vFieldDistance=length(fieldRoot.xz-fieldViewer.xz);vFieldColor=fieldColor;vFieldPattern=fieldRoot;
+ if(vFieldDistance>=50.0){gl_Position=vec4(2.0,2.0,2.0,1.0);
+ #ifdef USE_FOG
+ vFogDepth=0.0;
+ #endif
+ return;}
  vec3 blade=vec3(position.x*fieldShape.x,position.y*fieldShape.y,position.z*fieldShape.y);
  vec3 rotated=vec3(blade.x*fieldShape.w+blade.z*fieldShape.z,blade.y,-blade.x*fieldShape.z+blade.z*fieldShape.w);
  vec3 world=fieldRoot+rotated;
@@ -50,11 +56,12 @@ export class TriangleField {
   if(this.maxTriangles>TRIANGLE_CAP)throw Error('Triangle field exceeds budget');
   this.viewer={value:new T.Vector3()};this.geometry=new T.InstancedBufferGeometry();
   this.geometry.setAttribute('position',new T.Float32BufferAttribute([-.5,0,0,.5,0,0,.12,1,.1],3));
-  this.attributes={};for(const [name,size] of [['fieldRoot',3],['fieldShape',4],['fieldColor',3]]){const attribute=new T.InstancedBufferAttribute(new Float32Array(this.maxTriangles*size),size).setUsage(T.DynamicDrawUsage);this.geometry.setAttribute(name,attribute);this.attributes[name]=attribute;}
+  this.attributes={};for(const [name,size] of [['fieldRoot',3],['fieldShape',4],['fieldColor',3]]){const attribute=new T.InstancedBufferAttribute(new Float32Array(this.maxTriangles*size),size).setUsage(T.DynamicDrawUsage);attribute.onUpload(()=>attribute.clearUpdateRanges());this.geometry.setAttribute(name,attribute);this.attributes[name]=attribute;}
   this.geometry.instanceCount=0;
   this.material=new T.ShaderMaterial({uniforms:{...T.UniformsUtils.clone(T.UniformsLib.fog),fieldViewer:this.viewer,fieldCoverageStep:flora.coverageStep},vertexShader,fragmentShader,side:T.DoubleSide,alphaToCoverage:flora.coverageSamples>1,fog:true});
   this.mesh=new T.Mesh(this.geometry,this.material);this.mesh.name='Capped triangle surface field';this.mesh.castShadow=false;this.mesh.receiveShadow=false;this.mesh.frustumCulled=false;this.mesh.visible=false;scene.add(this.mesh);
-  this.cells=new Map();this.slots=[];this.queue=[];this.next=0;this.cellX=Infinity;this.cellZ=Infinity;this.instanceCount=0;this.updateMs=0;this.disposed=false;this.minDirty=Infinity;this.maxDirty=0;
+  this.cells=new Map();this.slots=[];this.queue=[];this.next=0;this.cellX=Infinity;this.cellZ=Infinity;this.instanceCount=0;this.updateMs=0;this.disposed=false;
+  this.owners=new Array(this.maxTriangles);this.ownerLocal=new Uint16Array(this.maxTriangles);this.dirtyBlocks=new Uint8Array(Math.ceil(this.maxTriangles/128));this.hasDirty=false;
   this.worker=null;this.inFlight=false;this.completed=null;this.requestId=0;this.pendingCells=[];this.recycle=null;this.error=null;this.workerMs=0;
   if(workerFactory)try{
    this.worker=workerFactory();
@@ -65,16 +72,35 @@ export class TriangleField {
   }catch(error){this.fail(error);}
 
  }
+ markDirty(start,count){if(count){this.dirtyBlocks.fill(1,Math.floor(start/128),Math.ceil((start+count)/128));this.hasDirty=true;}}
  remove(record){
-  const slot=record.slot,last=this.slots.length-1;
-  if(slot!==last){const moved=this.slots[last];this.slots[slot]=moved;moved.slot=slot;
-   for(const attribute of Object.values(this.attributes)){const stride=BLADES_PER_CELL*attribute.itemSize;attribute.array.copyWithin(slot*stride,last*stride,(last+1)*stride);}
-   this.minDirty=Math.min(this.minDirty,slot*BLADES_PER_CELL);this.maxDirty=Math.max(this.maxDirty,(slot+1)*BLADES_PER_CELL);
+  const start=record.bladeSlots[0],contiguous=record.count>0&&record.bladeSlots.every((slot,i)=>slot===start+i);
+  if(contiguous){
+   const oldCount=this.instanceCount,movedCount=Math.min(record.count,oldCount-start-record.count),source=oldCount-movedCount;
+   if(movedCount){
+    for(const attribute of Object.values(this.attributes)){const size=attribute.itemSize;attribute.array.copyWithin(start*size,source*size,oldCount*size);}
+    for(let i=0;i<movedCount;i++){const owner=this.owners[source+i],local=this.ownerLocal[source+i];owner.bladeSlots[local]=start+i;this.owners[start+i]=owner;this.ownerLocal[start+i]=local;}
+    this.markDirty(start,movedCount);
+   }
+   this.instanceCount-=record.count;this.owners.fill(undefined,this.instanceCount,oldCount);
+  }else{
+  for(let i=record.count-1;i>=0;i--){
+   const slot=record.bladeSlots[i],last=--this.instanceCount;
+   if(slot!==last){
+    for(const attribute of Object.values(this.attributes)){const size=attribute.itemSize;attribute.array.copyWithin(slot*size,last*size,(last+1)*size);}
+    const moved=this.owners[last],local=this.ownerLocal[last];moved.bladeSlots[local]=slot;this.owners[slot]=moved;this.ownerLocal[slot]=local;this.markDirty(slot,1);
+   }
+   this.owners[last]=undefined;
   }
-  this.slots.pop();this.instanceCount-=record.count;
+  }
+  const last=this.slots.pop();if(last!==record){this.slots[record.slot]=last;last.slot=record.slot;}
  }
  plan(cx,cz){
   const half=this.settings.halfWindow;
+  if(this.cells.size&&(Math.abs(cx-this.cellX)>half*2||Math.abs(cz-this.cellZ)>half*2)){
+   this.cells.clear();this.slots.length=0;this.instanceCount=0;this.owners.fill(undefined);this.dirtyBlocks.fill(0);this.hasDirty=false;
+   for(const attribute of Object.values(this.attributes))attribute.clearUpdateRanges();
+  }
   for(const [key,record] of this.cells)if(Math.abs(record.cx-cx)>half||Math.abs(record.cz-cz)>half){this.remove(record);this.cells.delete(key);}
   this.queue=[];this.next=0;
   for(let z=cz-half;z<=cz+half;z++)for(let x=cx-half;x<=cx+half;x++){const key=`${x},${z}`;if(!this.cells.has(key))this.queue.push({key,cx:x,cz:z,distance:(x-cx)**2+(z-cz)**2});}
@@ -102,18 +128,24 @@ export class TriangleField {
     if(performance.now()-began>=s.budgetMs)break;
    }
   }
-  this.geometry.instanceCount=this.slots.length*BLADES_PER_CELL;this.mesh.visible=this.instanceCount>0;
-  const end=Math.min(this.maxDirty,this.geometry.instanceCount);
-  if(end>this.minDirty)for(const attribute of Object.values(this.attributes)){
-   const stride=attribute.itemSize,pending=attribute.updateRanges[0],start=Math.min(this.minDirty*stride,pending?.start??Infinity),last=Math.max(end*stride,pending?pending.start+pending.count:0);
-   attribute.clearUpdateRanges();attribute.addUpdateRange(start,last-start);attribute.needsUpdate=true;
+  this.geometry.instanceCount=this.instanceCount;this.mesh.visible=this.instanceCount>0;
+  if(this.hasDirty){
+   for(let block=0;block<this.dirtyBlocks.length;){
+    if(!this.dirtyBlocks[block]){block++;continue;}
+    const start=block*128;while(block<this.dirtyBlocks.length&&this.dirtyBlocks[block])this.dirtyBlocks[block++]=0;
+    const count=Math.min(block*128,this.instanceCount)-start;
+    if(count>0)for(const attribute of Object.values(this.attributes)){attribute.addUpdateRange(start*attribute.itemSize,count*attribute.itemSize);attribute.needsUpdate=true;}
+   }
+   this.hasDirty=false;
   }
-  this.minDirty=Infinity;this.maxDirty=0;this.updateMs=performance.now()-began;
+  this.updateMs=performance.now()-began;
  }
  applyCell(record,data){
-  record.slot=this.slots.length;record.count=data.count;this.slots.push(record);this.cells.set(record.key,record);
-  for(const [name,source] of [['fieldRoot',data.root],['fieldShape',data.shape],['fieldColor',data.color]]){const attribute=this.attributes[name];attribute.array.set(source,record.slot*BLADES_PER_CELL*attribute.itemSize);}
-  delete record.data;this.instanceCount+=data.count;this.minDirty=Math.min(this.minDirty,record.slot*BLADES_PER_CELL);this.maxDirty=Math.max(this.maxDirty,(record.slot+1)*BLADES_PER_CELL);
+  record.slot=this.slots.length;record.count=data.count;record.bladeSlots=new Uint32Array(data.count);this.slots.push(record);this.cells.set(record.key,record);
+  const base=this.instanceCount;
+  for(const [name,source] of [['fieldRoot',data.root],['fieldShape',data.shape],['fieldColor',data.color]]){const attribute=this.attributes[name],size=attribute.itemSize;attribute.array.set(source.subarray(0,data.count*size),base*size);}
+  for(let i=0;i<data.count;i++){record.bladeSlots[i]=base+i;this.owners[base+i]=record;this.ownerLocal[base+i]=i;}
+  delete record.data;this.instanceCount+=data.count;this.markDirty(base,data.count);
  }
  receive(data){
   if(this.disposed||this.error)return;
@@ -131,5 +163,5 @@ export class TriangleField {
  }
  fail(error){if(this.disposed||this.error)return;this.error=error;this.worker?.terminate();this.inFlight=false;this.completed=null;this.recycle=null;this.mesh.visible=false;this.geometry.instanceCount=0;}
  async initialize(viewer){this.update(viewer);while(!this.error&&(this.next<this.queue.length||this.inFlight||this.completed)&&!this.disposed){await new Promise(resolve=>requestAnimationFrame(resolve));this.update(viewer);}}
- dispose(){if(this.disposed)return;this.disposed=true;this.worker?.terminate();this.completed=null;this.recycle=null;this.inFlight=false;this.mesh.removeFromParent();this.geometry.dispose();this.material.dispose();this.cells.clear();this.slots.length=0;this.queue.length=0;}
+ dispose(){if(this.disposed)return;this.disposed=true;this.worker?.terminate();this.completed=null;this.recycle=null;this.inFlight=false;this.mesh.removeFromParent();this.geometry.dispose();this.material.dispose();this.cells.clear();this.slots.length=0;this.owners.length=0;this.queue.length=0;}
 }

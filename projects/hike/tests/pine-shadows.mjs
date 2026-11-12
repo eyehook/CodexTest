@@ -14,7 +14,7 @@ test('receiver shader fades only shadow occlusion radially from 180 to 200m',()=
  assert.equal(shadowStrength(0),1);assert.equal(shadowStrength(180),1);assert.equal(shadowStrength(190),.5);assert.equal(shadowStrength(200),0);assert.equal(shadowStrength(210),0);
  const shader={uniforms:{},vertexShader:T.ShaderLib.lambert.vertexShader,fragmentShader:T.ShaderLib.lambert.fragmentShader},viewer={value:new T.Vector3()};pineShadowReceiver(shader,viewer);
  assert.equal(shader.uniforms.hikeShadowViewer,viewer);assert.match(shader.vertexShader,/instanceMatrix\*hikeShadowPosition/);
- assert.match(shader.fragmentShader,/mix\(1.0,getShadow\( directionalShadowMap/);assert.match(shader.fragmentShader,/smoothstep\(180.0,200.0/);
+ assert.match(shader.fragmentShader,/mix\(1.0,getShadow\( directionalShadowMap/);assert.match(shader.fragmentShader,/smoothstep\(180.0,200.0/);assert.match(shader.fragmentShader,/hikeShadowFade>0.0/);
  assert.match(shader.fragmentShader,/getHemisphereLightIrradiance/);
 });
 test('shadow pass is off by default; nearby casters stay separate from visible forest',()=>{
@@ -23,8 +23,9 @@ test('shadow pass is off by default; nearby casters stay separate from visible f
  assert.ok(s.instanceCount>0&&s.instanceCount<flora.total);assert.ok(s.candidates<flora.total);
  assert.ok(flora.batches.every(m=>!m.castShadow&&m.receiveShadow));
  for(const mesh of s.batches){assert.equal(mesh.geometry.drawRange.count,0);mesh.onBeforeShadow();assert.equal(mesh.geometry.drawRange.count,Infinity);mesh.onAfterShadow();assert.equal(mesh.geometry.drawRange.count,0);}
- const rebuilds=s.rebuilds,matrices=s.batches.map(m=>m.instanceMatrix);renderer.shadowMap.needsUpdate=false;s.update(new T.Vector3(0,100,0));assert.equal(s.rebuilds,rebuilds);assert.equal(renderer.shadowMap.needsUpdate,false);
+ let rebuilds=s.rebuilds,matrices=s.batches.map(m=>m.instanceMatrix);renderer.shadowMap.needsUpdate=false;s.update(new T.Vector3(0,100,0));assert.equal(s.rebuilds,rebuilds);assert.equal(renderer.shadowMap.needsUpdate,false);
  s.update(new T.Vector3(10,52,5));assert.equal(s.rebuilds,rebuilds+1);s.batches.forEach((m,i)=>assert.equal(m.instanceMatrix,matrices[i]));
+ const transforms=s.batches.map(m=>m.instanceMatrix.array.slice(0,m.count*16));s.rebuild(10,5);rebuilds++;assert.equal(s.changedTransforms,0);s.batches.forEach((m,i)=>assert.deepEqual(m.instanceMatrix.array.slice(0,m.count*16),transforms[i]));
  s.setEnabled(false);assert.equal(renderer.shadowMap.enabled,false);assert.equal(sun.castShadow,false);assert.equal(renderer.shadowMap.needsUpdate,false);s.update(new T.Vector3(500,0,500));assert.equal(s.rebuilds,rebuilds+1);
  s.setEnabled(true);s.update(new T.Vector3(500,0,500));assert.equal(s.rebuilds,rebuilds+2);s.dispose();s.dispose();flora.dispose();
 });

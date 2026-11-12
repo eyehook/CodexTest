@@ -23,11 +23,18 @@ test('field excludes paths, summit landing, cliffs and high rocky ground',()=>{
 });
 test('triangle field has a hard 240k budget, compact fixed buffers, no shadows and static cells',()=>{
  const scene=new T.Scene(),flora={coverageSamples:4,coverageStep:{value:.25}},field=new TriangleField(scene,world(),flora),viewer=new T.Vector3(0,32,30);drain(field,viewer);
- assert.equal(field.geometry.attributes.position.count,3);assert.equal(field.geometry.index,null);assert.ok(field.geometry.instanceCount<=TRIANGLE_CAP);assert.equal(field.maxTriangles,237600);assert.equal(field.material.lights,false);assert.equal(field.mesh.castShadow,false);assert.equal(field.mesh.receiveShadow,false);
+ assert.equal(field.geometry.attributes.position.count,3);assert.equal(field.geometry.index,null);assert.ok(field.geometry.instanceCount<=TRIANGLE_CAP);assert.equal(field.geometry.instanceCount,field.instanceCount);assert.equal(field.maxTriangles,237600);assert.equal(field.material.lights,false);assert.equal(field.mesh.castShadow,false);assert.equal(field.mesh.receiveShadow,false);
  assert.match(field.material.fragmentShader,/smoothstep\(40.0,50.0/);assert.doesNotMatch(field.material.fragmentShader,/shadowmap|sampler2D|time/);
  const root=field.attributes.fieldRoot,array=root.array.slice(),oldVersion=root.version;root.clearUpdateRanges();field.update(viewer);assert.deepEqual(root.array,array);assert.equal(root.version,oldVersion);assert.equal(root.updateRanges.length,0);
  field.update(new T.Vector3(100,30,100),false);assert.equal(field.attributes.fieldRoot,root);assert.equal(field.cellX,0);assert.deepEqual(field.viewer.value.toArray(),[100,30,100]);
- for(const position of [new T.Vector3(-300,40,-200),new T.Vector3(600,30,200),new T.Vector3(0,32,30)]){drain(field,position);assert.equal(field.attributes.fieldRoot,root);assert.equal(field.cells.size,225);assert.ok(field.geometry.instanceCount<=240000);assert.equal(field.instanceCount,[...field.cells.values()].reduce((sum,r)=>sum+r.count,0));}
+ for(const position of [new T.Vector3(8,32,30),new T.Vector3(16,32,38),new T.Vector3(-8,32,22),new T.Vector3(-300,40,-200),new T.Vector3(600,30,200),new T.Vector3(0,32,30)]){drain(field,position);assert.equal(field.attributes.fieldRoot,root);assert.equal(field.cells.size,225);assert.ok(field.geometry.instanceCount<=240000);assert.equal(field.instanceCount,[...field.cells.values()].reduce((sum,r)=>sum+r.count,0));assert.equal(field.geometry.instanceCount,field.instanceCount);
+ for(const record of field.cells.values()){
+  const expected=fieldCell(field.world,record.cx,record.cz);
+  for(let i=0;i<record.count;i++){const slot=record.bladeSlots[i];assert.equal(field.owners[slot],record);assert.equal(field.ownerLocal[slot],i);assert.deepEqual(root.array.slice(slot*3,slot*3+3),expected.root.slice(i*3,i*3+3));}
+ }}
+ root.clearUpdateRanges();field.attributes.fieldShape.clearUpdateRanges();field.attributes.fieldColor.clearUpdateRanges();
+ field.markDirty(0,1);field.markDirty(field.instanceCount-1,1);field.update(new T.Vector3(0,32,30));
+ assert.equal(root.updateRanges.length,2);assert.ok(root.updateRanges.reduce((sum,r)=>sum+r.count,0)<=256*3,'distant edits must not upload the unchanged gap');
  flora.coverageSamples=0;field.update(viewer);assert.equal(field.material.alphaToCoverage,false);field.dispose();field.dispose();assert.equal(scene.children.length,0);
 });
 

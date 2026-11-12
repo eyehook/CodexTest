@@ -25,13 +25,13 @@ Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Release version: **v0.18.1**, with tabbed Settings, Base/Summit teleport
+Release version: **v0.19.0**, with tabbed Settings, Base/Summit teleport
 and optional nearby pine shadows. The expensive grass patches are removed; an experimental, capped single-triangle
 surface field replaces them.
 B/Y open Settings or Save and Close it. The standalone VR Field Notes panel is
 removed; its controls/readouts are on Debug. General controls the persisted
-Shadows setting (default off). All **85 Hike tests pass**; syntax and whitespace checks
-pass. Chrome simulated XR checks pass for B/Y transitions and both endpoint
+Shadows setting (default off). The previous published release passed all 85 Hike tests. Current performance
+edits use the focused checks recorded below. Chrome simulated XR checks pass for B/Y transitions and both endpoint
 teleports with physical offsets, with no page errors. The user reported “Better”
 after worker-backed grass generation and authorized GitHub publication on
 2026-11-11. This is user feedback, not a formal Quest CPU/GPU benchmark.
@@ -1216,3 +1216,60 @@ slider and saved height composition; no additional browser sweep was required.
 Changes are confined to Hike. Publication is authorized for this reviewed
 release. Per user preference, do not poll GitHub Pages after pushing.
 Historical local/unpublished notes above are superseded by this release review.
+
+
+### Rendering and upload optimizations — local v0.19.0
+
+Implemented the concrete performance opportunities before adding profiling:
+
+- Grass instance buffers are densely packed with accepted blades only. Each
+  cached cell keeps handles into packed storage, and removals swap surviving
+  blades while repairing ownership. Contiguous removals use bulk copies; distant
+  teleports clear the cache directly. Empty cells remain cached without drawing
+  any blades. The 237,600 maximum allocation is retained, but actual submission
+  equals the accepted blade count. The vertex shader clips roots outside 50 m
+  before rasterization; visible density, geometry, colors and fade are unchanged.
+- Grass dirty regions use 128-instance blocks, emitting separate upload ranges
+  for disjoint runs instead of uploading every unchanged byte between edits.
+  Pending ranges remain until Three.js uploads/merges them. Initial-upload
+  callbacks clear pending ranges so initialization data is not resent later.
+- Terrain keeps static X/Z positions, with a separate scalar `terrainHeight`
+  attribute. Snaps bulk-copy heights/normals/colors and update an origin uniform;
+  UVs are derived from world X/Z in the vertex shader. Per-snap dynamic data is
+  4,201,596 bytes versus 6,602,508 before (about 36% less). Bounds still reflect
+  the displaced terrain. CPU gameplay collision remains authoritative; mesh
+  position Y values are now zero and inspections must read `terrainHeight`.
+- Pine shadow receivers branch around shadow-map lookup beyond the 200 m fade
+  boundary. Caster membership still refreshes every 2 m, but persistent ID/slot
+  maps retain unchanged matrices. Only arrivals compose transforms; removals
+  swap slots and only changed matrix ranges upload. Map resolution, coverage,
+  texel alignment, caster eligibility and visible fade remain unchanged.
+
+Focused terrain/grass/worker/shadow tests pass, including packed-cell ownership
+through movement/teleports, separated upload ranges, static terrain position
+buffers, height/landing parity and unchanged shadow transform reuse. Syntax and
+whitespace checks pass. No unrelated/full repository suite was run.
+
+A fixed-seed Chrome before/after comparison against the published baseline had
+no page/shader errors and nearly identical output: mean channel error below
+.003 on the 0–255 scale; 179 of 700,000 pixels differed by more than three levels.
+That view submitted 115,743 grass triangles instead of 237,600, preserving all
+115,743 accepted blades. One desktop terrain apply measured .3 ms versus 1.9 ms
+before. These are isolated desktop observations, not Quest frame-time guarantees.
+Quest verification and the separate profiling feature remain pending. Changes
+are local and unpublished.
+
+
+### Release review — v0.19.0, 2026-11-11
+
+The user explicitly authorized GitHub publication of the rendering/upload
+optimizations. This release includes packed grass instances, separate dirty
+upload runs, static terrain X/Z with scalar heights and shader UVs, retained
+shadow caster matrices and distance-gated shadow lookups. Visual behavior and
+current tuning are preserved; profiling features are deferred.
+
+Final checks: all 85 Hike tests pass, changed runtime syntax checks pass, and
+`git diff --check` passes. The fixed-seed Chrome before/after rendering comparison
+was already reviewed during implementation; no repeated browser sweep was needed.
+Only Hike files are included. Historical local/unpublished notes above are
+superseded by this review. Per user preference, do not check GitHub Pages.

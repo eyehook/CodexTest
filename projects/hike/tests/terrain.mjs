@@ -31,14 +31,14 @@ test('all four transition sides and corners form an upward-wound, crack-free par
 function syntheticWorld(){let queries=0;return {start:{x:0,z:0},config:{seed:1,trailWidth:5},landscape:{summit:{y:200}},height(x,z){queries++;return 30+.02*x+.01*z;},normal(x,z,out){Object.assign(out,{x:-.019995,y:.99975,z:-.0099975,slope:1.28});return out;},trail(x,z,out){out.distance=100;return out;},get queries(){return queries;}};}
 test('stationary buffers, 16 m negative/diagonal/multi-cell snaps, stable shared samples',()=>{
  const world=syntheticWorld(),scene=new T.Scene(),terrain=new Terrain(scene,world),g=terrain.geometry;
- assert.equal(scene.children.length,1);assert.equal(scene.children[0],terrain.mesh);assert.equal(g.groups.length,0);
+ assert.equal(scene.children.length,1);assert.equal(scene.children[0],terrain.mesh);assert.equal(g.groups.length,0);assert.equal(g.attributes.uv,undefined);const positionVersion=g.attributes.position.version;
  const index=g.index.array,attrs=Object.values(g.attributes).map(a=>[a,a.array,a.version]),before=g.attributes.position.array.slice(),queries=world.queries,beforeAttributes=Object.values(g.attributes).map(a=>a.array.slice());
  for(let i=0;i<100;i++)assert.equal(terrain.update(15.99*i/100,10),false);
  assert.equal(world.queries,queries);assert.deepEqual(g.attributes.position.array,before);attrs.forEach(([a,array,version])=>{assert.equal(a.array,array);assert.equal(a.version,version);});
  for(const [x,z,ox,oz] of [[16,0,16,0],[-.01,-.01,-16,-16],[-16,-16,-16,-16],[1025,-1025,1024,-1040],[0,0,0,0]]){
-  terrain.update(x,z);assert.equal(terrain.originX,ox);assert.equal(terrain.originZ,oz);assert.equal(g.index.array,index);assert.equal(g.index.version,0);
+  terrain.update(x,z);assert.equal(g.attributes.position.version,positionVersion);assert.deepEqual(terrain.shaderOrigin.value.toArray(),[ox,oz]);assert.equal(terrain.originX,ox);assert.equal(terrain.originZ,oz);assert.equal(g.index.array,index);assert.equal(g.index.version,0);
   assert.ok(x>=ox-16&&x<=ox+32&&z>=oz-16&&z<=oz+32);
-  for(let i=0;i<terrain.vertexCount;i+=97){const p=g.attributes.position,x=ox+p.getX(i),z=oz+p.getZ(i);assert.ok(Math.abs(p.getY(i)-world.height(x,z))<1e-4,'averaging preserves a plane');assert.ok(g.boundingBox.containsPoint(new T.Vector3(p.getX(i),p.getY(i),p.getZ(i))));assert.ok(g.boundingSphere.containsPoint(new T.Vector3(p.getX(i),p.getY(i),p.getZ(i))));}
+  for(let i=0;i<terrain.vertexCount;i+=97){const p=g.attributes.position,x=ox+p.getX(i),z=oz+p.getZ(i);assert.ok(Math.abs(g.attributes.terrainHeight.getX(i)-world.height(x,z))<1e-4,'averaging preserves a plane');assert.ok(g.boundingBox.containsPoint(new T.Vector3(p.getX(i),g.attributes.terrainHeight.getX(i),p.getZ(i))));assert.ok(g.boundingSphere.containsPoint(new T.Vector3(p.getX(i),g.attributes.terrainHeight.getX(i),p.getZ(i))));}
  }
  assert.deepEqual(g.attributes.position.array,before);attrs.forEach(([a,array],i)=>{assert.equal(a.array,array);assert.deepEqual(a.array,beforeAttributes[i]);});terrain.dispose();assert.equal(scene.children.length,0);
 });
@@ -77,13 +77,13 @@ test('near-player rendering follows the unchanged trail and level destination',(
   const at=world.route[routeIndex];terrain.update(at.x,at.z);const p=terrain.geometry.attributes.position;
   for(const dx of [-.5,0,.5])for(const dz of [-.5,0,.5]){
    const x=at.x+dx,z=at.z+dz,lx=(x-terrain.originX)*4,lz=(z-terrain.originZ)*4,ix=Math.floor(lx),iz=Math.floor(lz),u=lx-ix,v=lz-iz;
-   const y=(a,b)=>p.getY(lookup.get(vertexKey(a,b)));
+   const y=(a,b)=>terrain.geometry.attributes.terrainHeight.getX(lookup.get(vertexKey(a,b)));
    const rendered=u+v<=1?y(ix,iz)*(1-u-v)+y(ix+1,iz)*u+y(ix,iz+1)*v:y(ix+1,iz)*(1-v)+y(ix,iz+1)*(1-u)+y(ix+1,iz+1)*(u+v-1);
    worst=Math.max(worst,Math.abs(rendered-world.height(x,z)));
   }
  }
  assert.ok(worst<.08,`near-tread interpolation error ${worst} m`);
- for(let i=0;i<terrain.vertexCount;i++){const x=terrain.originX+pX(i),z=terrain.originZ+pZ(i);if(Math.hypot(x-world.summit.x,z-world.summit.z)<=1.5)assert.ok(Math.abs(terrain.geometry.attributes.position.getY(i)-world.summit.y)<.0001);}
+ for(let i=0;i<terrain.vertexCount;i++){const x=terrain.originX+pX(i),z=terrain.originZ+pZ(i);if(Math.hypot(x-world.summit.x,z-world.summit.z)<=1.5)assert.ok(Math.abs(terrain.geometry.attributes.terrainHeight.getX(i)-world.summit.y)<.0001);}
  function pX(i){return terrain.geometry.attributes.position.getX(i);}function pZ(i){return terrain.geometry.attributes.position.getZ(i);}
  terrain.dispose();
 });
