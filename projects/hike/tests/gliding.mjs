@@ -58,7 +58,7 @@ test('A and X are equivalent fresh presses; held buttons never reactivate after 
  left.gamepad.buttons[4].pressed=true;assert.equal(buttons.update(sources,state).launch,true);assert.equal(buttons.update(sources,state).launch,false);
  assert.equal(buttons.result,result);right.gamepad.buttons[4].pressed=false;left.gamepad.buttons[4].pressed=false;buttons.update(sources,state);
  right.gamepad.buttons[4].pressed=true;state.resumed=true;assert.equal(buttons.update(sources,state).launch,false);state.resumed=false;assert.equal(buttons.update(sources,state).launch,false);
- right.gamepad.buttons[5].pressed=true;assert.equal(buttons.update(sources,state).panel,true);assert.equal(buttons.update(sources,state).panel,false);
+ right.gamepad.buttons[5].pressed=true;assert.equal(buttons.update(sources,state).settings,true);assert.equal(buttons.update(sources,state).settings,false);
  buttons.update([],state);assert.equal(buttons.update(sources,state).launch,false);right.gamepad.buttons[4].pressed=false;buttons.update(sources,state);right.gamepad.buttons[4].pressed=true;assert.equal(buttons.update(sources,state).launch,true);
  state.isTracked=()=>false;buttons.update(sources,state);state.isTracked=()=>true;assert.equal(buttons.update(sources,state).launch,false);
 });

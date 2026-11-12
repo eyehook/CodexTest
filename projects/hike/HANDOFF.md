@@ -6,7 +6,19 @@ Buildless entry: `projects/hike/`. Serve the repository root with
 `python3 -m http.server 8080 --bind 127.0.0.1`, then open `/projects/hike/`.
 Quest USB testing uses root `Start-VR.command`. Runtime dependencies are local.
 
-Current release: **v0.10.2**, with thumbstick flight steering, angular inertia
+Release version: **v0.17.0**, with tabbed Settings, Base/Summit teleport
+and optional nearby pine shadows. The expensive grass patches are removed; an experimental, capped single-triangle
+surface field replaces them.
+B/Y open Settings or Save and Close it. The standalone VR Field Notes panel is
+removed; its controls/readouts are on Debug. General controls the persisted
+Shadows setting (default off). All **82 Hike tests pass**; syntax and whitespace checks
+pass. Chrome simulated XR checks pass for B/Y transitions and both endpoint
+teleports with physical offsets, with no page errors. The user reported “Better”
+after worker-backed grass generation and authorized GitHub publication on
+2026-11-11. This is user feedback, not a formal Quest CPU/GPU benchmark.
+Historical local/unpublished notes below are superseded by this release review.
+
+Previous release: **v0.10.2**, with thumbstick flight steering, angular inertia
 and summit spawn. The user accepted the current behavior and authorized GitHub
 publication on 2026-11-11. All **69 Hike tests pass** on the final code; app syntax
 and `git diff --check` pass. Previous release: v0.8.2, commit `10fd2a6`.
@@ -17,8 +29,7 @@ response 3/s (about 95% angular deceleration after one second of release).
 Right stick steers; head pitch controls climb/descent; head yaw/roll do not steer.
 Desktop arrow keys turn in flight. Banking is disabled by default; climb
 deceleration remains halved, and landing friction is 8 m/s² with movement-speed
-handoff. Ground turning remains 90 deg/s. Startup and Reset use the summit facing
-downhill, retaining the user's temporary flight-testing spawn.
+handoff. Ground turning remains 90 deg/s. Startup, XR entry and Reset use the trailhead facing up the trail.
 Formal sustained Quest profiling remains unrecorded. Sections below retain
 implementation history; these release settings take precedence.
 
@@ -35,9 +46,11 @@ collisions remain unimplemented.
   world, left/right arrows turn. Space launches gliding; mouse look steers flight.
   Esc releases mouse, P toggles diagnostics, R resets.
 - Quest: left stick walks relative to horizontal headset heading; right stick
-  turns smoothly at 90°/s about the physical headset. B/Y opens field notes 45°
-  right at 2.1 m; controller ray + trigger adjusts controls. Panel stays world locked.
-  A/X launches gliding. In flight, head tilt turns and headset pitch controls climb/dive; both sticks are ignored.
+  turns smoothly at 90°/s about the physical headset. B/Y opens black-background
+  Settings or saves and closes it. Both controller lasers use trigger selection.
+  Left tabs select General, Teleport or Debug; Teleport returns to Base/Summit.
+  A/X launches gliding. In flight, right stick steers with inertia and headset
+  pitch controls climb/dive; left-stick walking is disabled.
   Landing restores walking. A fresh press is required for another launch.
 - Testing speed is **14 m/s**, ten times normal walking. Desktop/VR share the same
   0.7–30 m/s range and 0.1 m/s step.
@@ -47,7 +60,7 @@ collisions remain unimplemented.
 - Hidden/untracked XR pauses navigation and rays; held toggles are absorbed on
   resume. The physical viewer pose is composed with the rig exactly once, after
   movement/turning/sliding. Ground height is queried under the headset's world X/Z.
-- Reset faces the first part of the path. Summit line of sight from the low
+- Reset uses the trailhead facing up the trail. Summit line of sight from the low
   trailhead is not required. The destination flag remains; its text label is removed.
 
 ## Authoritative world, independent of the renderer
@@ -502,7 +515,8 @@ trunk spacing 1.62 m; overlapping crowns are expected. Passing
 input values, while `cellSize`/`minSpacing` give effective dimensions. Packed
 arrays occupy about 4.94 MB; one desktop placement observation took 2.44 seconds.
 These are not Quest timings. Shared suitability/rule helpers support later flora;
-no grasses, other species, wind or seasonal behavior are implemented.
+no other tree species, wind or seasonal behavior are implemented. Static grass is
+now provided separately by `grass.mjs` (see v0.14.0 below).
 
 `pine-geometry.mjs` creates four reusable variants: five-sided brown trunks and
 3–5 overlapping six-sided green cones, with flat normals and 56–80 triangles each.
@@ -771,3 +785,335 @@ existing immediate response. Pitch control, landing and summit spawn remain.
 Local v0.10.2 raises the total glide speed cap to **90 m/s** and maximum dive
 angle to **75 degrees**. Diagnostics maximum-speed range now extends to 90 m/s.
 Drag remains unchanged, so sustained terminal descent can stay below the cap.
+
+
+### Black settings menu — local v0.11.0
+
+Y (left controller button 5) opens Settings on a black background, hiding world
+roots while preserving the camera/controller rig. B retains Field Notes. Both
+controllers use shared laser pointers and trigger selection. The menu contains
+a Shadows checkbox (default false, boolean only with no rendering effect) and
+Save and Exit. Saving persists `hike.settings` in localStorage and restores the
+prior background, fog and individual world visibility. Storage failure keeps the
+menu open with a retry message. Movement, flight, runout and terrain/flora updates
+pause while open; physical head/controller tracking remains live. Session exit
+closes the menu without saving draft changes. Y uses fresh-press/resume protection.
+
+Validation: all 72 Hike tests, app syntax and `git diff --check` pass.
+Automated checks cover input, persistence and scene restoration. Browser visual
+review was unavailable because the Playwright browser runtime is missing;
+physical Quest menu placement, pointer interaction and comfort need user testing.
+Changes remain local and unpublished.
+
+
+### Tabbed Settings — local v0.12.0
+
+B and Y now both open Settings, or Save and Close it from any tab. The old
+standalone VR Field Notes panel is removed. Left-side tabs are General (Shadows
+checkbox), Teleport (Base and Summit), and Debug (the former controls/readouts,
+paged seven rows at a time). Both controller lasers select tabs, controls, pages
+and the persistent Save and Close button. Shadows drafts survive tab switches.
+Teleport saves settings and closes the menu; the next tracked frame places the
+head at the canonical trail start or summit, facing along the trail, clears
+flight/runout/sliding momentum and requests terrain/vegetation catch-up normally.
+The live viewer offset is compensated exactly once. World simulation stays paused
+while viewing Settings. Desktop diagnostics remain available for seed recovery.
+Changes remain local and unpublished; physical Quest validation remains pending.
+
+
+### Pine shadows — local v0.13.0
+
+`pine-shadows.mjs` connects the saved General/Shadows boolean to actual rendering.
+Saving through B/Y, Save and Close or Teleport applies it on the next world frame;
+stored values are loaded on startup. Off disables the renderer shadow map, sun
+casting and all shadow-caster work. On uses one 2048×2048 PCFSoft directional map.
+Terrain and visible pines receive shadows; only dedicated nearby pine instances
+cast them. Terrain, the summit flag and distant forest batches do not cast.
+
+Receiver shaders fade direct-light occlusion by horizontal distance from the
+composed world-space head: full through 80 m, smoothstep to zero at 100 m. Ambient
+light is retained. Both eyes share the same world head center. No caster fade at
+100 m is used; trees outside the receiver radius can cast shadows inward. The
+existing 450–500 m visible-tree fade is unchanged.
+
+The shadow camera keeps the original sun direction and uses a conservative
+world elevation envelope (geology range, boundary, earthwork allowance and tree
+heights). Its right/up/depth coordinates are snapped to shadow texels. The
+coverage is padded and fixed in size, following player X/Z without tracking head
+height, changing the sun direction or depending on terrain snaps. Default-world
+coverage is about 216×345 m in light space, so actual texel spacing is about
+10.5×16.9 cm. This spends resolution to avoid clipping on mountain slopes.
+
+Caster searches use existing tree cells, an elevation-aware uphill reach and
+light-space bounds, rebuilding after 2 m of horizontal movement, immediately on
+teleports or enabling. Default conservative search radius is about 319 m; only
+intersecting trees are submitted. Four shadow-only instance batches reuse the
+pine shapes and have draw range zero during normal eye rendering. Their native
+onBeforeShadow/onAfterShadow hooks expose triangles only during shadow draws.
+Instance buffers grow geometrically if needed and are reused between rebuilds.
+The map updates only after a snapped-camera or caster-membership change. Off
+retains allocated buffers/map for reuse, while disposal frees owned resources.
+Debug includes shadow-caster count and setup CPU time; setup excludes GPU cost.
+
+Validation: all **76 Hike tests pass**, with app syntax and `git diff --check`.
+New checks cover shader fade, off/enable/disable/re-enable gating, camera coverage
+at elevation extremes, texel alignment, spatial selection, reused buffers and
+shadow-only draw ranges. Chrome on/off forest views were reviewed with no page
+or shader errors. In one desktop view, 7,810 visible trees used 1,035 shadow
+instances in four depth draws, with zero duplicate normal-pass proxy draws;
+turning off removed all depth draws. One selection observation took 1.3 ms;
+this is not a Quest benchmark or a sustained CPU/GPU measurement.
+
+An isolated rendered receiver probe measured pixel darkening 112 at 0/70/80 m,
+56 at 90 m, 1 at 99 m and zero at 100/110 m. Off restored the unshadowed sample.
+These are rendered test pixels, not a universal brightness calibration. Quest
+stereo quality, shadow bias/acne, sustained frame times and fast-flight behavior
+still need physical headset testing. Work remains local and unpublished.
+
+
+### Extended shadow radius — local v0.13.1
+
+The shadow map remains 2048×2048. Shadows stay at full strength through 180 m
+and fade smoothly to zero at 200 m. Receiver coverage and conservative caster
+selection expand with the radius; texel alignment and the saved Shadows toggle
+are retained. This supersedes the 80–100 m distances above. Keeping the map
+resolution spreads texels over a larger area and includes more shadow casters.
+Camera-coverage and fade regressions use the new distances. Work remains local
+and unpublished; physical Quest quality/performance testing is pending.
+
+
+### Static mature grass — local v0.14.0
+
+`grass.mjs` adapts Secret Garden's mature plain grass without importing its
+plant manager/growth system. Each shared blade has seven vertices/five triangles
+with a tapered, bent tip. Seeded 320–460-blade patches use .35–.7 m irregular
+radii, .24–.45 m nominal center heights, shorter edges and varied widths, lean,
+yaw and greens. These are plain blade patches; seed stalks, growth and wind
+are not included. Secret Garden files are unchanged.
+
+Deterministic 16 m cells have a 75% patch candidate chance. Placement rejects
+slopes above 30 degrees, the upper 10% of the world elevation range, the trail
+with an additional shoulder margin, the summit disk and the outer world edge.
+Every blade root uses finished `world.height` minus 1.5 cm, so patches conform
+to ground rather than using a flat patch plane. Render interpolation can still
+differ slightly from collision heights between terrain vertices.
+
+One double-sided Lambert InstancedMesh renders all nearby blades. Grass never
+casts shadows. It receives the optional pine shadows controlled by the existing
+saved Shadows setting. Full grass coverage extends through 80 m, fading to zero
+at 100 m horizontal root distance with the same stereo-stable MSAA/dither method
+as the pines. The shader has no time-based animation.
+
+Cell searches prefetch one cell beyond the fade range and retain a second cell
+to limit churn. Cells outside the retained area are removed; new work is sorted
+near-first and checked against a soft .75 ms / eight-cell frame budget. An
+individual patch may exceed that budget. Moves/teleports replace pending work
+with the latest nearby cells; old distant patches are invisible via the fade.
+Initialization awaits the first nearby pass behind the loading screen. Gameplay
+updates defer grass work on terrain-apply frames, while the fade center stays
+current. Settings pauses grass work with the rest of the world.
+
+Patch transforms stay fixed once built. Contiguous 460-slot blocks support
+swap-removal without rebuilding other patches; unused blade slots are tiny
+degenerate geometry. Instance buffers start small, grow geometrically to a
+bounded cell capacity and reuse storage. GPU uploads cover only changed spans.
+No world-sized grass population, per-blade Object3D, texture atlas or new draw
+per patch is added. Debug shows patch/blade counts and update CPU time.
+
+Validation: all **79 Hike tests pass**, app syntax and `git diff --check` pass.
+Grass tests cover blade topology, seeded mature forms, root heights, exclusions,
+bounded streaming/teleports, static buffers, fade configuration, MSAA fallback
+and shadow flags. Chrome rendered a slope-conforming close-up with shadows on
+and no page/shader errors. In that inspected forest view there were 120 retained
+patches / 46,903 real blades, with 276,000 submitted grass triangles including
+unused slots. Retained/preloaded patches can extend beyond the visible radius.
+These counts do not establish Quest performance. Physical headset appearance,
+stereo fade quality, fast-travel catch-up and sustained frame times remain to
+be tested. Changes remain local and unpublished.
+
+
+### Denser, ground-colored grass clumps — local v0.14.1
+
+Grass now generates ten mature patches around each eligible seeded clump center
+instead of one patch per candidate cell. `GRASS_RENDER.patchesPerClump=10` is
+the density control. Each clump has a rotated, jittered elliptical footprint
+about 2.4–3.8 m by 1.8–3.2 m in radius, with gaps between clumps. Individual
+patches retain their mature blade counts, root terrain queries and exclusions.
+Tenfold candidate density is exact; actual accepted totals vary near trails,
+summits, cliffs and world edges. Streaming budgets apply per patch, distributing
+a clump across frames instead of building all ten patches at once.
+
+Patch base colors use the same `surfaceColor` elevation/slope/noise palette as
+the terrain. A .78 brightness multiplier approximates the ground detail texture,
+and each blade gets modest brightness variation. The earlier independent green
+hue/light ranges are removed. This matches the ground palette without runtime
+texture reads or changing the terrain material. Grass stays static, never casts
+shadows, receives optional pine shadows, and retains the 80–100 m fade.
+
+All **80 Hike tests pass**, including new tenfold-density, within-clump spread,
+determinism and ground-palette checks; syntax/whitespace checks pass. Chrome
+compiled/rendered the new grass with no page or shader errors. An inspected
+forest window retained 1,158 patches / 453,438 blades, submitting 2,663,400 grass
+triangles including unused slots. Counts include the invisible preload ring.
+These are desktop observations; the increased geometry/memory and sustained
+Quest performance remain to be tested. Changes remain local and unpublished.
+
+
+### Grass removed — local v0.15.0
+
+The user reported that grass kills performance. All Hike grass is removed,
+including its module/tests, import, initialization/loading stage, per-frame
+updates, instance buffers/draws and Debug readouts. The previous grass sections
+are historical only. Pines, the 200 m pine shadows with 180 m fade, the saved
+Shadows setting, Settings tabs and teleport are retained. Secret Garden grass
+is untouched. Entry/app version advances to invalidate browser caches.
+
+Validation: app syntax and the remaining 76 Hike tests pass; `git diff --check`
+passes. Physical Quest confirmation of restored performance is pending.
+Changes remain local and unpublished.
+
+
+### Capped triangle surface field — local v0.16.0
+
+At the user's request, `triangle-field.mjs` tries a much smaller surface-detail
+field after removing the expensive mature grass. One blade is one upright,
+slightly bent triangle with seeded width, height and yaw. The field is static,
+with no animation, light/shadow sampling, textures, cast or received shadows.
+Colors use `surfaceColor` with baked brightness variation and a .68 multiplier
+to approximate the lit/textured ground. Seeded elliptical clumps use 88 blade
+candidates per 8 m cell, an 85% clump chance, and individual finished-ground roots.
+The path (with a small clearance), summit landing, slopes above 30 degrees, high
+rocky elevations and world boundary are excluded.
+
+The field is fully visible through 40 m horizontal head distance and fades to
+zero at 50 m. The shader uses stereo-stable world-space MSAA coverage/dither,
+with no conventional transparency sorting. One InstancedBufferGeometry stores
+three shared vertices and compact root/shape/color attributes, without full
+instance matrices or per-blade objects. A fixed 15×15 cell window caps all
+submitted geometry at **19,800 triangles per eye**, including empty/preloaded
+slots; it never allocates extra instance capacity. Instance data occupies
+**792,000 bytes** on the CPU, plus corresponding GPU buffers.
+
+Cells stay fixed in world space and reuse their slots until they leave the
+window. Only new edges are queued, near-first, with a soft .5 ms / four-cell
+frame budget; one cell's queries can exceed the time budget. Teleports replace
+pending work and refill the nearby window incrementally. The fade center always
+tracks the composed head position, including when work is deferred on terrain
+apply frames. Initialization awaits the first pass behind the loading card.
+Settings pauses the field with the world. Debug reports actual candidate count
+and update CPU time. No world-generation or collision behavior changes.
+
+Validation: all **79 Hike tests pass**, syntax and `git diff --check` pass. New
+checks cover deterministic clumps, terrain roots, exclusions, compact fixed
+buffers, the hard cap, static idle data, teleports, MSAA fallback and shadow flags.
+Chrome rendered a close-up with no page/shader errors: one field draw, 15,294
+nonempty triangles, 19,800 submitted including empty slots, 792,000 instance bytes.
+A separate rendered fade probe counted 1,433 colored pixels at 0/40 m, 724 at
+45 m, 54 at 49 m and zero at 50/60 m. These are test pixels, not a frame-rate
+benchmark. Physical Quest appearance, stereo fade, fast-flight catch-up and
+sustained performance still need user testing. Changes are local and unpublished.
+
+
+### Taller, denser triangle field — local v0.16.1
+
+At the user's request, blade height doubles: the base range is now .24–.64 m
+before the unchanged clump-edge height factor. Width remains .016–.035 m.
+Density doubles from 88 to 176 candidates per cell. `BLADES_PER_CELL` now drives
+all buffer sizing, copying, slot offsets and generation counts. The same 225-cell
+window therefore submits at most **39,600 triangles per eye** under an updated
+40,000-triangle hard budget, with **1,584,000 bytes** of instance data. Clump
+locations, colors, path exclusions, shadow-free rendering and 40–50 m fade are
+retained. This supersedes the prior 19,800 cap.
+
+All 79 Hike tests, app syntax and `git diff --check` pass. Physical Quest
+appearance/performance testing remains pending. Changes are local and unpublished.
+
+
+### Higher maximum and doubled density — local v0.16.2
+
+Maximum base blade height doubles again, from .64 to 1.28 m. The .24 m base
+minimum, clump-edge height factor and .016–.035 m width remain unchanged.
+Density doubles from 176 to 352 candidates per cell. The 225-cell window caps
+submission at **79,200 triangles per eye**, within an 80,000-triangle budget,
+and instance buffers occupy **3,168,000 bytes**. Colors, placement exclusions,
+no-shadow rendering and the 40–50 m fade are retained.
+
+All 79 Hike tests, app syntax and whitespace checks pass. Quest testing remains
+pending; changes are local and unpublished.
+
+
+### Trailhead default restored — local v0.16.3
+
+Startup, first tracked XR entry, session exit and Reset return to `world.start`,
+facing up the route. Initial terrain, pine visibility and triangle field use
+the same trailhead position. Debug Reset is labeled Reset to trailhead and
+queues Base when invoked from Settings. Teleport retains explicit Base/Summit
+choices. Grass height/density, flight and shadow tuning are unchanged.
+
+App syntax, endpoint/settings regressions and whitespace checks pass. Changes
+are local and unpublished.
+
+
+### Worker-generated triangle field — local v0.17.0
+
+The user reported perceived CPU spikes and requested moving grass generation
+off the render thread. `field-cells.mjs` holds the unchanged deterministic cell
+generator and tuning; `field-worker.mjs` reconstructs exact read-only terrain
+and trail queries from one cloned `world.samplingData` snapshot plus small
+placement metadata. It does not regenerate the mountain, route, pines or terrain
+mesh. The additional query snapshot costs memory in exchange for independent
+worker execution, without delaying terrain sampling behind grass jobs.
+
+Browsers use one dedicated worker. At most one four-cell job is in flight, with
+at most one completed batch waiting for the next world update. Root/shape/color
+arrays are transferred back; after main-thread copies into persistent instance
+buffers, those transfer buffers are recycled into the next worker request.
+Main-thread work is cell planning, cache removal, result validation/application
+and changed-range uploads. No blade terrain, slope, trail, random-shape or color
+queries occur on the render thread. Idle frames still reuse all cell data.
+
+Completed packets do not mutate geometry from message callbacks. Application is
+deferred on terrain-apply frames and while Settings/the session is inactive.
+Moves coalesce into the newest target window; overlapping results remain usable,
+out-of-window results are discarded, and duplicate queued cells are skipped.
+The old field stays visible with its current head-distance fade while catching
+up. Initialization awaits its first full window behind the loading card. Worker
+launch/runtime/message/invalid-result failures disable this optional field,
+terminate its worker and show the error in Debug; they do not fall back to
+main-thread generation or stop the world. Disposal terminates pending work.
+A synchronous adapter remains only for dependency-free Node testing.
+
+Height, density, 79,200 per-eye triangle cap, colors, exclusions, no shadows,
+40–50 m fade and trailhead spawn are unchanged. Debug now separates Field apply
+CPU time from Field worker generation time and shows Ready/Generating/error.
+
+Validation: all **82 Hike tests pass**, app syntax and `git diff --check` pass.
+New fake/real worker tests cover main-thread query isolation, bounded requests,
+transferred-buffer recycling, deferred application, stale teleport results,
+failures, late disposal callbacks, exact cell-array parity and responsive main
+event-loop timers. Chrome confirmed a real worker, zero main grass height
+queries during generation and no page/shader errors. One desktop generation
+probe observed main field-update p95 about .1 ms and max .4 ms; its last four-cell
+worker job took .8 ms. These measurements exclude GPU upload/render time and
+do not establish sustained Quest performance. The 40–50 m rendered fade probe
+still passes. Quest confirmation of improved CPU spikes remains pending.
+Changes are local and unpublished.
+
+
+### Release review — v0.17.0, 2026-11-11
+
+The user reported “Better” after moving triangle-field generation into a worker
+and explicitly requested pushing to GitHub. This release includes the tabbed
+black-background Settings menu (B/Y save-and-close), persisted Shadows toggle,
+Base/Summit teleport, 2048² pine shadow map fading from 180–200 m, the capped
+79,200-triangle surface field fading from 40–50 m, worker generation with
+recycled transfers, and restored trailhead startup/Reset. The expensive mature
+grass experiments are removed; Secret Garden and shared runtime files are
+unchanged. Scope is confined to Hike source, tests and this handoff.
+
+Final validation: 82 Hike tests pass, app/new module syntax and whitespace checks
+pass. Earlier Chrome integration checked Settings/teleport, shadows, field fades,
+real worker use and zero main-thread grass generation queries, with no page or
+shader errors. Formal sustained Quest CPU/GPU timing, memory and stereo-quality
+measurements remain unrecorded. Publication is authorized for this reviewed
+release; deployment is verified separately after pushing.
