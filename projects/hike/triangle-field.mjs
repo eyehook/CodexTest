@@ -1,6 +1,6 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
-import {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=worker-3';
-export {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=worker-3';
+import {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=hue-2';
+export {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=hue-2';
 // Shared GLSL is also exercised directly in the browser deformation check.
 export const grassWindVertex=`
 uniform float fieldWindTime;
@@ -72,7 +72,7 @@ void main(){
  #include <fog_fragment>
 }`;
 export class TriangleField {
- constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'||typeof Worker!=='undefined'?()=>new Worker(new URL('./field-worker.mjs?v=worker-3',import.meta.url),{type:'module'}):null}={}){
+ constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'||typeof Worker!=='undefined'?()=>new Worker(new URL('./field-worker.mjs?v=hue-2',import.meta.url),{type:'module'}):null}={}){
   this.world=world;this.flora=flora;this.settings=TRIANGLE_FIELD;this.capacity=(2*TRIANGLE_FIELD.halfWindow+1)**2;this.maxTriangles=this.capacity*TRIANGLE_FIELD.bladesPerCell;
   if(this.maxTriangles>TRIANGLE_CAP)throw Error('Triangle field exceeds budget');
   this.windTime={value:0};this.viewer={value:new T.Vector3()};this.geometry=new T.InstancedBufferGeometry();

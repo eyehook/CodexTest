@@ -6,14 +6,14 @@
 <link rel="icon" href="data:,">
 <title>The Hike · CodexTest</title>
 <link rel="stylesheet" href="../../shared/ui/desktop.css">
-<link rel="stylesheet" href="./style.css?v=async-1">
+<link rel="stylesheet" href="./style.css?v=warmup-4">
 </head>
 <body class="loading">
 <canvas id="world" aria-label="Procedural mountain hiking world"></canvas>
-<div id="loading" role="status" aria-live="polite"><p class="loading-title">Shaping the mountain...</p><p class="loading-hint">Please wait a moment.</p><progress id="loading-progress" max="1" value="0" aria-label="Mountain generation progress"></progress><p id="loading-stage">Starting mountain generation</p></div>
+<div id="loading" role="status" aria-live="polite"><span id="loading-version" aria-label="Version"></span><p class="loading-title">Shaping the mountain...</p><p class="loading-hint">Please wait a moment.</p><progress id="loading-progress" max="1" value="0" aria-label="Landscape generation progress"></progress><p id="loading-stage">Starting mountain generation</p></div>
 <header><a href="../../">CodexTest</a><span>01 / THE MOUNTAIN · <b id="version"></b></span></header>
-<section id="intro"><p class="eyebrow">A LONG WAY UP</p><h1>The Hike</h1><p>A mountain landscape. A winding trail.<br>Take your time getting there.</p><button id="explore">Start walking</button><p class="hint">WASD · mouse to look · Space to glide · R to reset<br>Esc releases mouse · P toggles diagnostics<br>Quest: left stick walk · right stick turn · A / X glide · B / Y settings (save and close)<br>In flight: right stick / arrow keys turn · look up/down to climb/dive</p></section>
+<section id="intro"><p class="eyebrow">A LONG WAY UP</p><h1>The Hike</h1><p>A mountain landscape. A winding trail.<br>Take your time getting there.</p><button id="explore" disabled>Start walking</button><p class="hint">WASD · mouse to look · Space to glide · R to reset<br>Esc releases mouse · P toggles diagnostics<br>Quest: left stick walk · right stick turn · A / X glide · B / Y settings (save and close)<br>In flight: right stick / arrow keys turn · look up/down to climb/dive</p></section>
 <aside id="diagnostics" hidden><h2>Debug <button id="close" aria-label="Close diagnostics">×</button></h2><div id="error" role="alert" hidden></div><button id="random-seed" type="button">Random seed</button><p id="route-info"></p><div id="controls"></div><p class="hint">FPS is application cadence, not GPU timing.<br>Seed changes regenerate the world on reload.</p><form id="seed-form"><label>World seed <input id="seed" type="number" step="1"></label><button>Regenerate</button></form></aside>
 <footer><span id="status" role="status"></span><button id="panel-toggle">Diagnostics</button></footer>
-<script type="module" src="./app.mjs?v=0.20.9"></script>
+<script type="module" src="./app.mjs?v=0.23.1"></script>
 </body></html>

@@ -2,17 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from '../../../shared/vendor/three-r180/three.module.js';
 import {surfaceAltitude,SNOW_LINE} from '../surface.mjs';
-import {fieldClumps} from '../field-cells.mjs';
+import {fieldHillCorners,fieldHill} from '../field-cells.mjs';
 import {TriangleField,fieldCell,TRIANGLE_CAP} from '../triangle-field.mjs';
 function world(){return {config:{seed:41729,trailWidth:5},extent:1920,flora:{range:{min:0,max:100}},landscape:{summit:{y:100}},summit:{x:1000,z:1000},height:(x,z)=>30+.01*x+.02*z,normal:(x,z,out)=>Object.assign(out,{slope:2}),trail:(x,z,out)=>Object.assign(out,{distance:Math.abs(z)})};}
 function drain(field,viewer){for(let i=0;i<500;i++){field.update(viewer);if(field.next===field.queue.length)return;}throw Error('Field did not settle');}
-test('field cells produce seeded ground-matched clumps with rooted individual triangles',()=>{
+test('field cells produce seeded ground-matched noise hills with rooted individual triangles',()=>{
  const w=world();let data,cx;for(cx=0;cx<20;cx++){data=fieldCell(w,cx,2);if(data.count)break;}
- assert.ok(data.count>0&&data.count<=1056);assert.deepEqual(data,fieldCell(w,cx,2));
+ assert.ok(data.count>0&&data.count<=1500);assert.deepEqual(data,fieldCell(w,cx,2));
  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
  for(let i=0;i<data.count;i++){
   const k=i*3,x=data.root[k],z=data.root[k+2];assert.ok(Math.abs(data.root[k+1]-(w.height(x,z)-.012))<.00001);
-  assert.ok(w.trail(x,z,{}).distance>=2.68);assert.ok(data.shape[i*4]>=.016&&data.shape[i*4]<=.035);assert.ok(data.shape[i*4+1]>=.24*.45&&data.shape[i*4+1]<=1.28);
+  assert.ok(w.trail(x,z,{}).distance>=2.68);assert.ok(data.shape[i*4]>=.016&&data.shape[i*4]<=.035);assert.ok(data.shape[i*4+1]>0&&data.shape[i*4+1]<=1.28);
   minX=Math.min(minX,x);maxX=Math.max(maxX,x);minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);
  }assert.ok(maxX-minX<11&&maxZ-minZ<11);w.config.seed++;assert.notDeepEqual(data,fieldCell(w,cx,2));
 });
@@ -21,13 +21,13 @@ test('field excludes paths, summit landing, cliffs and high rocky ground',()=>{
  w.trail=(x,z,out)=>Object.assign(out,{distance:100});w.normal=(x,z,out)=>Object.assign(out,{slope:40});assert.equal(fieldCell(w,1,2).count,0);
  w.normal=(x,z,out)=>Object.assign(out,{slope:0});w.height=()=>95;assert.equal(fieldCell(w,1,2).count,0);assert.equal(fieldCell(w,300,300).count,0);
 });
-test('triangle field has a hard 240k budget, compact fixed buffers, no shadows and static cells',()=>{
+test('triangle field has a hard instance budget, compact fixed buffers, no shadows and static cells',()=>{
  const scene=new T.Scene(),flora={coverageSamples:4,coverageStep:{value:.25}},field=new TriangleField(scene,world(),flora),viewer=new T.Vector3(0,32,30);drain(field,viewer);
- assert.equal(field.geometry.attributes.position.count,3);assert.equal(field.geometry.index,null);assert.ok(field.geometry.instanceCount<=TRIANGLE_CAP);assert.equal(field.geometry.instanceCount,field.instanceCount);assert.equal(field.maxTriangles,237600);assert.equal(field.material.lights,false);assert.equal(field.mesh.castShadow,false);assert.equal(field.mesh.receiveShadow,false);
+ assert.equal(field.geometry.attributes.position.count,3);assert.equal(field.geometry.index,null);assert.ok(field.geometry.instanceCount<=TRIANGLE_CAP);assert.equal(field.geometry.instanceCount,field.instanceCount);assert.equal(field.maxTriangles,337500);assert.equal(field.material.lights,false);assert.equal(field.mesh.castShadow,false);assert.equal(field.mesh.receiveShadow,false);
  assert.match(field.material.fragmentShader,/smoothstep\(40.0,50.0/);assert.doesNotMatch(field.material.fragmentShader,/shadowmap|sampler2D|time/);
  const root=field.attributes.fieldRoot,array=root.array.slice(),oldVersion=root.version;root.clearUpdateRanges();field.update(viewer);assert.deepEqual(root.array,array);assert.equal(root.version,oldVersion);assert.equal(root.updateRanges.length,0);
  field.update(new T.Vector3(100,30,100),false);assert.equal(field.attributes.fieldRoot,root);assert.equal(field.cellX,0);assert.deepEqual(field.viewer.value.toArray(),[100,30,100]);
- for(const position of [new T.Vector3(8,32,30),new T.Vector3(16,32,38),new T.Vector3(-8,32,22),new T.Vector3(-300,40,-200),new T.Vector3(600,30,200),new T.Vector3(0,32,30)]){drain(field,position);assert.equal(field.attributes.fieldRoot,root);assert.equal(field.cells.size,225);assert.ok(field.geometry.instanceCount<=240000);assert.equal(field.instanceCount,[...field.cells.values()].reduce((sum,r)=>sum+r.count,0));assert.equal(field.geometry.instanceCount,field.instanceCount);
+ for(const position of [new T.Vector3(8,32,30),new T.Vector3(16,32,38),new T.Vector3(-8,32,22),new T.Vector3(-300,40,-200),new T.Vector3(600,30,200),new T.Vector3(0,32,30)]){drain(field,position);assert.equal(field.attributes.fieldRoot,root);assert.equal(field.cells.size,225);assert.ok(field.geometry.instanceCount<=TRIANGLE_CAP);assert.equal(field.instanceCount,[...field.cells.values()].reduce((sum,r)=>sum+r.count,0));assert.equal(field.geometry.instanceCount,field.instanceCount);
  for(const record of field.cells.values()){
   const expected=fieldCell(field.world,record.cx,record.cz);
   for(let i=0;i<record.count;i++){const slot=record.bladeSlots[i];assert.equal(field.owners[slot],record);assert.equal(field.ownerLocal[slot],i);assert.deepEqual(root.array.slice(slot*3,slot*3+3),expected.root.slice(i*3,i*3+3));}
@@ -51,16 +51,26 @@ test('grass stops at the terrain snow line including its seeded patch variation'
  assert.ok(total>0);
 });
 
-test('75 percent of cells choose one to three deterministic clumps',()=>{
- const w=world();w.extent=100000;const counts=[0,0,0,0];
- for(let i=0;i<10000;i++){
-  const cx=i%100-50,cz=Math.floor(i/100)-50,clumps=fieldClumps(w,cx,cz);counts[clumps.length]++;
-  assert.deepEqual(clumps,fieldClumps(w,cx,cz));
+test('noise hills share continuous cell edges and create broad height and density variation',()=>{
+ const w=world();w.height=()=>30;w.normal=(x,z,out)=>Object.assign(out,{slope:0});w.trail=(x,z,out)=>Object.assign(out,{distance:1000});
+ let count=0,minHeight=Infinity,maxHeight=0,minCount=1500,maxCount=0;
+ for(let cz=-5;cz<5;cz++)for(let cx=-5;cx<5;cx++){
+  const corners=fieldHillCorners(w.config.seed,cx,cz),right=fieldHillCorners(w.config.seed,cx+1,cz),above=fieldHillCorners(w.config.seed,cx,cz+1);
+  for(const t of [0,.2,.5,.8,1]){
+   assert.ok(Math.abs(fieldHill(corners,1,t)-fieldHill(right,0,t))<1e-12);
+   assert.ok(Math.abs(fieldHill(corners,t,1)-fieldHill(above,t,0))<1e-12);
+  }
+  const data=fieldCell(w,cx,cz);count+=data.count;minCount=Math.min(minCount,data.count);maxCount=Math.max(maxCount,data.count);
+  for(let i=0;i<data.count;i++){
+   const x=data.root[i*3],z=data.root[i*3+2],h=data.shape[i*4+1];
+   assert.ok(x>=cx*8&&x<(cx+1)*8&&z>=cz*8&&z<(cz+1)*8);
+   const hill=fieldHill(corners,x/8-cx,z/8-cz),t=Math.max(0,Math.min(1,(hill-.45)/.45)),envelope=1.28*t*t*(3-2*t);
+   assert.ok(hill>.45);assert.ok(h>=envelope*.85-.00001&&h<=envelope+.00001);
+   minHeight=Math.min(minHeight,h);maxHeight=Math.max(maxHeight,h);
+  }
  }
- assert.ok(counts[0]>2300&&counts[0]<2700);
- for(const count of counts.slice(1))assert.ok(count>2300&&count<2700);
- w.height=()=>30;w.normal=(x,z,out)=>Object.assign(out,{slope:0});w.trail=(x,z,out)=>Object.assign(out,{distance:1000});
- for(let cx=0;cx<20;cx++)assert.equal(fieldCell(w,cx,2).count,fieldClumps(w,cx,2).length*352);
+ assert.ok(count/100>500&&count/100<1000);assert.ok(minCount===0&&maxCount>1400);
+ assert.ok(minHeight<.01&&maxHeight>1.1);
 });
 
 test('cell boundary retirement is bounded and interrupted movement preserves packed owners',()=>{
