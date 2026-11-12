@@ -24,7 +24,7 @@ Read this file, inspect `git status`, then read the target project's handoff and
 | Chess | [Handoff](projects/chess/HANDOFF.md) | Buildless `projects/chess/src/`; editable assets in `assets/chess/` |
 | Space Race | [Handoff](projects/spacerace/HANDOFF.md) | Buildless `projects/spacerace/` |
 
-Keep detailed behavior, architecture, controls, asset workflows and project validation in each handoff and its linked documents. Update the relevant handoff as changes are made; review and update the Space Race handoff before every push, as explicitly requested by the user. Keep this root file limited to shared guidance and project routing.
+Keep detailed behavior, architecture, controls, asset workflows and project validation in each handoff and its linked documents. Update the relevant handoff as changes are made; review and update the Space Race handoff before every push, as explicitly requested by the user. Maintain handoffs as compact current-state guides: update sections in place rather than appending changelogs. Keep detailed history in Git and specialized workflows in linked documents. Keep this root file limited to shared guidance and project routing.
 
 ## Shared functionality
 
@@ -52,14 +52,15 @@ Player movement/rotation and positional audio have both encountered reference-sp
 - Keep generated static outputs with their corresponding source for projects using a build, because Pages serves the repository root.
 - Shared Three.js r180 lives in `shared/vendor/three-r180/`, with supporting modules in `addons/`; keep core/addon versions and MIT notices together. Swarm uses the same shared Three.js and native HTML tuning controls; see [shared dependencies](shared/README.md).
 - Bundle runtime assets locally and use relative URLs for the `/CodexTest/` prefix. Preserve `.nojekyll`, vendor licenses and project-specific notices.
-- New projects belong in `projects/<name>/` with an `index.html`, a root index card and a handoff linked above.
+- When creating a project, first inspect a comparable existing project and follow its conventions. Prefer a buildless project under `projects/<name>/` unless the task warrants another approach. Provide an `index.html`, a root index card and an entry in the project table above. Create a concise handoff covering current behavior, controls, architecture, preview/testing instructions and known limitations. Reuse shared modules and document new shared functionality and its consumers in `shared/README.md`.
+- Keep implementation details out of user-facing controls unless they help the player make a meaningful choice.
 
 ## Release checklist
 
 1. Review Git status and the scoped diff; exclude unrelated work and backups.
 2. Update the project's handoff with final behavior, settings, validation and pending work. Include changed source/assets and required static build outputs together.
-3. Run the affected project's tests/build checks. Expand to the full suite for shared code/tooling or cross-project changes. For documentation-only work, check content/links instead. Run `git diff --check`.
-4. Publish only with current user authorization. Stage named files, commit and push; verify the push and report the commit. Check deployment status before claiming the site is deployed.
+3. Before every push, run the complete root test suite plus affected project checks not included in it and required build checks. This includes documentation-only pushes. Check documentation content/links when relevant and run `git diff --check`.
+4. Publish only with current user authorization. Stage named files, commit and push; verify the push and report the commit. Never check GitHub Pages or its deployment status; the user verifies deployment manually. Report the push without claiming deployment was verified.
 
 ## Local preview and Quest testing
 
@@ -79,12 +80,16 @@ Original experiments in `/Users/mm/Documents/Codex/Quest` are backups; edit this
 
 ## Validation and performance
 
-Use root `package.json` as the authoritative script list. For changes isolated to one project, run that project's relevant tests and build checks, including before publishing; a push alone does not require the full repository suite. Run the complete root `npm test` / `pnpm test` suite when shared runtime code, dependencies, root test/build tooling, or changes spanning projects could affect multiple projects. Check affected consumers of shared code even when the file lives inside one project's directory (for example, the shared Three.js vendor bundle). Documentation-only changes need link/content checks and `git diff --check`, not runtime tests. Always run `git diff --check` for edits. Swarm has separate dependency-free Node tests; see its handoff.
+Use root `package.json` as the authoritative script list. During iteration, keep testing small and focused on the changed behavior. Before every push, run the complete root `npm test` / `pnpm test` suite, including for documentation-only pushes, plus affected project tests and required build checks not covered by that suite. For shared runtime, dependency, tooling or cross-project edits, run the full root suite before finishing local validation even when no push is requested, and check affected consumers. Check affected consumers of shared code even when the file lives inside one project's directory (for example, the shared Three.js vendor bundle). Documentation-only local edits need content/link checks and `git diff --check`, not runtime tests until a push is requested. Always run `git diff --check` for edits. Swarm has separate dependency-free Node tests; see its handoff. Use browser checks when relevant to visual or integration behavior that automated tests cannot establish.
 
 If Node/npm is absent from PATH in the desktop environment, locate the bundled runtime with the workspace dependency tool and use its Node executable to run the package scripts/tests. Do not hardcode an app cache path into repository scripts.
 
-Automated and desktop checks do not establish headset appearance, stereo correctness, controller mapping, comfort or sustained frame rate. State which checks actually ran and distinguish user headset feedback from formal benchmarks. Keep standalone Quest costs low: prefer shared geometry/instancing, bounded updates and simple contact volumes; avoid unnecessary allocations, draw calls and dynamic lights.
+Automated and desktop checks do not establish headset appearance, stereo correctness, controller mapping, comfort or sustained frame rate. State which checks actually ran and distinguish user headset feedback from formal benchmarks. Keep standalone Quest costs low: prefer shared geometry/instancing, reusable buffers, bounded updates, simple shaders and simple contact volumes; avoid unnecessary allocations, buffer uploads, draw calls, dynamic lights and expensive main-thread generation.
 
 ## Future CI
 
-There is currently no repository CI workflow. If CI is introduced, use changed paths to select project tests/builds; documentation-only changes should run documentation checks. Shared runtime/dependency/tooling changes must run all affected projects (the full root suite when impacts are broad), including every shared-runtime consumer. Swarm's separate tests/browser checks must be included when its own or applicable shared inputs change. Keep this policy consistent with local validation; do not make every project-only push run the full suite.
+There is currently no repository CI workflow. If CI is introduced, use changed paths to select project tests/builds; documentation-only changes should run documentation checks. Shared runtime/dependency/tooling changes must run all affected projects (the full root suite when impacts are broad), including every shared-runtime consumer. Swarm's separate tests/browser checks must be included when its own or applicable shared inputs change. CI may select checks by changed paths; local validation still requires the full root suite before every push.
+
+## Collaboration
+
+Act on implementation requests and carry authorized work through to completion. Make routine reversible decisions without repeatedly requesting confirmation. Preserve unrelated changes and stay within the requested scope. Keep progress updates and final reports concise, explain material uncertainties and validation limits, and clearly report whether changes are local, committed or pushed.
