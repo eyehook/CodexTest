@@ -2,7 +2,7 @@ import {createBankHeight} from './bank-height.mjs';
 import {createRouteQuery} from './route-query.mjs';
 // Authoritative cached geology and trail definition; independent of render LOD.
 import {createTrailSurface} from './trail-surface.mjs?v=numeric-1';
-import {generateLandscape} from './geology.mjs?v=generation-1';
+import {generateLandscape} from './geology.mjs?v=bench-1';
 import {generateTrail} from './trail.mjs?v=summit-1';
 export const DEFAULTS = Object.freeze({seed: 41729, elevation: 220, trailWidth: 5, targetLength: 1600});
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));

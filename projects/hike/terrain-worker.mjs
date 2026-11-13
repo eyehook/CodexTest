@@ -1,5 +1,5 @@
 import {createTerrainSampler} from './terrain-sampler.mjs?v=numeric-1';
-import {TerrainSamples} from './terrain-samples.mjs?v=overlap-2';
+import {TerrainSamples} from './terrain-samples.mjs?v=green-1';
 let samples,initialized=false;
 self.onmessage=({data})=>{
  try{

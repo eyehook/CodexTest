@@ -1,5 +1,5 @@
 import {generatePines} from './flora-placement.mjs?v=noise32-2';
-import {createWorld} from './world.mjs?v=numeric-1';
+import {createWorld} from './world.mjs?v=bench-1';
 import {createTerrainGrid} from './terrain-grid.mjs?v=rings-300k-1';
 import {snapshotWorld} from './world-snapshot.mjs?v=numeric-1';
 self.onmessage=({data})=>{

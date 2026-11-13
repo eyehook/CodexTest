@@ -15,11 +15,11 @@ export function surfaceColor(x,z,height,slope,summitHeight,seed,out){
   const altitude=altitudeAt(height,summitHeight,patches);
   // Green foothills, ochre grass, brown earth, gray alpine stone, pale summit.
   out.r=.075;out.g=.16;out.b=.055;
-  let t=smooth(.14,.36,altitude);
+  let t=smooth(.25,.46,altitude);
   out.r+=(.36-out.r)*t;out.g+=(.285-out.g)*t;out.b+=(.105-out.b)*t;
-  t=smooth(.35,.59,altitude);
+  t=smooth(.45,.64,altitude);
   out.r+=(.235-out.r)*t;out.g+=(.155-out.g)*t;out.b+=(.085-out.b)*t;
-  t=smooth(.56,.81,altitude);
+  t=smooth(.61,.81,altitude);
   out.r+=(.31-out.r)*t;out.g+=(.325-out.g)*t;out.b+=(.34-out.b)*t;
   const rock=smooth(28,55,slope);
   const strata=Math.sin(height*.42+x*.075+z*.035)*.018+grain*.045;

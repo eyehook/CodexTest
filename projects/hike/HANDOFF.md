@@ -6,8 +6,8 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.14** (noise-driven jittered-grid woodland; Quest visual review pending).
-- Previous pushed version: **v0.25.11** (pine appearance, foveation and planting optimization).
+- Release version: **v0.25.16** (higher green terrain band and low-bench trailheads; Quest visual review pending).
+- Previous pushed version: **v0.25.14** (noise-driven jittered-grid woodland).
 - Earlier audio release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
 - Previous published baseline: **v0.23.1**, commit `6283bc4` (noise-hill grass and graphics warm-up).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
@@ -25,6 +25,10 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 - Reverted experiments are not part of this version: pyramid tree LODs, 1–5 grass
   clumps, explicit teleport terrain refresh, automatic
   entry captures and demand-sized tree buffers. Do not accidentally restore them.
+
+Release checks for v0.25.16: complete root suite passed, including all 119 Hike
+tests; handoff links and whitespace checks passed. Quest visual review remains
+pending. This release includes low-bench selection and the higher green terrain band.
 
 ## Testing policy
 
@@ -126,6 +130,15 @@ graphics warm-up below.
 
 - `geology.mjs`: finite **3.84 × 3.84 km** field, ±1920 m; 1025² Float32 height
   cache at 3.75 m spacing. Outer 100 m blends to the flat boundary.
+- `trailhead.mjs`: selects existing low benches without changing geology. Search
+  uses a 15 m grid, 500–900 m from the summit, below 35% of summit elevation
+  and at least 180 m from the map boundary. Scores elevation, 15/30 m relief,
+  local slope and enclosure; compares the best 32 candidates using three-lane,
+  90 m summit-facing approaches, penalizing steep exits. Selection is deterministic;
+  explicit start coordinates still override it. The route planner retains its
+  own terrain-cost search, so the sampled exit is a suitability estimate, not
+  a required route segment. Multi-seed generation/world checks and a synthetic
+  pit-avoidance check pass; starting scenery and initial earthwork need Quest review.
 - `world.mjs` defaults: seed 41729 when called directly, elevation 220 m, trail
   width 5 m, target length 1600 m. Browser startup overrides the seed randomly.
 - `trail.mjs`: terrain-cost routing, loop/fold removal, 801 route points and
@@ -182,6 +195,11 @@ metadata includes these records plus world-generation/preparation durations.
 Existing seed recovery remains available on generation failure.
 
 ## Terrain rendering
+
+`surface.mjs` keeps green terrain higher: green-to-ochre blends over normalized
+altitudes .25–.46, ochre-to-brown over .45–.64 and brown-to-stone over
+.61–.81 (including existing patch variation). Snow and steep-slope rock thresholds
+are unchanged. Grass inherits the adjusted surface palette. Quest visual review pending.
 
 `terrain-grid.mjs` builds one fixed indexed mesh: **150,057 vertices / 299,612
 triangles**, 12,281 cells, one terrain draw per eye. Cell centers cover a 1000 m

@@ -1,7 +1,7 @@
 import {restoreWorld} from './world-snapshot.mjs?v=numeric-1';
 // A dedicated worker owns the expensive synchronous generator. Wrapping the
 // generator in a Promise on the main thread would still block the loading UI.
-export function createWorldAsync(options={}, {onProgress=()=>{},signal,workerFactory=()=>new Worker(new URL('./generation-worker.mjs?v=noise32-2',import.meta.url),{type:'module'})}={}){
+export function createWorldAsync(options={}, {onProgress=()=>{},signal,workerFactory=()=>new Worker(new URL('./generation-worker.mjs?v=bench-1',import.meta.url),{type:'module'})}={}){
  return new Promise((resolve,reject)=>{
   let worker,settled=false;
   const finish=(error,world)=>{

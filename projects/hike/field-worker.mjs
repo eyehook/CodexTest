@@ -1,5 +1,5 @@
 import {createTerrainSampler} from './terrain-sampler.mjs?v=numeric-1';
-import {fieldCell} from './field-cells.mjs?v=hue-2';
+import {fieldCell} from './field-cells.mjs?v=green-1';
 let world;
 self.onmessage=({data})=>{
  try{

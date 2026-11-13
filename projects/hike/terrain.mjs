@@ -1,7 +1,7 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {createDetailTexture,DETAIL_TILE_METERS} from './detail-texture.mjs';
 import {createTerrainGrid,CELL_SIZE,TERRAIN_RADIUS} from './terrain-grid.mjs?v=rings-300k-1';
-import {TerrainSamples} from './terrain-samples.mjs?v=overlap-2';
+import {TerrainSamples} from './terrain-samples.mjs?v=green-1';
 export function terrainVertexShader(shader,origin){
  shader.uniforms.terrainOrigin=origin;
  shader.vertexShader='attribute float terrainHeight; uniform vec2 terrainOrigin;\n'+shader.vertexShader;
@@ -28,7 +28,7 @@ export class Terrain {
   this.mesh=new T.Mesh(geometry,this.material);this.mesh.name='Snapped terrain';this.mesh.visible=false;scene.add(this.mesh);
   // Browser sampling is off-thread. Node's synchronous adapter exercises the
   // identical sampling path in deterministic tests without a browser worker.
-  const factory=workerFactory??(typeof Worker!=='undefined'?()=>new Worker(new URL('./terrain-worker.mjs?v=numeric-1',import.meta.url),{type:'module'}):null);
+  const factory=workerFactory??(typeof Worker!=='undefined'?()=>new Worker(new URL('./terrain-worker.mjs?v=green-1',import.meta.url),{type:'module'}):null);
   if(factory){
    this.worker=factory();this.worker.onmessage=({data})=>this.receive(data);this.worker.onerror=event=>this.fail(new Error(event.message||'Terrain sampling worker failed'));
    this.worker.postMessage({type:'init',world:world.samplingData,coordinates:this.grid.coordinates});

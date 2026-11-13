@@ -10,6 +10,11 @@ Space Race is a minimal seated/standing WebXR speed experiment for Meta Quest 3,
 
 The user requires this handoff to be reviewed and updated before every push of Space Race changes to GitHub. Update the current settings, behavior, architecture, validation results and remaining work as applicable, and include the handoff update in the same release.
 
+Current repository release review (2026-11-12): reviewed for the authorized Hike
+v0.25.16 push. Space Race runtime/settings and shared runtime are unchanged.
+The complete root suite, including Space Race and 119 Hike tests, passed.
+No new Space Race headset validation is claimed.
+
 ## Release and run instructions
 
 The implementation was committed and pushed to `main` as `60fb73d` (`Add Space Race WebXR speed experiment`). GitHub Pages deploys the repository root from `main`:

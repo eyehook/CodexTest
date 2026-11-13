@@ -1,6 +1,6 @@
-import {randomSource} from './geology.mjs?v=generation-1';
+import {randomSource} from './geology.mjs?v=bench-1';
 import {cellSeed,smooth} from './flora-placement.mjs?v=dense-1';
-import {surfaceColor,surfaceAltitude,SNOW_LINE} from './surface.mjs?v=snow-line-1';
+import {surfaceColor,surfaceAltitude,SNOW_LINE} from './surface.mjs?v=green-1';
 // 30 × 50 jittered candidates per 8 m cell; no clump objects or noise texture.
 export const BLADES_PER_CELL=1500;
 export const TRIANGLE_FIELD=Object.freeze({cellSize:8,halfWindow:7,bladesPerCell:BLADES_PER_CELL,fadeStart:40,far:50,budgetMs:.5,maxCellsPerFrame:4});

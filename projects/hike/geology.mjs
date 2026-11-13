@@ -1,3 +1,4 @@
+import {selectTrailhead} from './trailhead.mjs?v=bench-1';
 // One landscape-wide ridge/drainage field, eroded once and shared by every mesh.
 export const GRID_SIZE=1025,GRID_MIN=-1920,GRID_STEP=3840/(GRID_SIZE-1);
 export function randomSource(seed){let state=seed>>>0;return ()=>{state+=0x6d2b79f5;let n=Math.imul(state^(state>>>15),1|state);n^=n+Math.imul(n^(n>>>7),61|n);return ((n^(n>>>14))>>>0)/4294967296;};}
@@ -84,11 +85,11 @@ export function generateLandscape(config,onProgress=()=>{}){
  for(let z=0;z<n;z++)for(let x=0;x<n;x++){const edge=smooth((1920-Math.max(Math.abs(GRID_MIN+x*GRID_STEP),Math.abs(GRID_MIN+z*GRID_STEP)))/100);heights[z*n+x]=boundaryHeight+(heights[z*n+x]*scale-boundaryHeight)*edge;}
  // Restore the exact border after erosion, and locate endpoints in the same field.
  for(let q=0;q<n;q++){heights[q]=heights[(n-1)*n+q]=heights[q*n]=heights[q*n+n-1]=boundaryHeight;}
- let peakIndex=0,minIndex=0;
- for(let i=0;i<heights.length;i++){if(heights[i]>heights[peakIndex])peakIndex=i;if(heights[i]<heights[minIndex])minIndex=i;}
+ let peakIndex=0;
+ for(let i=0;i<heights.length;i++){if(heights[i]>heights[peakIndex])peakIndex=i;}
  const summit={x:GRID_MIN+(peakIndex%n)*GRID_STEP,z:GRID_MIN+Math.floor(peakIndex/n)*GRID_STEP,y:heights[peakIndex]};
- const start={x:GRID_MIN+(minIndex%n)*GRID_STEP,z:GRID_MIN+Math.floor(minIndex/n)*GRID_STEP,y:heights[minIndex]};
  function height(x,z){const gx=(x-GRID_MIN)/GRID_STEP,gz=(z-GRID_MIN)/GRID_STEP;if(gx<0||gz<0||gx>=n-1||gz>=n-1)return boundaryHeight;return sample(gx,gz,gradient).y;}
+ const start=selectTrailhead({height,summit,extent:1920});
  onProgress(1,'Mountain shape complete');
  return {height,summit,start,boundaryHeight,extent:1920,gridSize:n,gridStep:GRID_STEP,parameters,heights,generationMs:performance.now()-began};
 }

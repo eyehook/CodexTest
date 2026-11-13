@@ -32,7 +32,7 @@ test('flat outer continuation, independent height queries and sensible normals',
 test('trail distance queries cover both ends and intermediate route points',()=>{
  for(const i of [0,50,200,400,799,800]){const p=world.route[i],q=world.trail(p.x,p.z,{},true);assert.ok(q.distance<1e-7);assert.ok(Math.abs(q.along-p.distance)<1e-6);}
 });
-test('default endpoints are the cached field extrema and within the atmospheric range',()=>{
+test('default endpoints are the selected bench and field summit and within the atmospheric range',()=>{
  assert.deepEqual({x:world.start.x,y:world.start.y,z:world.start.z},world.landscape.start);
  assert.deepEqual({x:world.summit.x,y:world.summit.y,z:world.summit.z},world.landscape.summit);
  assert.ok(Math.hypot(world.start.x-world.summit.x,world.start.z-world.summit.z)<950);

@@ -8,7 +8,7 @@ test('one unified heightfield covers the main hiking area and distant ridges',()
   assert.equal(w.landscape.gridSize,1025);assert.equal(w.extent,1920);
   let min=Infinity,max=-Infinity;
   for(const value of w.landscape.heights){assert.ok(Number.isFinite(value)&&value>=0);min=Math.min(min,value);max=Math.max(max,value);}
-  assert.equal(w.start.y,min);assert.equal(w.summit.y,max);
+  assert.ok(w.start.y>min);assert.ok(w.start.y<w.summit.y*.35);assert.equal(w.summit.y,max);
   assert.ok(Math.hypot(w.summit.x,w.summit.z)<700,'highest point should be central');
   const distant=[];for(let x=-1400;x<=1400;x+=200)for(let z=-1400;z<=1400;z+=200)if(Math.hypot(x,z)>900)distant.push(w.rawHeight(x,z));
   assert.ok(Math.max(...distant)-Math.min(...distant)>15,'surroundings should be real varied terrain');
@@ -22,7 +22,7 @@ test('seed changes ridge networks throughout the unified landscape',()=>{
   assert.ok(Math.sqrt(sum/count)>.035);
  }
 });
-test('default lowest-to-highest routes remain walkable and within view range',()=>{
+test('default low-bench-to-highest routes remain walkable and within view range',()=>{
  for(const w of worlds){
   assert.ok(w.totalLength>1300&&w.totalLength<2000,`seed ${w.config.seed}: length ${w.totalLength}`);
   assert.ok(w.maxGrade<=.301);

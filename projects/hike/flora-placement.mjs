@@ -1,5 +1,5 @@
 import {PINE_VARIANTS} from './pine-config.mjs?v=1';
-import {randomSource} from './geology.mjs?v=generation-1';
+import {randomSource} from './geology.mjs?v=bench-1';
 import {AveragedHeightmap} from './averaged-heightmap.mjs';
 export const TREE_STRIDE=9;
 // Normalized elevations follow each world's actual geology range.
