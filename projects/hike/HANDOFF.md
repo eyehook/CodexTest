@@ -6,8 +6,8 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.20** (terrain-matched rock brightness; Quest review pending).
-- Previous pushed version: **v0.25.16** (low-bench trailheads and higher green terrain band).
+- Release version: **v0.25.21** (clear-afternoon atmosphere and gradient sky; appearance approved by user).
+- Previous pushed version: **v0.25.20** (nearby procedural rocks and terrain-matched brightness).
 - Earlier audio release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
 - Previous published baseline: **v0.23.1**, commit `6283bc4` (noise-hill grass and graphics warm-up).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
@@ -26,11 +26,11 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
   clumps, explicit teleport terrain refresh, automatic
   entry captures and demand-sized tree buffers. Do not accidentally restore them.
 
-Release checks for v0.25.20: complete root suite passed, including all 125 Hike
-tests; handoff links and whitespace checks passed. Chrome startup, settings and
-travel/revisit checks passed without errors. Quest visual/performance review
-remains pending. This release adds nearby procedural rocks with terrain-matched
-brightness, 40-triangle geometry and subtle axis variation.
+Release checks for v0.25.21: complete root suite passed, including all 129 Hike
+tests; handoff links and whitespace checks passed. Chrome shader, pixel, settings,
+travel/revisit and simulated two-eye checks passed. The user approved the visual
+appearance and authorized publication. Sustained Quest performance has not been
+formally benchmarked.
 
 ## Testing policy
 
@@ -238,6 +238,43 @@ CPU mesh position Y is zero: inspections must read `terrainHeight`. UVs derive
 from static X/Z plus the origin uniform. Lambert lighting, surface colors/trail
 tint, a 12 m repeating detail texture and radial fog at 650–950 m are retained.
 Camera far plane is 1200 m. Worker failure stops rendering and opens seed recovery.
+
+## Atmospheric perspective and sky
+
+`atmosphere.mjs` centralizes clear-afternoon defaults in `ATMOSPHERE`. One
+shared shader hook wraps the existing terrain displacement, pine coverage and
+shadow hooks; it also covers grass wind, rocks and the summit marker. No changes
+to terrain geometry, culling, vegetation fade radii or the 650–950 m visibility
+fog range. UI, loading cover, teleport indicators and shadow-only materials are
+excluded. The existing single fog blend remains the final visibility boundary.
+
+Per-fragment eye-view distance drives a smoothstep from 90–950 m, reaching
+48% atmospheric color before visibility fog. Near colors are unchanged. One
+blend toward pale blue-gray provides cooling, desaturation and reduced contrast.
+Average camera/fragment world elevation adds at most 16% haze strength below
+240 m, with no discrete layers. World height is recovered from the actual
+render eye view matrix after displacement/instancing/wind; no CPU XR camera
+pose, extra player transforms or per-object distance work is used.
+
+Haze mixes lit, tone-mapped linear RGB before output encoding. The retained
+visibility fog uses its original factor and blends toward the matching sky-ray
+color in output space. The horizon color is shared throughout, avoiding a seam
+where terrain disappears. A single fullscreen background triangle draws a
+continuous horizon/mid-sky/zenith gradient without textures, depth writes or
+parallax. Its inverse projection refreshes for each actual eye, including
+asymmetric frusta; orientation comes from the eye view rotation. No extra render
+pass, postprocessing, ray marching or per-frame geometry work is introduced.
+Menus hide/restore the sky with the other world roots; graphics preparation
+compiles it with the outdoor scene. Page exit releases its resources.
+
+Local validation: 36 focused atmosphere/terrain/flora/grass/shadow/warm-up checks
+pass. Chrome compiled all outdoor materials and verified loading, settings and
+travel/revisit without shader, page or worker errors. Browser pixel checks confirm
+exact foreground-color preservation, fog-boundary/sky equality and sky translation
+invariance; a simulated two-eye ArrayCamera render invokes separate eye projections.
+These are desktop checks. The user reviewed the appearance, reported that it
+looks good and authorized publication. This feedback is not a formal stereo or
+sustained Quest performance benchmark.
 
 ## Pine trees and shadows
 

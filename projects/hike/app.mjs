@@ -8,6 +8,7 @@ import {FlightView} from './flight-view.mjs?v=glide-17';
 import {applyHeightOffset} from './height-offset.mjs?v=seated-1';
 import {HikeProfiler} from './profiler.mjs?v=capture-1';
 import {CaptureNotice} from './capture-notice.mjs?v=capture-1';
+import {Atmosphere} from './atmosphere.mjs?v=1';
 import {Rocks} from './rocks.mjs?v=4';
 import {TriangleField} from './triangle-field.mjs?v=green-1';
 import {PineShadows} from './pine-shadows.mjs?v=noise32-2';
@@ -23,7 +24,7 @@ import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {createWorldAsync} from './world-async.mjs?v=bench-1';
 import {placeAtEndpoint} from './teleport.mjs?v=settings-tabs-1';
 import {SettingsMenu} from './settings-menu.mjs?v=vr-6';
-import {APP_VERSION} from './version.mjs?v=0.25.20';
+import {APP_VERSION} from './version.mjs?v=0.25.21';
 import {Terrain} from './terrain.mjs?v=green-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -107,6 +108,8 @@ const pineShadows=new PineShadows(scene,renderer,sun,terrain,flora,world);
 showProgress(.995,'Preparing vegetation');
 const triangleField=new TriangleField(scene,world,flora);
 const rocks=new Rocks(scene,world,flora);
+const atmosphere=new Atmosphere(scene);
+for(const material of [terrain.material,flora.material,triangleField.material,rocks.material,mast.material,pennant.material])atmosphere.apply(material);
 await Promise.all([triangleField.initialize(spawn),rocks.initialize(spawn)]);
 const captureNotice=new CaptureNotice(scene);
 const ambience=new ForestAmbience();let audioRequested=false;
@@ -179,7 +182,7 @@ const vrButton=VRButton.createButton(renderer);vrButton.disabled=true;vrButton.s
 vrButton.addEventListener('click',()=>void ambience.unlock());
 $('#explore').disabled=true;
 $('#world').addEventListener('webglcontextrestored',()=>warmup.invalidate());
-addEventListener('pagehide',()=>{rocks.dispose();ambience.dispose();warmup.cancel();loadingView.dispose();},{once:true});
+addEventListener('pagehide',()=>{atmosphere.dispose();rocks.dispose();ambience.dispose();warmup.cancel();loadingView.dispose();},{once:true});
 renderer.xr.addEventListener('sessionstart',()=>{const session=renderer.xr.getSession();session.addEventListener('visibilitychange',()=>{if(session.visibilityState!=='visible')profiler.pause();});audioRequested=true;void ambience.unlock();bindForestAudio(session,ambience);glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;keys.clear();walk=true;document.body.classList.add('walking');camera.rotation.set(0,0,0);fps.reset();buttons.reset();last=0;});
 renderer.xr.addEventListener('sessionend',()=>{audioRequested=false;ambience.stop();warmup.cancel();loadingView.mesh.visible=false;profiler.pause();pendingTeleport=null;settingsMenu.close();flora.setCoverageSamples(flora.desktopSamples);state.reset();buttons.reset();fps.reset();last=0;camera.position.set(0,1.7,0);reset();});
 reset();
@@ -312,7 +315,7 @@ function stepFrame(time,frame){
 }
 renderer.setAnimationLoop(stepFrame);
 // Desktop inspection surface for desktop acceptance checks.
-window.hike={groundNavigation,ambience,warmup,startupTimings,loadingView,profiler,captureNotice,heightRig,triangleField,rocks,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
+window.hike={groundNavigation,ambience,warmup,startupTimings,loadingView,profiler,captureNotice,heightRig,triangleField,rocks,atmosphere,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
 } catch(error) {
   document.body.classList.remove('loading');
   $('#intro').hidden=true;$('#status').textContent='Mountain generation failed · choose another seed';
