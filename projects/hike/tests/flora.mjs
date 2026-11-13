@@ -1,22 +1,25 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from '../../../shared/vendor/three-r180/three.module.js';
-import {generatePines,pineTint,plantSuitability,PINE_RULES,TREE_STRIDE} from '../flora-placement.mjs';
+import {generatePines,forestNoise,pineTint,plantSuitability,PINE_RULES,TREE_STRIDE} from '../flora-placement.mjs';
 import {AveragedHeightmap} from '../averaged-heightmap.mjs';
 import {createPineVariants} from '../pine-geometry.mjs';
 import {Flora,selectPineVisibility,pineFadeShader,FLORA_RENDER} from '../flora.mjs';
 import {cachedWorld} from './helpers/world-fixture.mjs';
 function synthetic(seed=42){return {extent:360,config:{seed,trailWidth:5},landscape:{heights:new Float32Array([0,100])},height:(x,z)=>50+x*.04+z*.02,normal(x,z,out){Object.assign(out,{x:-.04,y:1,z:-.02,slope:2.56});return out;},trail(x,z,out){out.distance=Math.abs(z);return out;}};}
-test('pine clusters are deterministic, seed-dependent, spaced and clear of the trail',()=>{
- const world=synthetic(),a=generatePines(world,{densityMultiplier:1}),b=generatePines(world,{densityMultiplier:1}),other=generatePines(synthetic(43),{densityMultiplier:1}),near={};
- assert.deepEqual(a.tints,b.tints);assert.equal(a.tints.length,a.count*3);assert.deepEqual(a.trees,b.trees);assert.deepEqual(a.cells,b.cells);assert.notDeepEqual(a.trees,other.trees);assert.ok(a.count>100);assert.ok(a.clusters>10);
+test('noise woodland is deterministic, jittered, spaced and clear of the trail',()=>{
+ const world=synthetic(),a=generatePines(world),b=generatePines(world),other=generatePines(synthetic(43)),near={};
+ assert.deepEqual(a.tints,b.tints);assert.equal(a.tints.length,a.count*3);assert.deepEqual(a.trees,b.trees);assert.deepEqual(a.cells,b.cells);assert.notDeepEqual(a.trees,other.trees);assert.ok(a.count>100);assert.ok(a.noiseCandidates>a.count);
  let count=0;const variants=new Set();
- for(let c=0;c<a.cells.length;c+=2){assert.ok(a.cells[c+1]===0||(a.cells[c+1]>=5&&a.cells[c+1]<=20));count+=a.cells[c+1];}
- assert.equal(count,a.count);
+ for(let c=0;c<a.cells.length;c+=2){assert.ok(a.cells[c+1]<=64);count+=a.cells[c+1];}
+ assert.equal(count,a.count);assert.ok(Array.from(a.cells).some((v,i)=>i%2===1&&v>0&&v<5),'sparse buckets retain fewer than five trees');
  for(let i=0;i<a.count;i++){
   const k=i*TREE_STRIDE,x=a.trees[k],y=a.trees[k+1],z=a.trees[k+2];variants.add(a.trees[k+7]);
+  const gx=Math.floor(x/4),gz=Math.floor(z/4);
+  assert.ok(Math.abs(x-(gx+.5)*4)<=1.0001&&Math.abs(z-(gz+.5)*4)<=1.0001);
+  assert.ok(forestNoise(world.config.seed,x,z)>=PINE_RULES.noiseThreshold-.00001);
   assert.ok(Math.abs(y-world.height(x,z))<.0001);world.trail(x,z,near);assert.ok(near.distance>=world.config.trailWidth/2+PINE_RULES.trailMargin);
-  for(let j=0;j<i;j++){const q=j*TREE_STRIDE;assert.ok(Math.hypot(x-a.trees[q],z-a.trees[q+2])>=PINE_RULES.minSpacing-.0001);}
+  for(let j=0;j<i;j++){const q=j*TREE_STRIDE;assert.ok(Math.hypot(x-a.trees[q],z-a.trees[q+2])>=2-.0001);}
  }
  assert.equal(variants.size,3);
 });
@@ -71,8 +74,7 @@ test('3D fade shares a world-space root distance between both XR eyes and suppor
 const world=await cachedWorld();
 test('default mountain pines satisfy actual detailed slopes, treeline, trail and averaged-ground checks',()=>{
  const before=world.route.map(p=>({...p})),forest=generatePines(world),normal={},near={},map=new AveragedHeightmap((x,z)=>world.height(x,z));
- const baseline=generatePines(world,{densityMultiplier:1});assert.ok(forest.count/baseline.count>9.5&&forest.count/baseline.count<10.5,'approximately ten times the old accepted tree count');assert.ok(forest.minSpacing<baseline.minSpacing);
- assert.ok(forest.count>1000);assert.ok(forest.clusters>100);assert.deepEqual(world.route,before);
+ assert.ok(forest.count>1000);assert.ok(forest.noiseCandidates>forest.count);assert.deepEqual(world.route,before);
  for(let i=0;i<forest.count;i+=Math.ceil(forest.count/1500)){
   const k=i*TREE_STRIDE,x=forest.trees[k],z=forest.trees[k+2],height=world.height(x,z);world.normal(x,z,normal);world.trail(x,z,near);
   assert.ok(Math.abs(height-forest.trees[k+1])<.02);assert.ok(normal.slope<32.01);assert.ok(near.distance>=world.config.trailWidth/2+3.49);assert.ok((height-forest.range.min)/(forest.range.max-forest.range.min)<.821);
@@ -101,7 +103,7 @@ test('budgeted passes defer safely and leave unchanged memberships on the GPU',(
  flora.dispose();
 });
 test('incremental membership matches a full reference through removals, fade-boundary movement and teleports',()=>{
- const data=generatePines(synthetic(),{densityMultiplier:1}),flora=new Flora(new T.Scene(),data,null,{maxWorkItems:64,budgetMs:100}),expected=new Uint8Array(data.count),matrix=new T.Matrix4();
+ const data=generatePines(synthetic()),flora=new Flora(new T.Scene(),data,null,{maxWorkItems:64,budgetMs:100}),expected=new Uint8Array(data.count),matrix=new T.Matrix4();
  for(const [x,z] of [[0,0],[100,120],[-150,-100],[600,0],[10000,10000],[0,0]]){
   const view=new T.Vector3(x,60,z);
   for(let id=0;id<data.count;id++){const k=id*TREE_STRIDE;expected[id]=selectPineVisibility(Math.hypot(data.trees[k]-x,data.trees[k+2]-z),expected[id],flora.settings);}
@@ -134,10 +136,23 @@ test('pine tints form continuous seeded patches with yellow-green and cool endpo
   warm||=r>g&&g>b;cool||=b>g&&g>r;
  }
  assert.ok(warm&&cool);
- const data=generatePines(synthetic(),{densityMultiplier:1}),flora=new Flora(new T.Scene(),data,null);
+ const data=generatePines(synthetic()),flora=new Flora(new T.Scene(),data,null);
  flora.update(new T.Vector3(0,60,0),true);
  for(const mesh of flora.batches)for(let slot=0;slot<mesh.count;slot++){
   const id=mesh.userData.pineIds[slot];assert.deepEqual(mesh.instanceColor.array.slice(slot*3,slot*3+3),data.tints.slice(id*3,id*3+3));
  }
  flora.dispose();
+});
+
+test('woodland threshold thins stable candidates and render buckets do not select trees',()=>{
+ const world=synthetic(),baseline=generatePines(world),regrouped=generatePines(world,{cellSize:64}),denser=generatePines(world,{noiseThreshold:.65});
+ const records=forest=>new Map(Array.from({length:forest.count},(_,i)=>{const record=forest.trees.slice(i*TREE_STRIDE,(i+1)*TREE_STRIDE);return [`${record[0]},${record[2]}`,record];}));
+ const a=records(baseline),b=records(regrouped),c=records(denser);
+ assert.equal(a.size,b.size);assert.ok(c.size>a.size);
+ for(const [key,record] of a){assert.deepEqual(b.get(key),record);assert.deepEqual(c.get(key),record);}
+ for(const x of [-64,0,64]){
+  const lo=forestNoise(42,x-1e-6,21),hi=forestNoise(42,x+1e-6,21);
+  assert.ok(Math.abs(lo-hi)<1e-6,'noise is continuous across lattice boundaries');
+ }
+ assert.equal(generatePines(world,{noiseThreshold:1}).count,0);
 });

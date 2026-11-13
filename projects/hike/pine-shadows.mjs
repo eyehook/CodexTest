@@ -1,5 +1,5 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
-import {TREE_STRIDE} from './flora-placement.mjs?v=planting-fast-1';
+import {TREE_STRIDE} from './flora-placement.mjs?v=noise32-2';
 export const PINE_SHADOWS=Object.freeze({mapSize:2048,fadeStart:180,far:200,padding:8,selectionStep:2});
 export function shadowStrength(distance){const t=T.MathUtils.clamp((distance-180)/20,0,1);return 1-t*t*(3-2*t);}
 // Apply distance fading to direct-light occlusion, retaining ambient lighting.

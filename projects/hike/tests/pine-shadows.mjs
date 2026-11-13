@@ -7,7 +7,7 @@ import {PineShadows,pineShadowReceiver,shadowStrength} from '../pine-shadows.mjs
 function fixture(){
  const world={extent:1000,config:{seed:42,trailWidth:5,elevation:100},boundaryHeight:0,maxEarthwork:0,landscape:{heights:new Float32Array([0,100])},height:(x,z)=>50+x*.04+z*.02,normal(x,z,out){return Object.assign(out,{x:0,y:1,z:0,slope:2.56});},trail(x,z,out){out.distance=Math.abs(z);return out;}};
  const scene=new T.Scene(),renderer={shadowMap:{}},sun=new T.DirectionalLight();sun.position.set(-450,650,-150);scene.add(sun);
- const flora=new Flora(scene,generatePines(world,{densityMultiplier:1}),null),terrain={material:new T.MeshLambertMaterial(),mesh:new T.Mesh()};
+ const flora=new Flora(scene,generatePines(world),null),terrain={material:new T.MeshLambertMaterial(),mesh:new T.Mesh()};
  const shadows=new PineShadows(scene,renderer,sun,terrain,flora,world);return {shadows,scene,renderer,sun,flora,terrain,world};
 }
 test('receiver shader fades only shadow occlusion radially from 180 to 200m',()=>{

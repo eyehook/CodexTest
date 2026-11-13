@@ -1,5 +1,5 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
-import {TREE_STRIDE} from './flora-placement.mjs?v=planting-fast-1';
+import {TREE_STRIDE} from './flora-placement.mjs?v=noise32-2';
 import {createPineVariants} from './pine-geometry.mjs?v=skirt-1';
 export const FLORA_RENDER=Object.freeze({fadeStart:450,far:500,prefetch:16,hysteresis:8,updateStep:1.5,budgetMs:.75,maxWorkItems:2048});
 export function selectPineVisibility(distance,previous=0,settings=FLORA_RENDER){

@@ -37,7 +37,7 @@ test('real generation worker remains asynchronous and restores deterministic gam
  assert.ok(ticks>20,'main event loop must keep servicing timers');assert.equal(worker.terminated,true);
  assert.ok(progress.some(p=>p.label==='Eroding the mountain'));assert.equal(progress.at(-1).value,.92);
  assert.equal(world.renderGrid.vertexCount,150057);assert.equal(world.renderGrid.indices.length/3,299612);
- assert.ok(world.flora.count>1000);assert.ok(world.flora.trees instanceof Float32Array);assert.ok(progress.some(p=>p.label==='Planting pine clusters'));
+ assert.ok(world.flora.count>1000);assert.ok(world.flora.trees instanceof Float32Array);assert.ok(progress.some(p=>p.label==='Planting woodland'));
  for(let i=1;i<progress.length;i++)assert.ok(progress[i].value>=progress[i-1].value);
  const reference=await cachedWorld();assert.deepEqual(world.route,reference.route);assert.deepEqual(world.landscape.heights,reference.landscape.heights);
  for(const i of [0,100,400,700,800])for(const delta of [0,2,20,200]){

@@ -6,8 +6,8 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.11** (faster pine planting, updated pines and full-resolution XR settings; Quest validation pending).
-- Previous pushed version: **v0.25.2** (ground teleport/snap controls).
+- Release version: **v0.25.14** (noise-driven jittered-grid woodland; Quest visual review pending).
+- Previous pushed version: **v0.25.11** (pine appearance, foveation and planting optimization).
 - Earlier audio release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
 - Previous published baseline: **v0.23.1**, commit `6283bc4` (noise-hill grass and graphics warm-up).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
@@ -221,26 +221,29 @@ Camera far plane is 1200 m. Worker failure stops rendering and opens seed recove
 
 ## Pine trees and shadows
 
-`flora-placement.mjs` generates seeded clustered pines on authoritative ground,
-with slope/elevation suitability, spacing, trail clearance and detailed/averaged
-height agreement. Density multiplier is 11.5; seed 41729 produces about 130,000
-world trees. Counts vary by seed; trees have no collision.
+`flora-placement.mjs` uses one world-aligned **4 m grid** with candidate centers
+jittered independently **±1 m in X/Z**. Smooth seeded value noise with a **32 m**
+lattice and **0.7 threshold** selects woodland patches before terrain queries.
+The same seed produces the same forest. Existing 120 m boundary exclusion, trail
+edge clearance of 3.5 m, gradual elevation/slope suitability and maximum .65 m
+detailed/averaged ground difference remain. There are no ellipse clusters,
+cluster-count limits, spacing searches or minimum-five-tree rule. The jittered
+grid guarantees at least 2 m horizontal separation.
 
-Planting uses numeric spacing-bucket keys and one cached sine/cosine pair per
-cluster. `surface-query.mjs` reindexes serialized surface cells and vertex lookups
-into numeric column maps once per reader, avoiding query-time coordinate strings
-and boundary arrays. Triangle order, interpolation and boundary tolerances remain
-unchanged; serialized world data retains its original format. Numeric query indices
-add CPU-side map storage during each reader's lifetime.
-
-Release validation: the complete root suite passed, including all **117 Hike
-tests**, plus syntax, module/documentation references and whitespace checks. Alternating before/after runs (three pairs per seed, desktop
-Node, restored authoritative worlds) gave median planting times of **2606→1125 ms**
-(seed 41729), **2718→1187 ms** (1435171212) and **2446→1072 ms** (42), roughly
-**56–57% less time**. Tree records, tint buffers and cluster indices matched
-byte-for-byte, with identical counts/candidate totals. These are planting-only
-desktop measurements, not Quest load-time or frame-rate benchmarks.
-
+Output is grouped into **32 m spatial buckets solely for rendering/shadows**;
+buckets never select trees or impose population rules. Grid jitter, woodland
+noise, terrain thinning and appearance use independent seeded channels. Changing
+bucket size preserves all tree records; raising the threshold removes candidates
+without changing surviving trees' appearance. Startup reports “Planting woodland”.
+Trees have no collision. At the default threshold, seeds 41729 / 1435171212 / 42
+produce **71,060 / 77,048 / 96,068** trees, respectively (about 54–56% of their
+previous forest counts). The full map tests 921,600 cheap grid/noise candidates;
+only threshold survivors reach terrain checks. The complete root suite passed, including **118 Hike tests** and real worker
+generation; syntax, references and whitespace checks pass.
+The user preferred the 32 m pattern over 64 m and requested the denser 0.7
+threshold; final density and loading time still need Quest review.
+`surface-query.mjs` retains numeric column-map query
+indices; triangle interpolation, boundary tolerances and serialized data are unchanged.
 
 `pine-geometry.mjs` supplies three flat-shaded variants: five-sided trunks and
 2/3/4 six-sided foliage cones, **44/56/68 triangles**. The two-tier model
@@ -250,19 +253,18 @@ narrower. The upper base radius is 60% of the original bottom radius, giving
 about 37% overhang beyond the lower cone at their join, similar to the other
 variants. The three/four-tier profiles are unchanged. `pine-config.mjs`
 keeps placement and geometry variant counts aligned. `flora.mjs` renders three
-instanced batches using varied width, height, yaw and tint. Placement retains
-its previous density and positions; variant assignment now selects only these three.
+instanced batches using seeded width, height, yaw and tint. Existing appearance
+ranges and the three variants are retained with the new placement system.
 Existing instance RGB colors add smooth seeded 48 m patches spanning yellow-green,
 olive/deep green and blue-green, with smaller per-tree hue variation. Independent
 per-tree brightness spans **0.75–2.0** in linear RGB (previously 0.82–1.11),
-allowing visibly lighter trees without changing the hue selection. The same seeded
-random draw is reused so placement, scales, yaw and variant choices are unchanged.
-Generated once
-in the startup worker, tints transfer as three floats/tree (~1.6 MB at 130k trees)
+allowing visibly lighter trees without changing the hue selection. Appearance randomness is independent of the density threshold. Generated once
+in the startup worker, tints transfer as three floats/tree (~0.8 MB at 65k trees)
 and reuse existing GPU color attributes. No shader, draw-call or per-frame color
 calculation is added. Trunks receive the same tint pending visual review.
-Local validation: 18 flora, pine-shadow and asynchronous-generation tests passed,
-including tint continuity, palette coverage and GPU instance-color correspondence.
+Local validation covers grid jitter/spacing, noise continuity, deterministic
+appearance, threshold thinning, bucket independence, terrain exclusions, instance
+colors, shadow membership and asynchronous generation.
 Updated tree silhouettes, tint strength and trunk appearance require Quest review. All trees remain full
 geometry: full contribution through **450 m**, fade to invisible at **500 m**.
 CPU membership prefetches to 516 m and retains existing members to 524 m.
