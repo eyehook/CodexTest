@@ -6,8 +6,9 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.21** (clear-afternoon atmosphere and gradient sky; appearance approved by user).
-- Previous pushed version: **v0.25.20** (nearby procedural rocks and terrain-matched brightness).
+- Release version: **v0.25.25** (solitary raptor with safe random trail placement and distance fade; Quest review pending).
+- Previous pushed version: **v0.25.21** (clear-afternoon atmosphere and gradient sky; appearance approved by user).
+- Earlier pushed version: **v0.25.20** (nearby procedural rocks and terrain-matched brightness).
 - Earlier audio release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
 - Previous published baseline: **v0.23.1**, commit `6283bc4` (noise-hill grass and graphics warm-up).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
@@ -26,11 +27,12 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
   clumps, explicit teleport terrain refresh, automatic
   entry captures and demand-sized tree buffers. Do not accidentally restore them.
 
-Release checks for v0.25.21: complete root suite passed, including all 129 Hike
-tests; handoff links and whitespace checks passed. Chrome shader, pixel, settings,
-travel/revisit and simulated two-eye checks passed. The user approved the visual
-appearance and authorized publication. Sustained Quest performance has not been
-formally benchmarked.
+Release checks for v0.25.25: complete root suite passed, including all 138 Hike
+tests; syntax, handoff links and whitespace checks passed. Chrome verified safe
+placement with generated terrain/tree data and reversible distance fading without
+shader or page errors. Earlier bird checks covered simulated two-eye rendering
+and settings hide/restore. The user authorized publication. Final Quest visibility,
+stereo appearance and sustained performance remain unverified.
 
 ## Testing policy
 
@@ -431,6 +433,58 @@ seed 41729 has 531 resident rocks initially, 534 after travel and 531 after rese
 Density, grounding on irregular banks, fade appearance and sustained performance
 need Quest review; these desktop checks are not a headset benchmark.
 
+## Circling raptor
+
+`raptor.mjs` adds one fixed world-space bird centered at a seeded random
+interpolated route point between **200 m from the start** and **200 m before the
+summit**. These exclusions apply to the orbit center. Startup tries at most **32**
+locations in a separate deterministic random channel, selecting the first clear
+one. Trails shorter than 400 m or searches with no clear candidate keep the bird
+hidden. The bird never relocates during play.
+
+Baseline stays `world.height(center.x,center.z) + 45 m`; obstructed locations are
+rejected rather than raising flight altitude. A conservative disk covers the
+whole variable orbit plus a 1 m body/wing radius and 4 m terrain padding. At 1 m
+spacing, both authoritative ground and the averaged render surface must remain
+10 m below the lowest possible bird extent (including vertical bob). World-edge
+crossings are rejected. Pine crown bounds come from actual variant geometry and
+world-space tree scales; tall overlapping trees and the summit pole/pennant also
+reject a candidate. The ground margin covers the small rocks and grass. This is
+a conservative sampled startup check, not exact triangle collision detection;
+extremely narrow unsampled terrain features remain a limitation. There are no
+per-frame terrain queries, collision tests or dynamic avoidance. Distant ridges
+can still obscure a valid orbit from the player's viewpoint.
+
+`RAPTOR` centralizes flight and animation parameters: **25 m / 30 s** orbit,
+±7% radius variation, ±1.5 m height variation, analytic velocity-aligned yaw/pitch
+and curvature-derived inward bank (about 6°). A repeating 92 s schedule starts
+2/3/2 wingbeat sequences at 18/42/69 s, with 1.25 s per beat and a smooth
+zero-slope envelope back to glide. Active elapsed seconds drive motion independently
+of frame rate; menus, graphics preparation and hidden/untracked frames pause it.
+Reset and teleport leave its center and animation state intact.
+
+Three meshes share one double-sided muted-brown Basic material and two reusable
+geometries: compact body/head/fanned tail and mirrored, independently hinged broad
+wings, **1.5 m span / 156 triangles / three draw calls per eye**. The unlit material
+keeps undersides from turning pure black; normal depth, frustum culling, existing
+atmospheric perspective and fog apply. One smooth opacity fade uses 3D distance
+from the current composed world-space head to the bird: full at **225 m**, half
+at **250 m**, invisible at **275 m**. Both eyes share opacity. Transparent single-pass
+rendering keeps the three-draw budget; depth testing remains enabled, depth writes
+are disabled, and the whole bird hides at zero opacity. No shadows, textures, extra passes, per-frame
+geometry changes or allocations. Existing settings root hiding and graphics
+warm-up include it; page exit releases resources. `window.hike.raptor` exposes
+inspection state without player controls.
+
+Local validation: 13 focused raptor/atmosphere tests pass, covering deterministic
+candidate rejection/retry, cliffs, averaged render terrain, pine crowns, summit
+geometry, bounded failed searches, hidden fallback, route margins, movement and
+fading. Syntax, handoff links and whitespace checks pass. Chrome v0.25.25 verified
+startup with generated terrain/tree data, accepted placement and fading out/back
+in without shader or page errors. Earlier v0.25.22 checks covered close silhouettes,
+simulated two-eye submission and settings hide/restore. Actual Quest appearance,
+stereo depth and sustained performance remain unverified.
+
 ## Forest ambience
 
 `forest-audio.mjs` adds a non-positional stereo bed. General Settings has a
@@ -523,5 +577,5 @@ Remaining limits and investigation context:
   dependent VR hitch. On seed 1435171212, a diagnostic capture showed ~10 Hz
   callbacks for ~5 s while measured CPU stayed low; cause was not established.
   Avoid attributing that to GPU or grass maintenance without further evidence.
-- Wildlife, collectibles, bridges and tree collisions are unimplemented;
+- Wildlife beyond the solitary raptor, collectibles, bridges and tree collisions are unimplemented;
   route-aligned render-grid refinement remains deferred.
