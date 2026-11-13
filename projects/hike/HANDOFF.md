@@ -6,8 +6,9 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.25** (solitary raptor with safe random trail placement and distance fade; Quest review pending).
-- Previous pushed version: **v0.25.21** (clear-afternoon atmosphere and gradient sky; appearance approved by user).
+- Release version: **v0.25.26** (raptor remains opaque at every distance; Quest review pending).
+- Previous pushed version: **v0.25.25** (safe raptor placement with distance fade), commit `55fc7e6`.
+- Earlier pushed version: **v0.25.21** (clear-afternoon atmosphere and gradient sky; appearance approved by user).
 - Earlier pushed version: **v0.25.20** (nearby procedural rocks and terrain-matched brightness).
 - Earlier audio release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
 - Previous published baseline: **v0.23.1**, commit `6283bc4` (noise-hill grass and graphics warm-up).
@@ -27,12 +28,10 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
   clumps, explicit teleport terrain refresh, automatic
   entry captures and demand-sized tree buffers. Do not accidentally restore them.
 
-Release checks for v0.25.25: complete root suite passed, including all 138 Hike
-tests; syntax, handoff links and whitespace checks passed. Chrome verified safe
-placement with generated terrain/tree data and reversible distance fading without
-shader or page errors. Earlier bird checks covered simulated two-eye rendering
-and settings hide/restore. The user authorized publication. Final Quest visibility,
-stereo appearance and sustained performance remain unverified.
+Release checks for v0.25.26: the complete root suite passed, including all
+**138 Hike tests**. Syntax, handoff links and whitespace checks passed. The user
+authorized publication. Quest appearance and sustained performance remain
+unverified.
 
 ## Testing policy
 
@@ -467,11 +466,9 @@ Three meshes share one double-sided muted-brown Basic material and two reusable
 geometries: compact body/head/fanned tail and mirrored, independently hinged broad
 wings, **1.5 m span / 156 triangles / three draw calls per eye**. The unlit material
 keeps undersides from turning pure black; normal depth, frustum culling, existing
-atmospheric perspective and fog apply. One smooth opacity fade uses 3D distance
-from the current composed world-space head to the bird: full at **225 m**, half
-at **250 m**, invisible at **275 m**. Both eyes share opacity. Transparent single-pass
-rendering keeps the three-draw budget; depth testing remains enabled, depth writes
-are disabled, and the whole bird hides at zero opacity. No shadows, textures, extra passes, per-frame
+atmospheric perspective and fog apply. The bird remains opaque at every viewer
+distance, with depth testing and depth writes enabled. No bird-specific opacity
+fade or distance-based hiding is applied. No shadows, textures, extra passes, per-frame
 geometry changes or allocations. Existing settings root hiding and graphics
 warm-up include it; page exit releases resources. `window.hike.raptor` exposes
 inspection state without player controls.
@@ -479,11 +476,9 @@ inspection state without player controls.
 Local validation: 13 focused raptor/atmosphere tests pass, covering deterministic
 candidate rejection/retry, cliffs, averaged render terrain, pine crowns, summit
 geometry, bounded failed searches, hidden fallback, route margins, movement and
-fading. Syntax, handoff links and whitespace checks pass. Chrome v0.25.25 verified
-startup with generated terrain/tree data, accepted placement and fading out/back
-in without shader or page errors. Earlier v0.25.22 checks covered close silhouettes,
-simulated two-eye submission and settings hide/restore. Actual Quest appearance,
-stereo depth and sustained performance remain unverified.
+visibility beyond the former fade range. Syntax, handoff links and whitespace
+checks pass. Previous browser checks verified safe placement and settings hiding;
+actual Quest appearance, stereo depth and sustained performance remain unverified.
 
 ## Forest ambience
 

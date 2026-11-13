@@ -9,7 +9,7 @@ import {applyHeightOffset} from './height-offset.mjs?v=seated-1';
 import {HikeProfiler} from './profiler.mjs?v=capture-1';
 import {CaptureNotice} from './capture-notice.mjs?v=capture-1';
 import {Atmosphere} from './atmosphere.mjs?v=1';
-import {Raptor} from './raptor.mjs?v=4';
+import {Raptor} from './raptor.mjs?v=5';
 import {Rocks} from './rocks.mjs?v=4';
 import {TriangleField} from './triangle-field.mjs?v=green-1';
 import {PineShadows} from './pine-shadows.mjs?v=noise32-2';
@@ -25,7 +25,7 @@ import {DesktopControls} from '../../shared/ui/desktop.mjs';
 import {createWorldAsync} from './world-async.mjs?v=bench-1';
 import {placeAtEndpoint} from './teleport.mjs?v=settings-tabs-1';
 import {SettingsMenu} from './settings-menu.mjs?v=vr-6';
-import {APP_VERSION} from './version.mjs?v=0.25.25';
+import {APP_VERSION} from './version.mjs?v=0.25.26';
 import {Terrain} from './terrain.mjs?v=green-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -299,7 +299,7 @@ function stepFrame(time,frame){
   triangleField.setTime(time*.001);triangleField.update(head,!terrainApplied);
   if(tracing)profiler.set('grassMs',performance.now()-capturePhase);
   rocks.update(head,!terrainApplied);
-  raptorTime+=state.resumed?0:elapsed;raptor.update(raptorTime,head);
+  raptorTime+=state.resumed?0:elapsed;raptor.update(raptorTime);
   const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
   uiElapsed+=elapsed;
   if(uiElapsed>.5){uiElapsed=0;world.trail(head.x,head.z,projected,true);stats.along=projected.along;stats.remaining=world.totalLength-projected.along;stats.elevation=glider.active?rig.position.y:ground;if(panelOpen)model.refresh();$('#status').textContent=`${Math.round(stats.elevation)} m elevation · ${(stats.remaining/1000).toFixed(2)} km to summit${projected.distance>20?' · off trail':''}${stats.remaining<8&&projected.distance<10?' · Summit reached':''}${glider.active?' · Gliding · '+Math.max(0,Math.round(rig.position.y-ground))+' m above ground':''}`;}

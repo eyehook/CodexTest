@@ -5,7 +5,7 @@ import {TREE_STRIDE} from './flora-placement.mjs?v=noise32-2';
 import {createPineVariants} from './pine-geometry.mjs';
 
 // Metres, seconds and radians. Local forward is -Z, wings extend along X.
-export const RAPTOR=Object.freeze({placementAttempts:32,clearance:10,bodyRadius:1,terrainStep:1,terrainPadding:4,trailEndMargin:200,fadeNear:225,fadeFar:275,altitude:45,radius:25,period:30,radiusVariation:.07,bob:1.5,
+export const RAPTOR=Object.freeze({placementAttempts:32,clearance:10,bodyRadius:1,terrainStep:1,terrainPadding:4,trailEndMargin:200,altitude:45,radius:25,period:30,radiusVariation:.07,bob:1.5,
  color:0x494139,glideAngle:.035,flapAngle:.48,beatPeriod:1.25,flapCycle:92,
  sequences:Object.freeze([Object.freeze({start:18,beats:2}),Object.freeze({start:42,beats:3}),Object.freeze({start:69,beats:2})])});
 
@@ -76,7 +76,7 @@ export function selectRaptorFlightArea(world,settings=RAPTOR){
   const ceiling=y-settings.bob-settings.bodyRadius-settings.clearance;
   let safe=Number.isFinite(ceiling);
   if(world.extent!==undefined&&(Math.abs(x)+terrainRadius>world.extent||Math.abs(z)+terrainRadius>world.extent))safe=false;
-  // Include the averaged render surface: at fade distances the rendered terrain
+  // Include the averaged render surface: at a distance the rendered terrain
   // can be higher than collision terrain beside a steep cut or cliff.
   for(let dz=-terrainRadius;safe&&dz<=terrainRadius;dz+=step)for(let dx=-terrainRadius;dx<=terrainRadius;dx+=step){
    if(dx*dx+dz*dz>terrainRadius*terrainRadius)continue;
@@ -103,7 +103,7 @@ export class Raptor {
   this.hasFlightArea=!!placement;this.along=placement?.along??null;
   this.center=placement?.center??new T.Vector3(world.route[0].x,0,world.route[0].z);
   this.root=new T.Group();this.root.name='Circling raptor';this.root.rotation.order='YXZ';scene.add(this.root);
-  this.material=new T.MeshBasicMaterial({color:settings.color,side:T.DoubleSide,transparent:true,depthWrite:false,forceSinglePass:true});
+  this.material=new T.MeshBasicMaterial({color:settings.color,side:T.DoubleSide,transparent:false,depthWrite:true});
   this.bodyGeometry=bodyGeometry();
   this.wingGeometry=panel([[0,-.13],[.29,-.16],[.56,-.08],[.69,.01],[.64,.14],[.46,.18],[.19,.12],[0,.12]],.012);
   this.body=new T.Mesh(this.bodyGeometry,this.material);this.root.add(this.body);
@@ -112,18 +112,11 @@ export class Raptor {
   this.left.add(leftMesh);this.right.add(new T.Mesh(this.wingGeometry,this.material));this.root.add(this.left,this.right);
   this.sample={};this.root.visible=this.hasFlightArea;this.update(0);
  }
- update(time,viewer){
+ update(time){
   const p=sampleRaptorFlight(time,this.sample,this.settings);
   this.root.position.set(this.center.x+p.x,this.center.y+p.y,this.center.z+p.z);
   this.root.rotation.set(p.pitch,p.yaw,p.bank,'YXZ');
   this.left.rotation.z=-p.wing;this.right.rotation.z=p.wing;
-  if(viewer){
-   // One world-space head position drives both eyes, including physical offset
-   // and rig transforms already composed by FlightView after locomotion.
-   const distance=this.root.position.distanceTo(viewer);
-   this.material.opacity=1-T.MathUtils.smoothstep(distance,this.settings.fadeNear,this.settings.fadeFar);
-   this.root.visible=this.hasFlightArea&&this.material.opacity>0;
-  }
  }
  dispose(){this.root.removeFromParent();this.bodyGeometry.dispose();this.wingGeometry.dispose();this.material.dispose();}
 }

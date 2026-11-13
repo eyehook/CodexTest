@@ -47,14 +47,14 @@ test('random trail placement is seed-repeatable and keeps flight above local ter
  raptor.dispose();
 });
 
-test('distance fade is smooth and reversible using the same world-space head for both eyes',()=>{
+test('the raptor remains opaque and visible beyond the former fade range',()=>{
  const world={config:{seed:42},route:[{x:0,z:0,distance:0},{x:500,z:0,distance:500}],height:()=>30};
  const raptor=new Raptor(new T.Scene(),world),head=new T.Vector3();
- const opacityAt=distance=>{head.copy(raptor.root.position);head.y+=distance;raptor.update(0,head);return raptor.material.opacity;};
- assert.equal(opacityAt(225),1);assert.equal(opacityAt(250),.5);assert.equal(opacityAt(275),0);assert.equal(raptor.root.visible,false);
- assert.equal(opacityAt(300),0);assert.equal(opacityAt(0),1);assert.equal(raptor.root.visible,true);
- let previous=1;for(let distance=220;distance<=280;distance+=.1){const opacity=opacityAt(distance);assert.ok(opacity<=previous+1e-12);previous=opacity;}
- assert.equal(raptor.material.transparent,true);assert.equal(raptor.material.depthWrite,false);assert.equal(raptor.material.forceSinglePass,true);
+ for(const distance of [0,225,250,275,300,1000]){
+  head.copy(raptor.root.position);head.y+=distance;raptor.update(0,head);
+  assert.equal(raptor.material.opacity,1);assert.equal(raptor.root.visible,true);
+ }
+ assert.equal(raptor.material.transparent,false);assert.equal(raptor.material.depthWrite,true);
  raptor.dispose();
 });
 
