@@ -6,8 +6,8 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.16** (higher green terrain band and low-bench trailheads; Quest visual review pending).
-- Previous pushed version: **v0.25.14** (noise-driven jittered-grid woodland).
+- Release version: **v0.25.20** (terrain-matched rock brightness; Quest review pending).
+- Previous pushed version: **v0.25.16** (low-bench trailheads and higher green terrain band).
 - Earlier audio release: **v0.24.1** (forest ambience and saved Sound checkbox; listening/Quest review pending).
 - Previous published baseline: **v0.23.1**, commit `6283bc4` (noise-hill grass and graphics warm-up).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
@@ -26,9 +26,11 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
   clumps, explicit teleport terrain refresh, automatic
   entry captures and demand-sized tree buffers. Do not accidentally restore them.
 
-Release checks for v0.25.16: complete root suite passed, including all 119 Hike
-tests; handoff links and whitespace checks passed. Quest visual review remains
-pending. This release includes low-bench selection and the higher green terrain band.
+Release checks for v0.25.20: complete root suite passed, including all 125 Hike
+tests; handoff links and whitespace checks passed. Chrome startup, settings and
+travel/revisit checks passed without errors. Quest visual/performance review
+remains pending. This release adds nearby procedural rocks with terrain-matched
+brightness, 40-triangle geometry and subtle axis variation.
 
 ## Testing policy
 
@@ -349,6 +351,48 @@ Wind is entirely in the existing vertex shader, driven by one frame-time uniform
 - Two sine evaluations per in-range tip. Wind adds no per-frame allocations,
   per-blade CPU work, buffer writes, attributes, geometry, draw calls or textures.
   Fade dithering stays anchored to undeformed geometry.
+
+## Rocks
+
+`rock-cells.mjs`, `rock-worker.mjs` and `rocks.mjs` provide decorative rocks
+without collision or shadows. One deformed, flat-shaded 40-triangle subdivided icosahedron
+is shared by one Lambert instanced batch. Each rock samples one .1–2 m base size, weighted toward
+small stones, then independently enlarges each axis by 0–10% (up to 2.2 m).
+This preserves the original proportions instead of creating shards. Full XYZ rotations and muted
+linear gray/brown/charcoal hues remain. Rock linear luminance follows the local
+`surfaceColor` with ±10% seeded variation, baked into instance colors in the
+worker; face lighting still depends on rock normals. Centers sit .1×the smallest axis size below authoritative ground.
+Placement uses two seeded jittered 4 m candidate grids (twice the initial
+frequency), smooth 48 m density patches and
+additional slope/elevation suitability; slopes above 38° are excluded. Trail
+clearance includes half the largest axis size plus 1 m; the summit landing and outer
+120 m map margin stay clear. Tree overlap is possible.
+
+A dedicated worker reconstructs terrain queries once and generates batches of
+at most four 16 m cells. A near-first 9×9 cell window provides prefetch beyond
+the 50 m visibility radius; departing cells regenerate identically on return.
+Only one job and one result may be pending; results apply during maintenance,
+with stale locations discarded after movement/teleport. Worker errors disable
+optional rocks without synchronous fallback. Initial rocks join the existing
+startup graphics warm-up. Menus/tracking pauses stop maintenance; terrain-apply
+frames defer it. Page exit terminates the worker and disposes GPU resources.
+
+Each cell reserves 32 instance slots: hard cap **2,592 slots / 103,680 submitted
+triangles per eye**, including degenerate unused slots. Cell removal/replacement
+updates only affected matrix/color ranges; retained instances stay unchanged.
+Reuse the pine stereo-stable coverage/dither shader with the grass distance
+range: full through **40 m**, invisible at **50 m**. MSAA policy follows flora.
+Matrix/color uploads join captures; rock maintenance contributes to total CPU
+time, not the grass timing column. `window.hike.rocks` exposes inspection state.
+
+Validation: six rock checks cover deterministic placement/exclusions and bounded
+axis variation, terrain-relative luminance, closed 40-triangle geometry, bounded
+residency/revisit identity, stale/malformed worker results and real worker parity.
+The complete root suite passed, including all 125 Hike tests. Chrome v0.25.20
+startup, settings hiding and distant travel/revisit checks passed without errors:
+seed 41729 has 531 resident rocks initially, 534 after travel and 531 after reset.
+Density, grounding on irregular banks, fade appearance and sustained performance
+need Quest review; these desktop checks are not a headset benchmark.
 
 ## Forest ambience
 
