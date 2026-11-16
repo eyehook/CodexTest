@@ -38,7 +38,7 @@ export function createRockGeometry(){
 }
 const slotCount=(ROCKS.halfWindow*2+1)**2;
 export class Rocks {
- constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'?()=>new Worker(new URL('./rock-worker.mjs?v=5',import.meta.url),{type:'module'}):null}={}){
+ constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'?()=>new Worker(new URL('./rock-worker.mjs?v=cut-1',import.meta.url),{type:'module'}):null}={}){
   this.world=world;this.flora=flora;this.geometry=createRockGeometry();this.viewer={value:new T.Vector3()};
   this.material=new T.MeshLambertMaterial({flatShading:true,alphaToCoverage:flora.coverageSamples>1});
   const fade={value:new T.Vector2(ROCKS.fadeStart,ROCKS.far)};

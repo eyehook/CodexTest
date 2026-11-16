@@ -1,8 +1,8 @@
 import {generateTerrainSunlight,sampleSunlight} from './terrain-sunlight.mjs?v=3';
 import {TREE_STRIDE,generatePines} from './flora-placement.mjs?v=noise32-2';
-import {createWorld} from './world.mjs?v=bench-1';
+import {createWorld} from './world.mjs?v=cut-1';
 import {createTerrainGrid} from './terrain-grid.mjs?v=rings-300k-1';
-import {snapshotWorld} from './world-snapshot.mjs?v=numeric-1';
+import {snapshotWorld} from './world-snapshot.mjs?v=cut-1';
 self.onmessage=({data})=>{
  if(data.type!=='generate')return;
  try{

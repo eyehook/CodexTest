@@ -1,4 +1,4 @@
-import {createTerrainSampler} from './terrain-sampler.mjs?v=numeric-1';
+import {createTerrainSampler} from './terrain-sampler.mjs?v=cut-1';
 import {fieldCell} from './field-cells.mjs?v=sun-1';
 let world;
 self.onmessage=({data})=>{

@@ -1,4 +1,4 @@
-import {createTerrainSampler} from './terrain-sampler.mjs?v=numeric-1';
+import {createTerrainSampler} from './terrain-sampler.mjs?v=cut-1';
 import {createSurfaceQuery} from './surface-query.mjs?v=numeric-1';
 const dataOnly = object => Object.fromEntries(Object.entries(object).filter(([, value]) => typeof value !== 'function'));
 

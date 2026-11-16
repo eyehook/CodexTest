@@ -6,8 +6,8 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.31** (precomputed terrain shadows, 30° sun and updated documentation).
-- Previous pushed version: **v0.25.26** (opaque raptor at every distance), commit `aab51f5`.
+- Release version: **v0.25.32** (lowered summit with a rounded rim and at least 3 m flat standing area).
+- Previous pushed version: **v0.25.31** (terrain shadows and 30° sun), commit `1baf19f`.
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
   Follow [repository guidance](../../AGENTS.md) for shared modules and publication.
 - Preview: serve the repository root and open `/projects/hike/`. For USB Quest
@@ -142,8 +142,30 @@ visibility, grass/rock preparation and the graphics warm-up below.
   metre coordinates; target planes 28°, validated below 30°. These triangles are
   for queries/collision, not a second rendered layer.
 - Adaptive trail shoulders widen with earthwork. Interior bank-spike correction
-  preserves tread, endpoints and open boundaries. Summit landing is a level
-  3 m diameter disk with a 4 m smooth shoulder.
+  preserves tread, endpoints and open boundaries. Generated summits use the
+  cut-only landing below; explicit custom endpoints retain the original 3 m
+  disk and 4 m raised/blended shoulder.
+
+`summit-cut.mjs` truncates the generated peak before
+routing. It selects a conservative cap from the minimum original heightfield
+corner supporting a 1.5 m radius disk plus one walking-cell diagonal, minus a
+.75 m rounding allowance. Bilinear ground is bounded by those corners, so the
+standing disk and pinned arrival triangles do not require added material.
+A polynomial smooth minimum cuts to the horizontal cap and rounds the rim over
+a .75 m vertical band, with continuous slope and no raised radial shoulder.
+Only connected heightfield cells above the rounding threshold participate;
+separate high points and underlying geology remain unchanged. A tightly bounded
+Uint8 cell mask and cap parameters travel in `samplingData.summitCut` and are
+reused by terrain, grass and rock workers. No per-frame generation is added.
+
+`world.summit` is the lowered route endpoint; the marker and Base/Summit placement
+follow it. `landscape.summit` and `rawHeight` retain the original geology. The flat
+area is at least 3 m in diameter and can be wider because of the conservative
+cell/triangle bounds. Seed 41729 lowers by ~7.37 m. Ordinary trail cut/fill still
+operates on the approach; explicit `config.end` preserves its prior landing
+semantics. Six-seed checks confirm a flat disk and no fill across the surrounding
+6 × 6 m crest core. The user reports that the scene looks good on Quest 3; this
+is appearance feedback, not a formal stereo or performance benchmark.
 
 Core API: `world.height(x,z)`, `rawHeight`, `normal(x,z,out)`,
 `trail(x,z,out,global=false)`, `route`, `start`, `summit`, `landscape`,
@@ -526,18 +548,22 @@ notes](../../assets/hike/audio/README.md) for provenance and preparation.
 
 The user approved the current terrain-shadow appearance and 30° sun. This is
 appearance feedback, not a formal stereo or sustained-performance benchmark.
-The user authorized publication of v0.25.31 on 2026-11-16. This release includes
-terrain sunlight on terrain, trees, grass and rocks, the 30° sun, and README/handoff
-cleanup. See Git history for the release commit.
+The user authorized publication of v0.25.32 on 2026-11-16. This release lowers
+the summit and rounds its rim, preserving the flat standing area. The user
+reported good appearance on the target Quest 3. Quest 2 crack visibility was
+exploratory feedback; no sky or terrain-crack changes were requested or made.
+See Git history for the release commit.
 
 Validation coverage:
 
-- The complete root suite passed on final runtime code, including all **144 Hike
-  tests**. This covers generation/grass/rock worker transfers, shadow sampling,
-  lighting composition, instance-slot retention, and wind/color independence.
-- Chrome rendered terrain, vegetation and rocks without page/shader errors,
-  including optional pine shadows. Final 30° tuning passed the regression suite
-  and angle check. Changed module syntax, documentation links and whitespace pass.
+- The complete root suite passed, including all **147 Hike tests** on the final
+  summit-cut runtime. Hike coverage includes multiseed
+  walkability, flat landing/no-fill core, cut continuity, isolated high points,
+  worker reconstruction, terrain rendering and existing shadow/vegetation checks.
+- Chrome rendered the seed 41729 lowered summit and marker without page/shader
+  or optional vegetation-worker errors. Changed syntax, links and whitespace pass.
+- The previous terrain-shadow release also passed browser rendering with
+  optional pine shadows. No new sustained Quest frame-time benchmark is claimed.
 - Earlier desktop checks covered loading, settings, travel/revisit, atmosphere,
   fog/sky agreement, simulated stereo projections and graphics warm-up lifecycle.
   Audio tests cover long scheduling, bounded nodes, fallback and activation;

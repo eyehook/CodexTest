@@ -28,7 +28,9 @@ desktop uses 14 m/s for testing. Slopes above 35° cause sliding.
 ## Landscape and lighting
 
 One snapped terrain mesh supplies near detail and progressively coarser distant
-terrain. Gameplay grounding uses a separate authoritative walking surface.
+terrain. Gameplay grounding uses a separate authoritative walking surface. The summit is
+cut down to a flat area at least 3 m across, with a rounded rim rather than a
+raised landing platform.
 Terrain shadows are precomputed at world generation for a fixed sun currently
 at **30° elevation**, and also shade grass, trees and rocks. The saved Shadows
 setting controls optional nearby tree-cast shadows; terrain shadows stay active.

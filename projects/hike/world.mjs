@@ -1,3 +1,4 @@
+import {createSummitCut,destinationHeight} from './summit-cut.mjs?v=1';
 import {createBankHeight} from './bank-height.mjs';
 import {createRouteQuery} from './route-query.mjs';
 // Authoritative cached geology and trail definition; independent of render LOD.
@@ -5,21 +6,18 @@ import {createTrailSurface} from './trail-surface.mjs?v=numeric-1';
 import {generateLandscape} from './geology.mjs?v=bench-1';
 import {generateTrail} from './trail.mjs?v=summit-1';
 export const DEFAULTS = Object.freeze({seed: 41729, elevation: 220, trailWidth: 5, targetLength: 1600});
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-const smooth = x => { x = clamp(x, 0, 1); return x*x*(3-2*x); };
 export function createWorld(options = {},onProgress=()=>{}) {
   const began=performance.now(),config = {...DEFAULTS, ...options};
   if (![config.seed,config.elevation,config.trailWidth,config.targetLength].every(Number.isFinite) || config.elevation < 40 || config.elevation > 280 || config.trailWidth < 3 || config.trailWidth > 10 || config.targetLength < 200 || config.targetLength > 5000) throw Error('Invalid world configuration');
   for(const p of [config.start,config.end])if(p&&(!Number.isFinite(p.x)||!Number.isFinite(p.z)||Math.abs(p.x)>=1920||Math.abs(p.z)>=1920))throw Error('Endpoints must lie within the terrain map');
   onProgress(.02,'Shaping the mountain');
   const landscape=generateLandscape(config,(value,label)=>onProgress(.02+value*.43,label)),rawHeight=landscape.height;
-  const destination=config.end?{...config.end,y:rawHeight(config.end.x,config.end.z)}:landscape.summit;
-  // Prepare the arrival ground before routing, without changing the seeded geology.
-  const destinationRadius=1.5;
-  function flattenDestination(x,z,y){const blend=smooth((Math.hypot(x-destination.x,z-destination.z)-destinationRadius)/4);return destination.y+(y-destination.y)*blend;}
-  const preparedHeight=(x,z)=>flattenDestination(x,z,rawHeight(x,z));
+  const originalDestination=config.end?{...config.end,y:rawHeight(config.end.x,config.end.z)}:landscape.summit;
+  const destinationRadius=1.5,summitCut=config.end?null:createSummitCut(landscape,originalDestination,destinationRadius);
+  const destination={...originalDestination,y:summitCut?.level??originalDestination.y};
+  const preparedHeight=(x,z)=>destinationHeight(summitCut,destination,x,z,rawHeight(x,z));
   onProgress(.45,'Planning the trail');
-  const ascent=generateTrail({...landscape,height:preparedHeight},{...config,destinationRadius});
+  const ascent=generateTrail({...landscape,summit:destination,height:preparedHeight},{...config,destinationRadius});
   const route=ascent.route,half=config.trailWidth/2;
   let totalLength=0,maxGrade=0,maxEarthwork=0;
   for(let i=0;i<route.length;i++) {
@@ -44,5 +42,5 @@ export function createWorld(options = {},onProgress=()=>{}) {
   surface.maxWalkingSlope=surface.walking.reduce((max,ids)=>Math.max(max,surface.slope(ids)),0);
   if(surface.maxWalkingSlope>30||maxGrade>.301)throw Error('The trail surface could not meet its walking slope limits');
   onProgress(.9,'Mountain ready');
-  return {samplingData:{config,destination,profile,surface:surface.queryData,landscape:{heights:landscape.heights,gridSize:landscape.gridSize,gridStep:landscape.gridStep,extent:landscape.extent,boundaryHeight:landscape.boundaryHeight,summit:landscape.summit}},surface,config,landscape,mountain:landscape,extent:landscape.extent,boundaryHeight:landscape.boundaryHeight,landmarks:[ascent.route[0],ascent.route.at(-1)],sections:[{kind:'ground',start:0,end:route.length-1}],generationMs:performance.now()-began,rawHeight,height,normal,trail:(x,z,out={},global=false)=>{project(x,z,out,global);if(out.distance<=half){const value=surface.sample(x,z);if(value!==null)out.height=value;}return out;},route,totalLength,maxGrade,maxEarthwork,start:route[0],summit:route.at(-1)};
+  return {samplingData:{config,destination,summitCut,profile,surface:surface.queryData,landscape:{heights:landscape.heights,gridSize:landscape.gridSize,gridStep:landscape.gridStep,extent:landscape.extent,boundaryHeight:landscape.boundaryHeight,summit:landscape.summit}},summitCut,surface,config,landscape,mountain:landscape,extent:landscape.extent,boundaryHeight:landscape.boundaryHeight,landmarks:[ascent.route[0],ascent.route.at(-1)],sections:[{kind:'ground',start:0,end:route.length-1}],generationMs:performance.now()-began,rawHeight,height,normal,trail:(x,z,out={},global=false)=>{project(x,z,out,global);if(out.distance<=half){const value=surface.sample(x,z);if(value!==null)out.height=value;}return out;},route,totalLength,maxGrade,maxEarthwork,start:route[0],summit:route.at(-1)};
 }

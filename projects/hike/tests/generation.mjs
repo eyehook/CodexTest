@@ -8,7 +8,7 @@ test('one unified heightfield covers the main hiking area and distant ridges',()
   assert.equal(w.landscape.gridSize,1025);assert.equal(w.extent,1920);
   let min=Infinity,max=-Infinity;
   for(const value of w.landscape.heights){assert.ok(Number.isFinite(value)&&value>=0);min=Math.min(min,value);max=Math.max(max,value);}
-  assert.ok(w.start.y>min);assert.ok(w.start.y<w.summit.y*.35);assert.equal(w.summit.y,max);
+  assert.ok(w.start.y>min);assert.ok(w.start.y<w.summit.y*.35);assert.equal(w.landscape.summit.y,max);assert.equal(w.summit.y,w.summitCut.level);assert.ok(w.summit.y<max);
   assert.ok(Math.hypot(w.summit.x,w.summit.z)<700,'highest point should be central');
   const distant=[];for(let x=-1400;x<=1400;x+=200)for(let z=-1400;z<=1400;z+=200)if(Math.hypot(x,z)>900)distant.push(w.rawHeight(x,z));
   assert.ok(Math.max(...distant)-Math.min(...distant)>15,'surroundings should be real varied terrain');

@@ -1,3 +1,4 @@
+import {destinationHeight} from './summit-cut.mjs?v=1';
 import {createBankHeight} from './bank-height.mjs';
 import {createSurfaceQuery} from './surface-query.mjs?v=numeric-1';
 import {createRouteQuery} from './route-query.mjs';
@@ -6,19 +7,14 @@ import {createRouteQuery} from './route-query.mjs';
 export function createTerrainSampler(data){
  const {config,landscape,destination,profile}=data,{heights,gridSize:n,gridStep:step,extent,boundaryHeight}=landscape;
  const surface=createSurfaceQuery(data.surface),half=config.trailWidth/2,project=createRouteQuery(profile,half);
- const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
  function rawHeight(x,z){
   const gx=(x+extent)/step,gz=(z+extent)/step;if(gx<0||gz<0||gx>=n-1||gz>=n-1)return boundaryHeight;
   const ix=Math.floor(gx),iz=Math.floor(gz),u=gx-ix,v=gz-iz,i=iz*n+ix,a=heights[i],b=heights[i+1],c=heights[i+n],d=heights[i+n+1];
   return (a*(1-u)+b*u)*(1-v)+(c*(1-u)+d*u)*v;
  }
- const bankHeight=createBankHeight(profile,half,(x,z)=>{
-  const blend=smooth((Math.hypot(x-destination.x,z-destination.z)-1.5)/4);
-  return destination.y+(rawHeight(x,z)-destination.y)*blend;
- },project);
+ const bankHeight=createBankHeight(profile,half,(x,z)=>destinationHeight(data.summitCut,destination,x,z,rawHeight(x,z)),project);
  function height(x,z){
-  const hit=surface.sample(x,z);if(hit!==null)return hit;
-  return bankHeight(x,z);
+  return surface.sample(x,z)??bankHeight(x,z);
  }
  function normal(x,z,out){
   if(surface.normal(x,z,out))return out;

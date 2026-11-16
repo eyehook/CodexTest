@@ -32,9 +32,10 @@ test('flat outer continuation, independent height queries and sensible normals',
 test('trail distance queries cover both ends and intermediate route points',()=>{
  for(const i of [0,50,200,400,799,800]){const p=world.route[i],q=world.trail(p.x,p.z,{},true);assert.ok(q.distance<1e-7);assert.ok(Math.abs(q.along-p.distance)<1e-6);}
 });
-test('default endpoints are the selected bench and field summit and within the atmospheric range',()=>{
+test('default endpoints use the selected bench and lowered summit at the same map position',()=>{
  assert.deepEqual({x:world.start.x,y:world.start.y,z:world.start.z},world.landscape.start);
- assert.deepEqual({x:world.summit.x,y:world.summit.y,z:world.summit.z},world.landscape.summit);
+ assert.equal(world.summit.x,world.landscape.summit.x);assert.equal(world.summit.z,world.landscape.summit.z);
+ assert.equal(world.summit.y,world.summitCut.level);assert.ok(world.summit.y<world.landscape.summit.y);
  assert.ok(Math.hypot(world.start.x-world.summit.x,world.start.z-world.summit.z)<950);
 });
 
@@ -63,4 +64,16 @@ test('cached world faithfully restores a freshly generated world and its queries
   assert.deepEqual(cached.trail(x,z,{},true),world.trail(x,z,{},true));
  }
  for(let i=0;i<world.surface.walking.length;i+=137)assert.equal(cached.surface.slope(cached.surface.walking[i]),world.surface.slope(world.surface.walking[i]));
+});
+
+
+test('lowered summits retain a level 3 m landing without building up the crest',async()=>{
+ for(const seed of [41729,1,42,999,123456,1435171212]){
+  const w=await cachedWorld({seed});assert.ok(w.summit.y<w.rawHeight(w.summit.x,w.summit.z));
+  for(let z=-3;z<=3;z+=.25)for(let x=-3;x<=3;x+=.25){
+   const wx=w.summit.x+x,wz=w.summit.z+z,y=w.height(wx,wz);
+   assert.ok(y<=w.rawHeight(wx,wz)+1e-6,`raised crest seed ${seed} at ${x},${z}`);
+   if(Math.hypot(x,z)<=1.5)assert.ok(Math.abs(y-w.summit.y)<1e-6,`landing seed ${seed}`);
+  }
+ }
 });
