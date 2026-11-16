@@ -1,9 +1,9 @@
 import {createTerrainSampler} from './terrain-sampler.mjs?v=numeric-1';
-import {rockCell} from './rock-cells.mjs?v=4';
+import {rockCell} from './rock-cells.mjs?v=5';
 let world;
 self.onmessage=({data})=>{
  try{
-  if(data.type==='init')world={...createTerrainSampler(data.samplingData),extent:data.extent,summit:data.summit};
+  if(data.type==='init')world={...createTerrainSampler(data.samplingData),extent:data.extent,summit:data.summit,sunlight:data.sunlight};
   else if(data.type==='cells'){
    if(!world)throw Error('Rock worker is not initialized');
    const cells=data.cells.map(record=>({...record,...rockCell(world,record.cx,record.cz)}));

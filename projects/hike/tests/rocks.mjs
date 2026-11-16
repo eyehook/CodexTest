@@ -1,3 +1,4 @@
+import {sampleSunlight} from '../terrain-sunlight.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Worker} from 'node:worker_threads';
@@ -56,12 +57,12 @@ test('rock jobs apply during maintenance only, reject stale locations and disabl
  worker.onmessage({data:{type:'cells',id:rocks.id,cells:[]}});assert.ok(rocks.error);assert.equal(rocks.mesh.visible,false);assert.ok(worker.terminated);rocks.dispose();
 });
 test('real rock worker matches terrain placement and transfers deterministic cell data',async()=>{
- const world=await cachedWorld(),url=new URL('../rock-worker.mjs',import.meta.url).href;
+ const world=await cachedWorld();world.sunlight={size:2,extent:1920,step:3840,visibility:new Uint8Array([0,255,0,255])};const url=new URL('../rock-worker.mjs',import.meta.url).href;
  const code=`const {parentPort}=require('node:worker_threads');globalThis.self={postMessage:(...args)=>parentPort.postMessage(...args)};(async()=>{await import(${JSON.stringify(url)});parentPort.on('message',data=>self.onmessage({data}));})();`;
  const worker=new Worker(code,{eval:true});
  try{
   const result=new Promise((resolve,reject)=>{worker.once('message',resolve);worker.once('error',reject);});
-  worker.postMessage({type:'init',samplingData:world.samplingData,extent:world.extent,summit:world.summit});
+  worker.postMessage({type:'init',samplingData:world.samplingData,extent:world.extent,summit:world.summit,sunlight:world.sunlight});
   const cx=Math.floor(world.start.x/16),cz=Math.floor(world.start.z/16),cells=[{key:`${cx},${cz}`,cx,cz}];
   worker.postMessage({type:'cells',id:1,cells});const reply=await result;assert.equal(reply.type,'cells');assert.deepEqual(reply.cells[0].data,rockCell(world,cx,cz).data);
  }finally{await worker.terminate();}
@@ -78,4 +79,24 @@ test('stone luminance follows local terrain within ten percent',()=>{
    for(let j=0;j<a.count;j++){const offset=j*ROCK_STRIDE;if(d[k]===a.data[offset]&&d[k+2]===a.data[offset+2])assert.ok(actual>(.2126*a.data[offset+9]+.7152*a.data[offset+10]+.0722*a.data[offset+11])*1.5);}
   }
  }
+});
+
+
+test('rock sunlight stays separate from colors and follows recycled cell slots',()=>{
+ const world=synthetic(),unshaded=rockCell(world,5,5);
+ world.sunlight={size:2,extent:1920,step:3840,visibility:new Uint8Array([0,255,0,255])};
+ const shaded=rockCell(world,5,5);assert.ok(shaded.count>0);
+ for(let i=0;i<shaded.count;i++){
+  const k=i*ROCK_STRIDE;assert.deepEqual(shaded.data.slice(k,k+12),unshaded.data.slice(k,k+12));
+  assert.ok(Math.abs(shaded.data[k+12]-sampleSunlight(world.sunlight,shaded.data[k],shaded.data[k+2]))<1e-6);
+ }
+ const rocks=new Rocks(new T.Scene(),world,flora,{workerFactory:null}),viewer=new T.Vector3(80,32,80);
+ for(const point of [viewer,new T.Vector3(-900,32,700),viewer]){
+  settle(rocks,point);
+  for(const record of rocks.cells.values()){
+   const expected=rockCell(world,record.cx,record.cz);
+   for(let i=0;i<record.count;i++)assert.equal(rocks.sunlight.array[record.slot*ROCKS.perCell+i],expected.data[i*ROCK_STRIDE+12]);
+  }
+ }
+ const copy=rocks.sunlight.array.slice(),version=rocks.sunlight.version;rocks.update(viewer);assert.deepEqual(rocks.sunlight.array,copy);assert.equal(rocks.sunlight.version,version);rocks.dispose();
 });

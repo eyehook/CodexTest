@@ -1,6 +1,6 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
-import {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=green-1';
-export {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=green-1';
+import {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=sun-1';
+export {BLADES_PER_CELL,TRIANGLE_FIELD,TRIANGLE_CAP,fieldCell} from './field-cells.mjs?v=sun-1';
 // Shared GLSL is also exercised directly in the browser deformation check.
 export const grassWindVertex=`
 uniform float fieldWindTime;
@@ -24,15 +24,17 @@ const vertexShader=`
 #include <common>
 #include <fog_pars_vertex>
 uniform vec3 fieldViewer;
+uniform vec2 fieldSunlightWeights;
 attribute vec3 fieldRoot;
 attribute vec4 fieldShape;
 attribute vec3 fieldColor;
+attribute float fieldSunlight;
 varying vec3 vFieldColor;
 varying vec3 vFieldPattern;
 varying float vFieldDistance;
 ${grassWindVertex}
 void main(){
- vFieldDistance=length(fieldRoot.xz-fieldViewer.xz);vFieldColor=fieldColor;vFieldPattern=fieldRoot;
+ vFieldDistance=length(fieldRoot.xz-fieldViewer.xz);vFieldColor=fieldColor*(fieldSunlightWeights.x+fieldSunlightWeights.y*fieldSunlight);vFieldPattern=fieldRoot;
  if(vFieldDistance>=50.0){gl_Position=vec4(2.0,2.0,2.0,1.0);
  #ifdef USE_FOG
  vFogDepth=0.0;
@@ -43,7 +45,7 @@ void main(){
  vec3 world=fieldRoot+rotated;
  vFieldPattern=world;
  world=fieldRoot+bendGrassTip(rotated,fieldRoot,fieldShape);
- vFieldColor=fieldColor;
+ // Preserve the original sunlit palette: 40% ambient bed, 60% sunlight.
  vec4 mvPosition=modelViewMatrix*vec4(world,1.0);gl_Position=projectionMatrix*mvPosition;
  #ifdef USE_FOG
  vFogDepth=length(mvPosition.xyz);
@@ -72,14 +74,14 @@ void main(){
  #include <fog_fragment>
 }`;
 export class TriangleField {
- constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'||typeof Worker!=='undefined'?()=>new Worker(new URL('./field-worker.mjs?v=green-1',import.meta.url),{type:'module'}):null}={}){
+ constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'||typeof Worker!=='undefined'?()=>new Worker(new URL('./field-worker.mjs?v=sun-1',import.meta.url),{type:'module'}):null}={}){
   this.world=world;this.flora=flora;this.settings=TRIANGLE_FIELD;this.capacity=(2*TRIANGLE_FIELD.halfWindow+1)**2;this.maxTriangles=this.capacity*TRIANGLE_FIELD.bladesPerCell;
   if(this.maxTriangles>TRIANGLE_CAP)throw Error('Triangle field exceeds budget');
   this.windTime={value:0};this.viewer={value:new T.Vector3()};this.geometry=new T.InstancedBufferGeometry();
   this.geometry.setAttribute('position',new T.Float32BufferAttribute([-.5,0,0,.5,0,0,.12,1,.1],3));
-  this.attributes={};for(const [name,size] of [['fieldRoot',3],['fieldShape',4],['fieldColor',3]]){const attribute=new T.InstancedBufferAttribute(new Float32Array(this.maxTriangles*size),size).setUsage(T.DynamicDrawUsage);attribute.onUpload(()=>attribute.clearUpdateRanges());this.geometry.setAttribute(name,attribute);this.attributes[name]=attribute;}
+  this.attributes={};for(const [name,size] of [['fieldRoot',3],['fieldShape',4],['fieldColor',3],['fieldSunlight',1]]){const attribute=new T.InstancedBufferAttribute(new Float32Array(this.maxTriangles*size),size).setUsage(T.DynamicDrawUsage);attribute.onUpload(()=>attribute.clearUpdateRanges());this.geometry.setAttribute(name,attribute);this.attributes[name]=attribute;}
   this.geometry.instanceCount=0;
-  this.material=new T.ShaderMaterial({uniforms:{...T.UniformsUtils.clone(T.UniformsLib.fog),fieldViewer:this.viewer,fieldWindTime:this.windTime,fieldCoverageStep:flora.coverageStep},vertexShader,fragmentShader,side:T.DoubleSide,alphaToCoverage:flora.coverageSamples>1,fog:true});
+  this.material=new T.ShaderMaterial({uniforms:{...T.UniformsUtils.clone(T.UniformsLib.fog),fieldViewer:this.viewer,fieldSunlightWeights:{value:new T.Vector2(.4,.6)},fieldWindTime:this.windTime,fieldCoverageStep:flora.coverageStep},vertexShader,fragmentShader,side:T.DoubleSide,alphaToCoverage:flora.coverageSamples>1,fog:true});
   this.mesh=new T.Mesh(this.geometry,this.material);this.mesh.name='Capped triangle surface field';this.mesh.castShadow=false;this.mesh.receiveShadow=false;this.mesh.frustumCulled=false;this.mesh.visible=false;scene.add(this.mesh);
   this.evictions=[];this.cells=new Map();this.slots=[];this.queue=[];this.next=0;this.cellX=Infinity;this.cellZ=Infinity;this.instanceCount=0;this.updateMs=0;this.disposed=false;
   this.owners=new Array(this.maxTriangles);this.ownerLocal=new Uint16Array(this.maxTriangles);this.dirtyBlocks=new Uint8Array(Math.ceil(this.maxTriangles/128));this.hasDirty=false;
@@ -89,7 +91,7 @@ export class TriangleField {
    this.worker.onmessage=({data})=>this.receive(data);
    this.worker.onerror=event=>{event.preventDefault?.();this.fail(new Error(event.message||'Grass worker failed'));};
    this.worker.onmessageerror=()=>this.fail(new Error('Could not read grass worker result'));
-   this.worker.postMessage({type:'init',samplingData:world.samplingData,extent:world.extent,summit:world.summit,landscapeSummit:world.landscape.summit,range:world.flora.range});
+   this.worker.postMessage({type:'init',samplingData:world.samplingData,extent:world.extent,summit:world.summit,landscapeSummit:world.landscape.summit,range:world.flora.range,sunlight:world.sunlight});
   }catch(error){this.fail(error);}
 
  }
@@ -148,7 +150,7 @@ export class TriangleField {
   if(this.worker){
    if(!this.inFlight&&!this.completed&&this.slots.length<this.capacity){
     const cells=[];while(this.next<this.queue.length&&cells.length<Math.min(s.maxCellsPerFrame,this.capacity-this.slots.length)){const record=this.queue[this.next++];if(!this.cells.has(record.key))cells.push(record);}
-    if(cells.length){this.inFlight=true;this.pendingCells=cells;try{const buffers=this.recycle,transfer=buffers?buffers.flatMap(cell=>[cell.root.buffer,cell.shape.buffer,cell.color.buffer]):[];this.worker.postMessage({type:'cells',id:++this.requestId,cells,buffers},transfer);this.recycle=null;}catch(error){this.fail(error);return;}}
+    if(cells.length){this.inFlight=true;this.pendingCells=cells;try{const buffers=this.recycle,transfer=buffers?buffers.flatMap(cell=>[cell.root.buffer,cell.shape.buffer,cell.color.buffer,cell.sunlight.buffer]):[];this.worker.postMessage({type:'cells',id:++this.requestId,cells,buffers},transfer);this.recycle=null;}catch(error){this.fail(error);return;}}
    }
   }else{
    // Synchronous adapter for dependency-free Node tests; browsers use the worker.
@@ -172,7 +174,7 @@ export class TriangleField {
  applyCell(record,data){
   record.slot=this.slots.length;record.count=data.count;record.bladeSlots=new Uint32Array(data.count);this.slots.push(record);this.cells.set(record.key,record);
   const base=this.instanceCount;
-  for(const [name,source] of [['fieldRoot',data.root],['fieldShape',data.shape],['fieldColor',data.color]]){const attribute=this.attributes[name],size=attribute.itemSize;attribute.array.set(source.subarray(0,data.count*size),base*size);}
+  for(const [name,source] of [['fieldRoot',data.root],['fieldShape',data.shape],['fieldColor',data.color],['fieldSunlight',data.sunlight]]){const attribute=this.attributes[name],size=attribute.itemSize;attribute.array.set(source.subarray(0,data.count*size),base*size);}
   for(let i=0;i<data.count;i++){record.bladeSlots[i]=base+i;this.owners[base+i]=record;this.ownerLocal[base+i]=i;}
   delete record.data;this.instanceCount+=data.count;this.markDirty(base,data.count);
  }
@@ -185,7 +187,7 @@ export class TriangleField {
    for(let i=0;i<data.cells.length;i++){
     const cell=data.cells[i],expected=this.pendingCells[i],result=cell.data;
     if(cell.key!==expected.key||cell.cx!==expected.cx||cell.cz!==expected.cz||!result||!Number.isInteger(result.count)||result.count<0||result.count>BLADES_PER_CELL)throw Error('Invalid grass worker cell');
-    for(const [name,size] of [['root',3],['shape',4],['color',3]])if(!(result[name] instanceof Float32Array)||result[name].length!==BLADES_PER_CELL*size)throw Error('Invalid grass worker buffer');
+    for(const [name,size] of [['root',3],['shape',4],['color',3],['sunlight',1]])if(!(result[name] instanceof Float32Array)||result[name].length!==BLADES_PER_CELL*size)throw Error('Invalid grass worker buffer');
    }
    this.completed=data;this.inFlight=false;
   }catch(error){this.fail(error);}

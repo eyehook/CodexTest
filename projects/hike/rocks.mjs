@@ -1,6 +1,6 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {pineFadeShader} from './flora.mjs?v=noise32-2';
-import {ROCKS,ROCK_STRIDE,rockCell} from './rock-cells.mjs?v=4';
+import {ROCKS,ROCK_STRIDE,rockCell} from './rock-cells.mjs?v=5';
 export function createRockGeometry(){
  const base=new T.IcosahedronGeometry(1,0),source=base.attributes.position;
  const faces=Array.from({length:20},(_,i)=>Array.from({length:3},(_,j)=>new T.Vector3().fromBufferAttribute(source,i*3+j)));
@@ -38,15 +38,16 @@ export function createRockGeometry(){
 }
 const slotCount=(ROCKS.halfWindow*2+1)**2;
 export class Rocks {
- constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'?()=>new Worker(new URL('./rock-worker.mjs?v=4',import.meta.url),{type:'module'}):null}={}){
+ constructor(scene,world,flora,{workerFactory=typeof window!=='undefined'?()=>new Worker(new URL('./rock-worker.mjs?v=5',import.meta.url),{type:'module'}):null}={}){
   this.world=world;this.flora=flora;this.geometry=createRockGeometry();this.viewer={value:new T.Vector3()};
   this.material=new T.MeshLambertMaterial({flatShading:true,alphaToCoverage:flora.coverageSamples>1});
   const fade={value:new T.Vector2(ROCKS.fadeStart,ROCKS.far)};
   this.material.onBeforeCompile=shader=>pineFadeShader(shader,this.viewer,fade,flora.coverageStep);
   this.mesh=new T.InstancedMesh(this.geometry,this.material,slotCount*ROCKS.perCell);this.mesh.name='Nearby rocks';
   this.mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);this.mesh.instanceColor=new T.InstancedBufferAttribute(new Float32Array(this.mesh.count*3),3).setUsage(T.DynamicDrawUsage);
+  this.sunlight=new T.InstancedBufferAttribute(new Float32Array(this.mesh.count),1).setUsage(T.DynamicDrawUsage);this.geometry.setAttribute('terrainSunlight',this.sunlight);
   this.mesh.instanceMatrix.array.fill(0);for(let i=0;i<this.mesh.count;i++)this.mesh.instanceMatrix.array[i*16+15]=1;this.mesh.frustumCulled=false;this.mesh.visible=false;scene.add(this.mesh);
-  for(const attribute of [this.mesh.instanceMatrix,this.mesh.instanceColor])attribute.onUpload(()=>attribute.clearUpdateRanges());
+  for(const attribute of [this.mesh.instanceMatrix,this.mesh.instanceColor,this.sunlight])attribute.onUpload(()=>attribute.clearUpdateRanges());
   this.cells=new Map();this.free=Array.from({length:slotCount},(_,i)=>slotCount-1-i);this.queue=[];this.cx=Infinity;this.cz=Infinity;
   this.matrix=new T.Matrix4();this.position=new T.Vector3();this.rotation=new T.Quaternion();this.euler=new T.Euler();this.scale=new T.Vector3();
   this.inFlight=false;this.completed=null;this.pending=[];this.id=0;this.worker=null;this.error=null;this.disposed=false;this.instanceCount=0;
@@ -54,7 +55,7 @@ export class Rocks {
    this.worker=workerFactory();this.worker.onmessage=({data})=>this.receive(data);
    this.worker.onerror=event=>{event.preventDefault?.();this.fail(new Error(event.message||'Rock worker failed'));};
    this.worker.onmessageerror=()=>this.fail(new Error('Could not read rock worker result'));
-   this.worker.postMessage({type:'init',samplingData:world.samplingData,extent:world.extent,summit:world.summit});
+   this.worker.postMessage({type:'init',samplingData:world.samplingData,extent:world.extent,summit:world.summit,sunlight:world.sunlight});
   }catch(error){this.fail(error);}
  }
  dirty(attribute,start,count){
@@ -83,10 +84,11 @@ export class Rocks {
    const k=i*ROCK_STRIDE,d=record.data,slot=record.slot*ROCKS.perCell+i;
    this.position.fromArray(d,k);this.rotation.setFromEuler(this.euler.set(d[k+3],d[k+4],d[k+5]));this.scale.fromArray(d,k+6);
    this.matrix.compose(this.position,this.rotation,this.scale);this.mesh.setMatrixAt(slot,this.matrix);
-   this.mesh.instanceColor.array.set(d.subarray(k+9,k+12),slot*3);
+   this.mesh.instanceColor.array.set(d.subarray(k+9,k+12),slot*3);this.sunlight.array[slot]=d[k+12];
   }
   const start=record.slot*ROCKS.perCell;
   this.dirty(this.mesh.instanceMatrix,start*16,ROCKS.perCell*16);this.dirty(this.mesh.instanceColor,start*3,ROCKS.perCell*3);
+  this.dirty(this.sunlight,start,ROCKS.perCell);
   delete record.data;
  }
  receive(data){

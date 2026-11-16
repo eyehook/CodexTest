@@ -1,3 +1,4 @@
+import {sampleSunlight} from './terrain-sunlight.mjs?v=1';
 import {randomSource} from './geology.mjs?v=bench-1';
 import {cellSeed,smooth} from './flora-placement.mjs?v=dense-1';
 import {surfaceColor,surfaceAltitude,SNOW_LINE} from './surface.mjs?v=green-1';
@@ -40,6 +41,7 @@ export function shiftGrassHue(tint,degrees){
 export function fieldCell(world,cx,cz,buffers=null){
  const random=randomSource(cellSeed(world.config.seed^0x626c6164,cx,cz)),range=(a,b)=>a+(b-a)*random();
  const root=buffers?.root??new Float32Array(BLADES_PER_CELL*3),shape=buffers?.shape??new Float32Array(BLADES_PER_CELL*4),color=buffers?.color??new Float32Array(BLADES_PER_CELL*3);
+ const sunlight=buffers?.sunlight??new Float32Array(BLADES_PER_CELL);sunlight.fill(1);
  root.fill(0);shape.fill(0);color.fill(0);
  const corners=fieldHillCorners(world.config.seed,cx,cz),huePatch=fieldHuePatch(world.config.seed,cx,cz),normal={},near={},tint={};let count=0;
  for(let i=0;i<BLADES_PER_CELL;i++){
@@ -59,7 +61,8 @@ export function fieldCell(world,cx,cz,buffers=null){
   // Fixed, inexpensive baked light variation; no light/shadow sampling at runtime.
   const light=.68*range(.82,1.12);
   root.set([bx,y-.012,bz],count*3);shape.set([width,height,Math.sin(yaw),Math.cos(yaw)],count*4);
+  sunlight[count]=sampleSunlight(world.sunlight,bx,bz);
   color.set([tint.r*light,tint.g*light,tint.b*light],count*3);count++;
  }
- return {root,shape,color,count};
+ return {root,shape,color,sunlight,count};
 }

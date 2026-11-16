@@ -92,3 +92,14 @@ test('wind changes only a shared uniform without touching geometry or instance b
  assert.equal(field.material.uniforms.fieldWindTime,field.windTime);assert.equal(field.windTime.value,14);assert.equal(field.geometry.instanceCount,count);
  attributes.forEach((a,i)=>{assert.equal(a.version,versions[i]);assert.deepEqual(a.array,arrays[i]);});field.dispose();
 });
+
+test('sunlight remains separate from grass colors, placement and wind',()=>{
+ const w=world(),original=fieldCell(w,3,2);
+ w.sunlight={size:2,extent:1920,step:3840,visibility:new Uint8Array(4)};
+ const shaded=fieldCell(w,3,2);assert.ok(shaded.count>0);
+ for(const name of ['root','shape','color'])assert.deepEqual(shaded[name],original[name]);
+ assert.ok(shaded.sunlight.subarray(0,shaded.count).every(v=>v===0));
+ const field=new TriangleField(new T.Scene(),w,{coverageSamples:0,coverageStep:{value:1}});
+ drain(field,new T.Vector3(24,32,16));const before=field.attributes.fieldSunlight.array.slice(),version=field.attributes.fieldSunlight.version;
+ field.setTime(30);field.update(new T.Vector3(24,32,16));assert.deepEqual(field.attributes.fieldSunlight.array,before);assert.equal(field.attributes.fieldSunlight.version,version);field.dispose();
+});

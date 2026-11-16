@@ -1,10 +1,11 @@
+import {sampleSunlight} from './terrain-sunlight.mjs?v=1';
 import {cellSeed,forestNoise} from './flora-placement.mjs?v=noise32-2';
 import {surfaceColor} from './surface.mjs?v=green-1';
 import {randomSource} from './geology.mjs?v=bench-1';
 export const ROCKS=Object.freeze({cellSize:16,halfWindow:4,perCell:32,fadeStart:40,far:50,batchSize:4});
-// Position, Euler rotation, axis sizes and linear RGB. One 0.1–2 m base size
+// Position, Euler rotation, axis sizes, linear RGB and terrain sunlight. One 0.1–2 m base size
 // favors small stones; independent 0–10% axis enlargement preserves the shape.
-export const ROCK_STRIDE=12;
+export const ROCK_STRIDE=13;
 export function rockCell(world,cx,cz){
  const data=new Float32Array(ROCKS.perCell*ROCK_STRIDE),seed=world.config.seed,normal={},near={},ground={};let count=0;
  for(let i=0;i<ROCKS.perCell;i++){
@@ -32,7 +33,7 @@ export function rockCell(world,cx,cz){
   const brightness=groundLuma*variation/(.2126*r+.7152*g+.0722*b);
   const k=count++*ROCK_STRIDE;
   // The stone's center is below the authoritative surface in every orientation.
-  data.set([x,y-Math.min(sx,sy,sz)*.10,z,rx,ry,rz,sx,sy,sz,r*brightness,g*brightness,b*brightness],k);
+  data.set([x,y-Math.min(sx,sy,sz)*.10,z,rx,ry,rz,sx,sy,sz,r*brightness,g*brightness,b*brightness,sampleSunlight(world.sunlight,x,z)],k);
  }
  return {count,data};
 }

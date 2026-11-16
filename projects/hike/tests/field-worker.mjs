@@ -16,7 +16,7 @@ test('grass worker owns generation; results apply only during updates and stale 
  const field=new TriangleField(new T.Scene(),world,flora,{workerFactory:()=>worker}),viewer=new T.Vector3(0,32,0);
  assert.equal(worker.request.type,'init');field.update(viewer);assert.equal(worker.request.cells.length,4);assert.equal(field.cells.size,0);const requests=worker.requests;
  field.update(viewer);assert.equal(worker.requests,requests);worker.complete(reference);assert.equal(field.cells.size,0);
- field.update(viewer,false);assert.equal(field.cells.size,0);field.update(viewer);assert.equal(field.cells.size,4);assert.ok(worker.request.buffers.length===4);assert.equal(worker.transfer.length,12);
+ field.update(viewer,false);assert.equal(field.cells.size,0);field.update(viewer);assert.equal(field.cells.size,4);assert.ok(worker.request.buffers.length===4);assert.equal(worker.transfer.length,16);
  field.update(new T.Vector3(500,32,500));worker.complete(reference);field.update(new T.Vector3(500,32,500));assert.equal(field.cells.size,0);assert.ok(worker.request.cells.every(c=>Math.abs(c.cx-62)<=7&&Math.abs(c.cz-62)<=7));
  field.dispose();worker.complete(reference);assert.equal(field.cells.size,0);assert.equal(worker.terminated,true);
 });
@@ -34,7 +34,7 @@ function realWorker(){
  const node=new NodeWorker(code,{eval:true}),adapter={postMessage:(...args)=>node.postMessage(...args),terminate:()=>node.terminate()};node.on('message',data=>adapter.onmessage({data}));node.on('error',error=>adapter.onerror({message:error.message}));return adapter;
 }
 test('real grass worker matches exact synchronous cell data and keeps the main event loop responsive',async()=>{
- const world=await cachedWorld();world.flora={range:elevationRange(world)};
+ const world=await cachedWorld();world.flora={range:elevationRange(world)};world.sunlight={size:2,extent:1920,step:3840,visibility:new Uint8Array([0,255,0,255])};
  const worker=realWorker(),field=new TriangleField(new T.Scene(),world,flora,{workerFactory:()=>worker});let ticks=0;const timer=setInterval(()=>ticks++,1);
  try{
   const point=world.route[200],viewer=new T.Vector3(point.x,point.y,point.z);
@@ -42,7 +42,9 @@ test('real grass worker matches exact synchronous cell data and keeps the main e
   do{field.update(viewer);if(field.error)throw field.error;await new Promise(resolve=>setTimeout(resolve,1));if(performance.now()-began>10000)throw Error('Worker timed out');}while(field.cells.size<12);
   assert.ok(ticks>5);assert.ok(field.workerMs>=0);
   for(const record of field.cells.values()){
-   const expected=fieldCell(world,record.cx,record.cz);assert.equal(record.count,expected.count);
+   const expected=fieldCell(world,record.cx,record.cz);
+   for(let i=0;i<record.count;i++)assert.equal(field.attributes.fieldSunlight.array[record.bladeSlots[i]],expected.sunlight[i]);
+   assert.equal(record.count,expected.count);
    for(const [name,data] of [['fieldRoot',expected.root],['fieldShape',expected.shape],['fieldColor',expected.color]]){const attribute=field.attributes[name],size=attribute.itemSize;for(let i=0;i<record.count;i++){const offset=record.bladeSlots[i]*size;assert.deepEqual(attribute.array.slice(offset,offset+size),data.slice(i*size,(i+1)*size));}}
   }
  }finally{clearInterval(timer);field.dispose();}

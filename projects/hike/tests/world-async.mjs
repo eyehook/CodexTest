@@ -1,3 +1,5 @@
+import {sampleSunlight} from '../terrain-sunlight.mjs';
+import {TREE_STRIDE} from '../flora-placement.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Worker as NodeWorker} from 'node:worker_threads';
@@ -34,6 +36,9 @@ function realWorker(){
 test('real generation worker remains asynchronous and restores deterministic gameplay queries',async()=>{
  let ticks=0;const timer=setInterval(()=>ticks++,5),progress=[],worker=realWorker();let world;
  try{world=await createWorldAsync({seed:41729},{workerFactory:()=>worker,onProgress:(value,label)=>progress.push({value,label})});}finally{clearInterval(timer);worker.terminate();}
+ assert.equal(world.sunlight.visibility.byteLength,2048**2);
+ assert.ok(world.sunlight.visibility.some(v=>v===0));
+ for(let id=0;id<world.flora.count;id+=97){const k=id*TREE_STRIDE;assert.ok(Math.abs(world.flora.sunlight[id]-sampleSunlight(world.sunlight,world.flora.trees[k],world.flora.trees[k+2]))<1e-6);}
  assert.ok(ticks>20,'main event loop must keep servicing timers');assert.equal(worker.terminated,true);
  assert.ok(progress.some(p=>p.label==='Eroding the mountain'));assert.equal(progress.at(-1).value,.92);
  assert.equal(world.renderGrid.vertexCount,150057);assert.equal(world.renderGrid.indices.length/3,299612);

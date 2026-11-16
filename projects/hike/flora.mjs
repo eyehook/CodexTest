@@ -31,8 +31,9 @@ export function pineFadeShader(shader,viewer,fadeRange,coverageStep){
 function prepareInstances(mesh,capacity){
  mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
  mesh.instanceColor=new T.InstancedBufferAttribute(new Float32Array(capacity*3),3).setUsage(T.DynamicDrawUsage);
+ mesh.geometry.setAttribute('terrainSunlight',new T.InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(T.DynamicDrawUsage));
  mesh.userData.pineIds=new Uint32Array(capacity);
- mesh.userData.pineRanges={matrix:{start:0,count:0},color:{start:0,count:0},min:Infinity,max:0};
+ mesh.userData.pineRanges={matrix:{start:0,count:0},color:{start:0,count:0},sunlight:{start:0,count:0},min:Infinity,max:0};
  mesh.boundingSphere=new T.Sphere();mesh.visible=false;
 }
 function dirty(mesh,index){const r=mesh.userData.pineRanges;r.min=Math.min(r.min,index);r.max=Math.max(r.max,index+1);}
@@ -46,6 +47,7 @@ function uploadInstances(mesh){
  if(end>ranges.min){
   markUpdated(mesh.instanceMatrix,ranges.matrix,ranges.min*16,(end-ranges.min)*16);
   markUpdated(mesh.instanceColor,ranges.color,ranges.min*3,(end-ranges.min)*3);
+  markUpdated(mesh.geometry.attributes.terrainSunlight,ranges.sunlight,ranges.min,end-ranges.min);
  }
  ranges.min=Infinity;ranges.max=0;
 }
@@ -77,6 +79,7 @@ export class Flora {
   if(slot!==last){
    const moved=ids[last];ids[slot]=moved;this.slots[moved]=slot;
    mesh.instanceMatrix.array.copyWithin(slot*16,last*16,last*16+16);mesh.instanceColor.array.copyWithin(slot*3,last*3,last*3+3);
+   mesh.geometry.attributes.terrainSunlight.array[slot]=mesh.geometry.attributes.terrainSunlight.array[last];
    dirty(mesh,slot);
   }
   this.states[id]=0;this.slots[id]=-1;this.changedInstances++;
@@ -88,6 +91,7 @@ export class Flora {
   this.matrix.compose(this.position,this.rotation,this.scale);mesh.setMatrixAt(slot,this.matrix);
   const color=mesh.instanceColor.array,tints=this.data.tints,tint=trees[k+6];
   for(let channel=0;channel<3;channel++)color[slot*3+channel]=tints?tints[id*3+channel]:tint;
+  mesh.geometry.attributes.terrainSunlight.array[slot]=this.data.sunlight?.[id]??1;
   mesh.userData.pineIds[slot]=id;this.slots[id]=slot;this.states[id]=lod;dirty(mesh,slot);this.changedInstances++;
  }
  consider(id){

@@ -156,3 +156,12 @@ test('woodland threshold thins stable candidates and render buckets do not selec
  }
  assert.equal(generatePines(world,{noiseThreshold:1}).count,0);
 });
+
+test('terrain sunlight follows persistent tree slots when removal swaps a member',()=>{
+ const data=rendererFixture();data.trees[7]=data.trees[16]=0;data.sunlight=new Float32Array([0,.75,1]);
+ const flora=new Flora(new T.Scene(),data,null);flora.update(new T.Vector3(0,40,0),true);
+ const attribute=flora.batches[0].geometry.attributes.terrainSunlight;
+ assert.deepEqual(Array.from(attribute.array.slice(0,2)),[0,.75]);
+ flora.remove(0);assert.equal(attribute.array[0],.75);assert.equal(flora.slots[1],0);
+ flora.add(0,1);assert.equal(attribute.array[1],0);flora.dispose();
+});
