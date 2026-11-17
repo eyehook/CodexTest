@@ -1,7 +1,9 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {Loom} from './audio.mjs';
-import {chamber} from './chamber.mjs';
+import {Loom} from './audio.mjs?v=songs1';
+import {chamber} from './chamber.mjs?v=vertical1';
+
+import {songSkipInput} from './song-input.mjs?v=songs1';
 
 const $ = id => document.getElementById(id);
 const url = new URL(location.href);
@@ -25,6 +27,7 @@ async function playback(toggle=false) {
   pending=true;
   try {
     music ??= new Loom(seed);
+    $('next').disabled=false;
     if(toggle && music.ctx.state==='running' && document.body.classList.contains('live'))
       await music.ctx.suspend();
     else await music.ctx.resume();
@@ -42,6 +45,7 @@ async function init(){
   document.body.prepend(renderer.domElement);
   const scene=new T.Scene(), camera=new T.PerspectiveCamera(58,1,.05,60);
   const paint=chamber(scene,seed), frameState=new XRFrameState();
+  const skipInput=songSkipInput();
   function resize(){
     camera.aspect=innerWidth/innerHeight;
     camera.fov=camera.aspect<1?78:58;
@@ -52,14 +56,18 @@ async function init(){
   renderer.setAnimationLoop((time,frame)=>{
     const session=renderer.xr.getSession();
     if(!frameState.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden).active)return;
+    const sources=session?Array.from(session.inputSources).filter(source=>
+      source.targetRaySpace && frameState.isTracked(source.targetRaySpace)):[];
+    if(skipInput(sources,frameState.resumed) && music) music.nextSong();
     paint(music?music.beat():0, music?.readResponse()); renderer.render(scene,camera);
   });
   $('play').disabled=false;
   $('play').onclick=()=>playback(true);
+  $('next').onclick=()=>music?.nextSong();
   $('status').textContent='';
   if(await navigator.xr?.isSessionSupported('immersive-vr')){
     $('vr').hidden=false;
-    $('status').textContent='In VR, squeeze either trigger to pause or resume.';
+    $('status').textContent='In VR, trigger pauses/resumes; push either thumbstick right for the next song.';
     $('vr').onclick=async()=>{
       $('vr').disabled=true;
       try{

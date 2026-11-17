@@ -1,5 +1,6 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
-import {phrase, chord, sample} from './score.mjs';
+import {phrase, chord, sample} from './score.mjs?v=songs1';
+import {particleMotion} from './particle-motion.mjs?v=songs1';
 
 // One shell opens each seven-period movement. The six departures are shuffled per seed.
 function formAt(seed, period) {
@@ -22,42 +23,84 @@ export function chamber(scene, seed) {
   const layers = Float32Array.from({length:lips}, (_,i) => i/(lips-1));
   geometry.setAttribute('layer', new T.InstancedBufferAttribute(layers, 1));
   geometry.instanceCount = lips;
-  const uniforms = Object.fromEntries(['time','blend','energy','hue','twist','f1','f2','root','pulse','melody','pitch','volume','fromForm','toForm'].map(k => [k,{value:0}]));
+  const uniforms = Object.fromEntries(['time','motion','particlePitch','particleVelocity','particlePull','blend','energy','hue','twist','f1','f2','root','pulse','melody','pitch','volume','fromForm','toForm'].map(k => [k,{value:0}]));
   const material = new T.ShaderMaterial({uniforms, side:T.DoubleSide,
     vertexShader: `
       attribute float layer;
-      uniform float time,blend,energy,twist,f1,f2,root,pulse,fromForm,toForm,melody,pitch,volume;
+      uniform float time,motion,blend,energy,twist,f1,f2,root,pulse,fromForm,toForm,melody,pitch,volume;
       varying float singing; varying vec3 ink; varying float distanceFog;
       vec3 shape(float form,float s,float v,float a,float fold){
         float loop=a+2.8*s+time;
+        // A 64-beat cycle passes through the layers with a slight delay.
+        // Only periodic functions consume motion, so its wrap is seamless.
+        float opening=.5-.5*cos(motion-1.8*s);
+        float unfurl=sin(motion-2.4*s);
         if(form<.5){
+          // Nested lips peel forward, then settle back into a cupped shell.
+          float fan=a+.30*s*unfurl;
           float radius=.23+2.15*s+.18*v+(.10+.33*s)*fold;
-          return vec3(radius*cos(a),radius*sin(a)*(.75+.18*energy),
-            1.3*(1.-s*s)+(.16+.48*s)*fold+.18*sin(2.*loop)+.16*v);
+          radius*=.82+.22*opening;
+          return vec3(radius*cos(fan),radius*sin(fan)*(.70+.18*opening+.12*energy),
+            (1.3-1.05*opening)*(1.-s*s)+(.16+.48*s)*fold
+            +.38*s*sin(2.*fan-motion)+.16*v);
         }
-        if(form<1.5) return vec3((1.4+.35*fold)*cos(loop)+.65*sin(4.*s+time),
-          (s-.5)*4.2+.58*sin(loop)+.17*v,(.85+.24*fold)*sin(loop)+.12*v);
-        if(form<2.5) return vec3(3.1*cos(a)*(1.+.18*s),
-          (s-.5)*1.9+.67*sin(2.*a+4.*s+time)+.18*fold+.14*v,1.55*sin(a)+1.7*(s-.5));
+        if(form<1.5){
+          // A spiral bloom: a curled stem opens into a three-lobed crown.
+          // Sweep the centerline as well as the lip to break the tube silhouette.
+          float flare=pow(s,1.65)*(.48+.60*opening);
+          loop+=.85*s*unfurl;
+          float petal=cos(3.*loop-4.*s);
+          float radius=.30+1.85*flare+(.045+.25*flare)*petal
+            +(.045+.16*s)*fold+.14*v;
+          float bend=3.8*s+.38*sin(motion);
+          vec2 center=vec2(.68*sin(bend),.46*cos(bend));
+          return vec3(center.x+radius*cos(loop),
+            (s-.5)*3.8+(.10+.42*flare)*sin(3.*loop-4.*s)+.15*v,
+            center.y+radius*sin(loop)*(.72+.18*s))*.85;
+        }
+        if(form<2.5){
+          // A traveling crest rolls the outer sheets up into a breaking wave.
+          float curl=.35+.80*opening;
+          float cross=(s-.5)*2.5;
+          float roll=cross*curl+.35*sin(a-motion);
+          return vec3(2.75*cos(a)*(1.+.14*s),
+            cross*cos(roll)+.52*sin(2.*a+motion)+.18*fold+.14*v,
+            1.25*sin(a)+cross*sin(roll)+.30*unfurl);
+        }
         if(form<3.5){
-          // A trefoil with a fluted tube wound around its centerline.
-          float b=3.*a+time, tube=.34*cos(6.283*s)+.13*v;
-          float r=1.42+.60*cos(b)+tube;
-          return vec3(r*cos(2.*a),r*sin(2.*a),.77*sin(b)+.36*sin(6.283*s)+.1*fold);
+          // The three loops loosen together while a torsion wave unwinds the lips.
+          float b=3.*a+.45*sin(motion);
+          float winding=6.283*s+.80*unfurl;
+          float tube=(.24+.20*opening)*cos(winding)+.13*v;
+          float r=1.35+(.42+.28*opening)*cos(b)+tube;
+          return vec3(r*cos(2.*a),r*sin(2.*a)*(.88+.12*opening),
+            (.52+.40*opening)*sin(b)+.36*sin(winding)+.1*fold);
         }
         if(form<4.5){
-          float latitude=(s-.5)*3.0+.068*v;
-          float r=2.*cos(latitude)*(1.+.15*fold);
-          return vec3(r*cos(a),1.98*sin(latitude)+.19*sin(2.*loop),r*sin(a));
+          // Latitude ribbons separate into a lantern and roll back into a globe.
+          float latitude=(s-.5)*(3.0-.55*opening)+.068*v;
+          float longitude=a+.55*unfurl*sin(latitude);
+          float r=(1.78+.22*opening)*cos(latitude)*(1.+.15*fold);
+          float pleat=.18*opening*cos(4.*a+2.*latitude-motion);
+          return vec3((r+pleat)*cos(longitude),
+            (1.75+.40*opening)*sin(latitude)+.16*sin(2.*loop),
+            (r+pleat)*sin(longitude));
         }
         if(form<5.5){
-          float wing=sin(a), span=.45+2.45*s+.12*v;
-          return vec3(span*wing,1.45*cos(2.*a)*s+.42*cos(a)+.29*fold,
-            .82*cos(a)+s*sin(2.*a+time));
+          // Two wings hinge around the central spine; their tips lag behind.
+          float wing=sin(a), span=.45+2.35*s+.12*v;
+          float hinge=.28+.85*opening+.14*sin(motion-3.*s);
+          float reach=span*wing;
+          return vec3(reach*cos(hinge),
+            1.20*cos(2.*a)*s+.36*cos(a)+.24*fold,
+            abs(reach)*sin(hinge)-.65+.35*cos(a)+.22*s*sin(2.*a-motion));
         }
-        float waist=.57+1.38*pow(abs(2.*s-1.),1.4)+.15*fold;
-        return vec3(waist*cos(loop),(s-.5)*4.1+.13*v+.26*sin(3.*loop),
-          waist*sin(loop)+.12*v);
+        // Opposing bells twist apart, trading a tight waist for a softer throat.
+        float waist=.42+.28*opening+1.20*pow(abs(2.*s-1.),1.4)+.12*fold;
+        float winding=a+(s-.5)*(2.8+2.0*unfurl)+.22*sin(motion);
+        return vec3(waist*cos(winding),
+          (s-.5)*(3.5+.35*opening)+.13*v+.20*sin(3.*winding-motion),
+          waist*sin(winding)*(.82+.12*opening)+.12*v);
       }
       void main(){
         float s=layer, v=uv.y, a=uv.x*6.2831853;
@@ -98,43 +141,63 @@ export function chamber(scene, seed) {
   scene.add(shell);
   // Static particle seeds; the GPU places and shades both populations in one draw.
   const particles = new T.BufferGeometry();
-  const seeds = new Float32Array(480*3);
+  const seeds = new Float32Array(1440*3);
   for(let i=0;i<seeds.length;i++) seeds[i]=sample(seed,i,81);
   particles.setAttribute('position',new T.BufferAttribute(seeds,3));
   const motes = new T.Points(particles,new T.ShaderMaterial({
     uniforms, transparent:true, depthWrite:false, blending:T.AdditiveBlending,
     vertexShader:`
       uniform float time, pulse, pitch, melody, hue, volume, root;
+      uniform float particlePitch,particleVelocity,particlePull;
       varying vec3 tint;
       void main(){
         float a=6.283185*position.x+time;
         vec3 p;
         float light;
+        // Square-root envelopes leave luminous trails after the sharper surface response.
+        float spray=sqrt(clamp(pulse,0.,1.));
+        float song=sqrt(clamp(melody,0.,1.));
         if(position.z<.45){
-          // A shallow spray spreads from the rim as the kick envelope decays.
-          float r=1.75+(1.-min(pulse,1.))*1.38+.28*position.y;
-          p=vec3(r*cos(a),.75*r*sin(a),.8*sin(2.*a)+position.z);
-          light=pulse*(.38+.62*position.y);
+          // A broad three-dimensional burst expands beyond the sculpture's rim.
+          float travel=1.-spray;
+          float r=1.65+travel*2.35+.65*position.y;
+          a+=travel*(position.y-.5)*1.6;
+          p=vec3(r*cos(a),.82*r*sin(a),
+            1.15*sin(2.*a)+1.8*(position.z/.45-.5)*travel);
+          light=spray*(.55+.45*position.y);
         }else{
-          // A winding thread follows the lead's register, leaving space in its rests.
-          a+=4.*position.y;
-          float r=1.8+.65*position.y;
-          p=vec3(r*cos(a),(pitch-.5)*3.+.65*sin(a)+.65*(position.y-.5),
-                 r*sin(a));
-          light=melody*(.35+.65*position.y);
+          // Independent drifting orbits, gently attracted toward the lead's
+          // height. Velocity lag spreads each note into a wave through the cloud.
+          float phase=6.283185*position.z;
+          float drift=time*8.;
+          float along=position.y;
+          a+=drift*(.35+.65*position.z)+.35*sin(drift*.7+phase);
+          float r=2.5+.65*sin(phase+along*4.)+.24*sin(drift+phase);
+          float floating=.65*sin(drift*(.65+.4*along)+phase)
+            +.30*cos(drift*.6+position.x*12.);
+          float lag=.15+.55*along;
+          float height=(clamp(particlePitch-particleVelocity*lag,0.,1.)-.5)*3.6;
+          float attraction=particlePull*(.55+.65*position.z);
+          p=vec3(r*cos(a),floating+attraction*height
+            +.40*sin(a*2.+phase),r*sin(a)+.24*cos(drift*.8+phase));
+          light=song*(.55+.45*along);
+
         }
         vec4 mv=modelViewMatrix*vec4(p,1.);
         gl_Position=projectionMatrix*mv;
-        gl_PointSize=clamp((13.+12.*light+6.*volume)/max(1.,-mv.z),1.,8.);
+        gl_PointSize=clamp((30.+38.*light+12.*volume)/max(1.,-mv.z),2.,22.);
         tint=(.65+.35*cos(6.283*(hue+root*.026+position.z*.18+vec3(.1,.42,.56))))
-             *light;
+             *light*1.9;
       }`,
     fragmentShader:`
       varying vec3 tint;
       void main(){
         vec2 xy=gl_PointCoord*2.-1.;
-        float glow=max(0.,1.-dot(xy,xy));
-        gl_FragColor=vec4(tint,glow*glow);
+        float radius=dot(xy,xy);
+        if(radius>1.) discard;
+        float halo=exp(-3.8*radius)*(1.-smoothstep(.65,1.,radius));
+        float core=exp(-22.*radius);
+        gl_FragColor=vec4(tint*(.8+core*1.2),halo);
       }`
   }));
   motes.frustumCulled=false;
@@ -148,6 +211,10 @@ export function chamber(scene, seed) {
   const sky=new T.BufferGeometry();
   sky.setAttribute('position',new T.BufferAttribute(stars,3));
   scene.add(new T.Points(sky,new T.PointsMaterial({color:0x7c91a0,size:.023})));
+  // Analytic rotation around vertical stays seekable and never drifts.
+  const rotationAxis=new T.Vector3(0,1,0);
+  const rotationPeriod=80+32*sample(seed,0,93);
+  const floatMotion=particleMotion();
   let last, prev, next;
   return (beat, response) => {
     const index=Math.floor(beat/32);
@@ -158,11 +225,12 @@ export function chamber(scene, seed) {
     }
     const local=beat%32, x=Math.min(1,local/5), blend=x*x*(3-2*x);
     const mix=(a,b)=>a+(b-a)*blend;
-    uniforms.time.value=(beat*.035)%(Math.PI*4);
+    uniforms.time.value=beat*.035;
+    uniforms.motion.value=(beat*Math.PI/32+sample(seed,0,90)*Math.PI*2)%(Math.PI*2);
     const sway=beat*Math.PI/16;
     shell.position.x=.17*Math.sin(sway);
     shell.position.y=.10*Math.sin(sway*.5);
-    shell.rotation.set(.10*Math.sin(sway*.5),.22*Math.sin(sway*.75),.07*Math.sin(sway));
+    shell.quaternion.setFromAxisAngle(rotationAxis,(beat%rotationPeriod)*Math.PI*2/rotationPeriod);
     uniforms.blend.value=blend;
     uniforms.energy.value=mix(prev.energy,next.energy);
     uniforms.hue.value=prev.hue+(((next.hue-prev.hue+1.5)%1)-.5)*blend;
@@ -172,6 +240,10 @@ export function chamber(scene, seed) {
     const oldRoot=cellStart===0 ? chord(prev,127) : chord(next,cellStart-1);
     const approach=Math.min(1,(beat%2)*2);
     uniforms.root.value=oldRoot+(chord(next,step)-oldRoot)*approach;
+    const floating=floatMotion(beat,response?.pitch ?? .5,response?.melody ?? 0);
+    uniforms.particlePitch.value=floating.pitch;
+    uniforms.particleVelocity.value=floating.velocity;
+    uniforms.particlePull.value=floating.pull;
     uniforms.pulse.value=response?.pulse ?? 0;
     uniforms.pitch.value=response?.pitch ?? .5;
     uniforms.melody.value=response?.melody ?? 0;

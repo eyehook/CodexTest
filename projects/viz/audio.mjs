@@ -1,9 +1,13 @@
-import {sample, phrase, events} from './score.mjs';
+import {sample, phrase, events, sequence} from './score.mjs?v=songs1';
+
+import {voicePalette} from './voices.mjs?v=songs1';
 
 export class Loom {
   constructor(seed) {
     this.seed = seed;
-    this.unit = 15 / (78 + Math.floor(sample(seed, 1) * 18));
+    this.palette = voicePalette(seed);
+    this.unit = 15 / sequence(seed).bpm;
+    this.active = new Set();
     this.ctx = new AudioContext();
     const c = this.ctx;
     this.bus = c.createGain();
@@ -38,6 +42,10 @@ export class Loom {
       if (this.section !== section) {
         this.section = section;
         this.plan = phrase(this.seed, section);
+        if(this.song!==this.plan.song) {
+          this.song=this.plan.song;
+          this.palette=voicePalette(this.plan.songSeed);
+        }
       }
       const time = this.start + step * this.unit;
       events(this.seed, this.plan, step, (kind, note, level, length) => {
@@ -50,23 +58,47 @@ export class Loom {
       });
     }
   }
+  nextSong() {
+    const now=this.ctx.currentTime;
+    const periods=sequence(this.seed).periods;
+    const song=Math.max(Math.floor(this.beat()/(periods*32)),this.skippedTo ?? 0)+1;
+    this.skippedTo=song;
+    for(const voice of this.active) {
+      voice.env.gain.cancelScheduledValues(now);
+      voice.env.gain.setTargetAtTime(.0001,now,.015);
+      for(const node of [voice.source,...voice.nodes]) if(node.stop) node.stop(now+.07);
+    }
+    this.next=song*periods*128;
+    this.start=now+.10-this.next*this.unit;
+    this.section=undefined;
+    for(const cue of this.cues) cue.time=-Infinity;
+    this.schedule();
+  }
   voice(kind, note, level, length, t) {
     const c = this.ctx, env = c.createGain(), nodes = [env];
     const drum = kind === 'hat' || kind === 'brush';
     const pad = kind === 'pad', bell = kind === 'bell';
+    const patch = this.palette[kind];
+    const held = length * this.unit;
     const duration = drum ? (kind === 'hat' ? .075 : .18) :
-      length * this.unit + (pad ? .85 : bell ? .65 : 0);
-    const attack = kind === 'reed' ? .09 : pad ? .7 : kind === 'bass' ? .018 : .005;
+      held + (patch?.release ?? 0);
+    const attack = Math.min(patch?.attack ?? .005, duration*.35);
+    // Layer gains below are normalized before this instrument envelope.
     env.gain.setValueAtTime(.0001, t);
     env.gain.exponentialRampToValueAtTime(level, t + attack);
-    if (bell) env.gain.exponentialRampToValueAtTime(level * .30, t + length * this.unit * .85);
-    if (pad) env.gain.setValueAtTime(level * .8, t + length * this.unit - .3);
+    if (bell) env.gain.exponentialRampToValueAtTime(level * .30, t + Math.max(attack+.001,held*.85));
+    if (pad) env.gain.setValueAtTime(level * .8, t + Math.max(attack,held));
     env.gain.exponentialRampToValueAtTime(.0001, t + duration);
     const pan = c.createStereoPanner();
     pan.pan.value = pad || bell ? .66 * Math.sin(note * 2.1) : drum ? .24 : 0;
     env.connect(pan).connect(this.bus);
     nodes.push(pan);
-    if (bell || pad || kind === 'reed') pan.connect(this.echo);
+    if (bell || pad || kind === 'reed') {
+      const send=c.createGain();
+      send.gain.value=this.palette.echo;
+      pan.connect(send).connect(this.echo);
+      nodes.push(send);
+    }
     let source;
     if (drum) {
       source = c.createBufferSource();
@@ -78,22 +110,54 @@ export class Loom {
       nodes.push(filter);
     } else {
       source = c.createOscillator();
-      source.type = pad || kind === 'bass' ? 'triangle' : 'sine';
       const hz = 440 * 2 ** ((note - 69) / 12);
+      source.type = patch?.wave ?? 'sine';
       source.frequency.setValueAtTime(kind === 'kick' ? 128 : hz, t);
-      if (kind === 'kick') source.frequency.exponentialRampToValueAtTime(43, t + .09);
-      if (bell || kind === 'reed') {
-        const mod = c.createOscillator(), depth = c.createGain();
-        mod.frequency.value = hz * (bell ? 2.006 : 1);
-        depth.gain.setValueAtTime(hz * (bell ? 1.4 : .75), t);
-        depth.gain.exponentialRampToValueAtTime(bell ? 1 : hz * .28, t + .26);
-        mod.connect(depth).connect(source.frequency);
-        mod.start(t); mod.stop(t + duration);
-        nodes.push(mod, depth);
+      if (kind === 'kick') {
+        source.frequency.exponentialRampToValueAtTime(43, t + .09);
+        source.connect(env);
+      } else {
+        const filter=c.createBiquadFilter();
+        filter.type='lowpass';
+        filter.Q.value=patch.q ?? .5;
+        const base=Math.min(c.sampleRate*.42,patch.cutoff);
+        filter.frequency.setValueAtTime(base,t);
+        filter.frequency.exponentialRampToValueAtTime(
+          Math.max(100,base*(pad ? .8 : kind==='bass' ? .32 : .48)),t+Math.min(held,duration*.75));
+        filter.connect(env);
+        nodes.push(filter);
+        const gain=c.createGain();
+        gain.gain.value=pad ? .5 : kind==='bass' ? .45 : kind==='reed' ? .55 : .75;
+        source.connect(gain).connect(filter);
+        nodes.push(gain);
+        if(pad || kind==='bass') {
+          const layer=c.createOscillator(), mix=c.createGain();
+          layer.type=pad?patch.wave:'sine';
+          // The bass fundamental remains at score pitch; no inaudible octave sub.
+          layer.frequency.value=hz;
+          if(pad) {source.detune.value=-patch.detune;layer.detune.value=patch.detune;}
+          mix.gain.value=pad ? .5 : .55;
+          layer.connect(mix).connect(filter);
+          layer.start(t);layer.stop(t+duration);
+          nodes.push(layer,mix);
+        }
+        if(bell) {
+          const mod=c.createOscillator(), depth=c.createGain();
+          mod.frequency.value=hz*patch.ratio;
+          depth.gain.setValueAtTime(hz*patch.depth,t);
+          depth.gain.exponentialRampToValueAtTime(1,t+Math.min(.3,duration*.8));
+          mod.connect(depth).connect(source.frequency);
+          mod.start(t);mod.stop(t+duration);
+          nodes.push(mod,depth);
+        }
       }
-      source.connect(env);
     }
-    source.onended = () => { source.disconnect(); for (const n of nodes) n.disconnect(); };
+    const active={source,nodes,env};
+    this.active?.add(active);
+    source.onended = () => {
+      this.active?.delete(active);
+      source.disconnect(); for (const n of nodes) n.disconnect();
+    };
     source.start(t); source.stop(t + duration);
   }
   readResponse() {
