@@ -1,4 +1,4 @@
-import {sample} from './score.mjs?v=songs1';
+import {sample} from './score.mjs?v=poploop1';
 
 // Pick a coordinated family, then vary each instrument within conservative
 // ranges. Dedicated lanes keep timbres independent of score/scheduler order.

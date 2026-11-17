@@ -1,5 +1,5 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
-import {phrase, chord, sample} from './score.mjs?v=songs1';
+import {phrase, chord, sample} from './score.mjs?v=poploop1';
 import {particleMotion} from './particle-motion.mjs?v=songs1';
 
 // One shell opens each seven-period movement. The six departures are shuffled per seed.
@@ -216,7 +216,7 @@ export function chamber(scene, seed) {
   const rotationPeriod=80+32*sample(seed,0,93);
   const floatMotion=particleMotion();
   let last, prev, next;
-  return (beat, response) => {
+  const update=(beat, response) => {
     const index=Math.floor(beat/32);
     if(index!==last){
       prev=phrase(seed,Math.max(0,index-1)); next=phrase(seed,index); last=index;
@@ -234,6 +234,7 @@ export function chamber(scene, seed) {
     uniforms.blend.value=blend;
     uniforms.energy.value=mix(prev.energy,next.energy);
     uniforms.hue.value=prev.hue+(((next.hue-prev.hue+1.5)%1)-.5)*blend;
+    update.hue=uniforms.hue.value;
     uniforms.twist.value=mix(prev.twist,next.twist);
     uniforms.f1.value=prev.folds; uniforms.f2.value=next.folds;
     const step=Math.floor(beat*4), cellStart=Math.floor((step%128)/8)*8;
@@ -249,4 +250,6 @@ export function chamber(scene, seed) {
     uniforms.melody.value=response?.melody ?? 0;
     uniforms.volume.value=response?.volume ?? 0;
   };
+  update.hue=0;
+  return update;
 }

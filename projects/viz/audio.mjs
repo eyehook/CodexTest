@@ -1,4 +1,4 @@
-import {sample, phrase, events, sequence} from './score.mjs?v=songs1';
+import {sample, phrase, events, sequence, leadChoices} from './score.mjs?v=poploop1';
 
 import {voicePalette} from './voices.mjs?v=songs1';
 
@@ -8,6 +8,7 @@ export class Loom {
     this.palette = voicePalette(seed);
     this.unit = 15 / sequence(seed).bpm;
     this.active = new Set();
+    this.leads = new Set();
     this.ctx = new AudioContext();
     const c = this.ctx;
     this.bus = c.createGain();
@@ -36,6 +37,7 @@ export class Loom {
   }
   schedule() {
     const now = this.ctx.currentTime;
+    if(this.leads)for(const lead of this.leads)if(lead.time<=now)this.leads.delete(lead);
     this.next = Math.max(this.next, Math.ceil((now - this.start) / this.unit));
     while (this.start + this.next * this.unit < now + .16) {
       const step = this.next++, section = Math.floor(step / 128);
@@ -49,13 +51,45 @@ export class Loom {
       }
       const time = this.start + step * this.unit;
       events(this.seed, this.plan, step, (kind, note, level, length) => {
-        this.voice(kind, note, level, length, time);
+        const original=note;
+        if(kind==='bell' && Number.isInteger(this.leadChoice) && this.leadChoice>=0 && this.leadChoice<5)
+          note=leadChoices(this.plan,step)[this.leadChoice];
+        const silent=kind==='bell' && this.conducting && this.leadChoice===null;
+        const active=silent?null:this.voice(kind, note, level, length, time);
+        const lead=kind==='bell'?{time,original,choices:leadChoices(this.plan,step),level,length,palette:this.palette,active}:null;
+        if(lead)this.leads?.add(lead);
         if (kind === 'kick' || kind === 'bell') {
           const cue = this.cues[this.cueIndex];
           this.cueIndex = (this.cueIndex + 1) % this.cues.length;
-          Object.assign(cue, {time, kind, note, level, length});
+          Object.assign(cue, {time:silent?-Infinity:time, kind, note, level, length});
+          if(lead){lead.cue=cue;cue.lead=lead;}
         }
       });
+    }
+  }
+  setLeadChoice(choice,conducting=false) {
+    this.conducting=conducting;
+    this.leadChoice=Number.isInteger(choice) && choice>=0 && choice<5?choice:null;
+    const now=this.ctx.currentTime;
+    for(const lead of this.leads) {
+      if(lead.time<=now){this.leads.delete(lead);continue;}
+      const note=this.conducting && this.leadChoice===null?null:
+        this.leadChoice===null?lead.original:lead.choices[this.leadChoice];
+      if(note===(lead.active?.note ?? null))continue;
+      // Replace only voices whose onset is still in the future. Sounding notes
+      // and their envelopes are never touched by pointer or mode changes.
+      for(const node of lead.active?[lead.active.source,...lead.active.nodes]:[]) {
+        if(node.stop)node.stop(now);
+        node.disconnect();
+      }
+      this.active.delete(lead.active);
+      const palette=this.palette;this.palette=lead.palette;
+      lead.active=note===null?null:this.voice('bell',note,lead.level,lead.length,lead.time);
+      this.palette=palette;
+      if(lead.cue && (lead.cue.lead===lead || lead.cue.time===lead.time)){
+        lead.cue.time=note===null?-Infinity:lead.time;
+        if(note!==null)lead.cue.note=note;
+      }
     }
   }
   nextSong() {
@@ -71,6 +105,7 @@ export class Loom {
     this.next=song*periods*128;
     this.start=now+.10-this.next*this.unit;
     this.section=undefined;
+    this.leads?.clear();
     for(const cue of this.cues) cue.time=-Infinity;
     this.schedule();
   }
@@ -152,13 +187,14 @@ export class Loom {
         }
       }
     }
-    const active={source,nodes,env};
+    const active={source,nodes,env,note};
     this.active?.add(active);
     source.onended = () => {
       this.active?.delete(active);
       source.disconnect(); for (const n of nodes) n.disconnect();
     };
     source.start(t); source.stop(t + duration);
+    return active;
   }
   readResponse() {
     const now = this.ctx.currentTime, signal = this.response;

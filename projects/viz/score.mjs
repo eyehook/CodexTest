@@ -6,20 +6,30 @@ export function sample(seed, index, lane = 0) {
   return ((x ^ x >>> 15) >>> 0) / 4294967296;
 }
 const major = [0,2,4,5,7,9,11];
-const minor = [0,2,3,5,7,8,10];
 const forms = [[0,1,2,3],[0,2,1,3],[0,1,3,2]];
-// Two-bar cells leave room for breath and syncopation, rather than filling bars.
+// Two-bar motifs combine clear beat anchors with short eighth-note runs.
 const rhythms = [
-  [0,6,10,18,24], [2,8,14,20,27], [0,4,11,16,22,28],
-  [0,7,12,19,26], [3,9,16,23,28], [0,5,10,14,22,28],
-  [0,8,18,24,30], [2,6,12,20,26]
+  [0,6,8,12,16,20,22,24,28], [0,4,8,14,16,20,24,26,28],
+  [0,2,4,8,12,16,18,20,24,28], [0,4,8,12,14,16,20,24,28,30],
+  [0,4,6,8,12,16,20,24,26], [0,4,8,10,12,16,20,22,24,28],
+  [0,4,8,12,16,18,20,24,28,30], [0,2,4,8,12,16,20,24,26,28]
 ];
 const triad = (degree, root) => [0,2,4].includes(((degree-root)%7+7)%7);
 const groove = [
-  {kick:[0,8], bass:[0,10], hat:[2,10], brush:[4,12]},
-  {kick:[0,6,10], bass:[0,7,12], hat:[2,6,10,14], brush:[4,12]},
-  {kick:[0,4,8,12], bass:[2,6,10,14], hat:[2,5,6,10,14], brush:[4,12]},
-  {kick:[0], bass:[0], hat:[6,14], brush:[8]}
+  {kick:[0,8], bass:[0,8], hat:[0,8], brush:[4,12]},
+  {kick:[0,8,12], bass:[0,8,12], hat:[0,4,8,12], brush:[4,12]},
+  {kick:[0,4,8,12], bass:[0,8,12], hat:[0,4,8,12,14], brush:[4,12]},
+  {kick:[0], bass:[0], hat:[8], brush:[8]}
+];
+
+// Seeded, straight-grid hat vocabularies: eighths with a closing run,
+// alternating eighths/sixteenths, or two short sixteenth runs.
+const eighths=[0,2,4,6,8,10,12,14];
+const sixteenths=Array.from({length:16},(_,i)=>i);
+const hatRuns=[
+  [0,2,4,6,8,10,12,13,14,15],
+  sixteenths,
+  [0,2,4,5,6,7,8,10,12,13,14,15]
 ];
 
 // Degrees are zero-based. In minor, V borrows the raised seventh from
@@ -43,11 +53,11 @@ function planLead(seed, index, role) {
   for(let cell=0;cell<4;cell++) {
     let pattern = rhythm.slice();
     if(cell===2) { // Develop a fragment in shorter calls.
-      pattern = [0,4,10,16,20,26];
-      if(role===3) pattern = [0,10,20];
+      pattern = [0,4,6,8,12,16,20,22,24,28];
+      if(role===3) pattern = [0,4,8,12,16,20,24,28];
     }
-    if(cell===3) pattern = ending===0 ? [0,6,16] :
-      ending===1 ? [0,8,18,29] : [2,10,18,24,30];
+    if(cell===3) pattern = ending===0 ? [0,8,16] :
+      ending===1 ? [0,4,8,12,16,20,26,28] : [0,4,8,12,16,20,24,26,28,30];
     for(let i=0;i<pattern.length;i++) {
       const step=cell*32+pattern[i], bar=step/16;
       const arch = 1-Math.min(1,Math.abs(bar-peak)/4);
@@ -116,7 +126,7 @@ function makeLead(seed, index, key, harmony, role) {
   // tone. Never cross a harmony change or decorate the closing arrival.
   for(let i=0;i<line.length-1;i++) {
     const a=line[i], b=line[i+1], gap=b.step-a.step;
-    if(gap<5 || b.cadence || sample(seed,index,2300+i)>.48) continue;
+    if(gap<5 || b.cadence || sample(seed,index,2300+i)>.25) continue;
     const root=harmony[Math.floor(a.step/8)];
     if(Math.floor(a.step/8)!==Math.floor(b.step/8)) continue;
     const delta=b.degree-a.degree;
@@ -136,21 +146,9 @@ function basePhrase(seed,index){
   const family=Math.floor(index/4), part=index%4;
   const role=forms[Math.floor(sample(seed,family,31)*forms.length)][part];
   const majorTonic=43+Math.floor(sample(seed,0,30)*12);
-  const homeMinor=sample(seed,0,31)<.5;
-  const inMinor=part===1 ? !homeMinor : homeMinor;
-  const key={tonic:inMinor?majorTonic-3:majorTonic,minor:inMinor,scale:inMinor?minor:major};
-  // Relative major/minor share a pitch collection. Move away in the second
-  // period, return home, and vary the predominant and cadence on each visit.
-  const predominant=inMinor?3:r(4)<.5?1:3;
-  const middle=r(5)<.5?5:2;
-  const end=part===0 && r(6)<.55?5:0;
-  const question = [0,0,middle,middle,predominant,predominant,4,4];
-  const answers = [
-    [0,0,middle,predominant,predominant,4,end,end],
-    [middle,middle,3,3,4,4,end,end],
-    [0,middle,predominant,4,5,3,0,0]
-  ];
-  const harmony = question.concat(answers[Math.floor(r(7)*answers.length)]);
+  const key={tonic:majorTonic,minor:false,scale:major};
+  // A four-bar I–V–vi–IV loop, one chord per bar, repeated twice.
+  const harmony=[0,0,4,4,5,5,3,3,0,0,4,4,5,5,3,3];
   return {key,role,harmony,lead:makeLead(seed,index,key,harmony,role),
     folds:2+Math.floor(sample(seed,family+(part%3),5)*6),
     energy:[.45,.64,.88,.28][role]+.1*r(1),hue:r(2),twist:2*r(3)-1};
@@ -183,16 +181,26 @@ export function phrase(seed,index) {
   p.folds=2+Math.floor(sample(song.seed,position,5)*6);
   const final=position===periods-1;
   if(final) {
-    // A dominant-to-tonic close, then two beats for releases before the next intro.
-    p.harmony=p.harmony.slice();p.harmony.fill(4,10,12);p.harmony.fill(0,12);
+    // Close with IV–I in the last two bars, then leave two beats for releases.
+    p.harmony=p.harmony.slice();p.harmony.fill(3,12,14);p.harmony.fill(0,14);
     p.lead=p.lead.slice(0,78);p.lead.length=128;
-    p.lead[96]={note:p.key.tonic+19,length:6,level:.26};
+    p.lead[96]={note:p.key.tonic+17,length:6,level:.26};
     p.lead[112]={note:p.key.tonic+12,length:6,level:.28};
   }
   return {...p,song:number,songSeed:song.seed,songPeriod:position,songPeriods:periods,section,final};
 }
 
 export function chord(p, step) { return p.harmony[Math.floor(step/8)%16]; }
+
+// Five ascending triad tones around the lead register; harmony is sampled for
+// this onset, so a held target remains compatible when the chord changes.
+export function leadChoices(p,step) {
+  const root=chord(p,step), candidates=[];
+  for(let degree=5;degree<=23;degree++) if(triad(degree,root))
+    candidates.push(tone(p.key,root,degree));
+  return candidates.sort((a,b)=>Math.abs(a-(p.key.tonic+21))-Math.abs(b-(p.key.tonic+21)))
+    .slice(0,5).sort((a,b)=>a-b);
+}
 
 export function events(seed, p, step, emit) {
   const output=emit;
@@ -212,10 +220,21 @@ export function events(seed, p, step, emit) {
   const local=step%128, bar=Math.floor(local/16), slot=local%16;
   const key=p.key, root=chord(p,step);
   const g=groove[p.role], arrival=bar===7;
+  const family=Math.floor(sample(seed,0,6100)*3);
+  // Straight backbeat, four-on-the-floor, or half-time. All anchors stay on beats.
+  const kicks=p.role===3?g.kick:family===1?[0,4,8,12]:g.kick;
+  const brushes=family===2 && p.role!==2?[8]:g.brush;
+  const hats=p.role===3?g.hat:(p.role===2 || (p.role===1 && bar%2===1))?
+    hatRuns[family]:eighths;
   const dynamic = p.energy * (arrival ? .72 : 1);
-  if (g.kick.includes(slot) && (!arrival || slot<8)) emit('kick',0,.48+.23*dynamic,2);
-  if (g.brush.includes(slot) && (!arrival || slot<8)) emit('brush',0,.22+.22*dynamic,1);
-  if (g.hat.includes(slot) && (!arrival || slot<8)) emit('hat',0,.14+.18*sample(seed,step,9),1);
+  if (kicks.includes(slot) && (!arrival || slot<8)) emit('kick',0,.48+.23*dynamic,2);
+  if (brushes.includes(slot) && (!arrival || slot<8)) emit('brush',0,.22+.22*dynamic,1);
+  if (hats.includes(slot) && (!arrival || slot<8)) {
+    // Quarter anchors, lighter eighths, and soft sixteenth ghosts keep rolls musical.
+    const accent=slot%4===0?1:slot%2===0 ? .72 : .36;
+    const density=hats.length>10 ? .8 : 1;
+    emit('hat',0,(.16+.06*sample(seed,step,9))*accent*density,1);
+  }
   if (g.bass.includes(slot) && (!arrival || slot<8))
     emit('bass',tone(key,root,root+(slot===12?4:0))-12,.40+.08*dynamic,p.role===3?9:3);
 
@@ -232,6 +251,6 @@ export function events(seed, p, step, emit) {
 
   const lead=p.lead[local];
   if(lead) emit('bell',lead.note,lead.level,lead.length);
-  if(p.role===2 && !arrival && slot%4===2)
+  if(p.role===2 && !arrival && slot%8===0)
     emit('reed',tone(key,root,root+[0,2,4,2][Math.floor(slot/4)]),.18,3);
 }

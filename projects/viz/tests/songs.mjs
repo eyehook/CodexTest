@@ -36,8 +36,8 @@ test('scheduler rolls into the next song and skip cancels old voices',()=>{
   const played=[];
   const loom={seed,unit,start:10-(boundary-1)*unit,next:boundary-1,ctx:{currentTime:10},
     cues:Array.from({length:16},()=>({time:-Infinity})),cueIndex:0,
-    voice:(...args)=>played.push(args),active:new Set(),schedule:Loom.prototype.schedule,beat:Loom.prototype.beat};
-  loom.schedule();assert.equal(loom.song,0);
+    voice:(...args)=>played.push(args),active:new Set(),leads:new Set([{time:9}]),schedule:Loom.prototype.schedule,beat:Loom.prototype.beat};
+  loom.schedule();assert.equal(loom.song,0);assert.equal(loom.leads.size,0);
   loom.ctx.currentTime+=unit;loom.schedule();assert.equal(loom.song,1);
   let stops=0;
   loom.active.add({env:{gain:{cancelScheduledValues(){},setTargetAtTime(){}}},source:{stop(){stops++;}},nodes:[]});
@@ -60,4 +60,13 @@ test('either thumbstick skips once, absorbs entry holds, and requires neutral',(
   assert.equal(sample([left,right],true),false);
   assert.equal(sample([left,right]),false);
   sample([]);assert.equal(sample([right]),false);
+});
+
+test('all song sections use a major I–V–vi–IV loop, with a final IV–I close',()=>{
+  for(let seed=0;seed<48;seed++)for(let period=0;period<32;period++){
+    const p=phrase(seed,period);
+    assert.equal(p.key.minor,false);
+    assert.deepEqual(p.harmony.slice(0,12),[0,0,4,4,5,5,3,3,0,0,4,4]);
+    assert.deepEqual(p.harmony.slice(12),p.final?[3,3,0,0]:[5,5,3,3]);
+  }
 });
