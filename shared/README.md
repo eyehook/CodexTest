@@ -365,3 +365,5 @@ Clipper for The Hike’s startup trail polygon operations. No existing consumer 
 it. See that folder’s `NOTICE.md`, Boost `LICENSE_1_0.txt` and `JSBN-LICENSE.txt`
 for provenance, modifications and retained notices. It performs no network loads
 and no per-frame polygon work.
+
+[Nacre](../projects/viz/HANDOFF.md) uses XRFrameState for visible, tracked rendering. Its seated chamber uses local reference space and session select events for playback.
