@@ -2,11 +2,14 @@ import {sample, phrase, events, sequence, leadChoices} from './score.mjs?v=progr
 
 import {voicePalette} from './voices.mjs?v=songs1';
 
+import {tempoControl} from './tempo.mjs?v=tempo1';
+
 export class Loom {
   constructor(seed) {
     this.seed = seed;
     this.palette = voicePalette(seed);
-    this.unit = 15 / sequence(seed).bpm;
+    this.bpm = sequence(seed).bpm;
+    this.unit = 15 / this.bpm;
     this.active = new Set();
     this.leads = new Set();
     this.ctx = new AudioContext();
@@ -91,6 +94,29 @@ export class Loom {
         if(note!==null)lead.cue.note=note;
       }
     }
+  }
+  setTempo(requested) {
+    if(!Number.isFinite(requested))return this.bpm;
+    const bpm=Math.max(tempoControl.min,Math.min(tempoControl.max,requested));
+    if(bpm===this.bpm)return bpm;
+    const now=this.ctx.currentTime,position=(now-this.start)/this.unit;
+    // Only cancel onsets that have not sounded. Running oscillators/envelopes
+    // finish normally, so changing tempo cannot bend or retrigger their pitches.
+    for(const voice of this.active)if(voice.time>now){
+      for(const node of [voice.source,...voice.nodes]){
+        if(node.stop)node.stop(now);
+        node.disconnect();
+      }
+      this.active.delete(voice);
+    }
+    this.leads.clear();
+    for(const cue of this.cues)if(cue.time>now)cue.time=-Infinity;
+    this.bpm=bpm;this.unit=15/bpm;
+    this.start=now-position*this.unit;
+    this.next=Math.max(0,Math.min(this.next,Math.floor(position+1e-8)+1));
+    this.section=undefined;
+    this.schedule();
+    return bpm;
   }
   nextSong() {
     const now=this.ctx.currentTime;
@@ -187,7 +213,7 @@ export class Loom {
         }
       }
     }
-    const active={source,nodes,env,note};
+    const active={source,nodes,env,note,time:t};
     this.active?.add(active);
     source.onended = () => {
       this.active?.delete(active);

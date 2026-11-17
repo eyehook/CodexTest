@@ -166,9 +166,9 @@ Reviewed before the authorized Scene Test objects/materials/duplication release 
 
 ## Latest release review — 2026-11-17
 
-Reviewed before the authorized Nacre eleven-family seeded sculpture generator
-push. The complete root suite passed, including Space Race, along with all 22
-focused Nacre tests. Desktop Chrome rendering, GPU position/bound sampling and
-the Möbius half-twist seam were checked during implementation. Space Race runtime,
+Reviewed before the authorized Nacre thumbstick/desktop tempo-controls push.
+The complete root suite passed, including Space Race, along with all 26 focused
+Nacre tests. Desktop Chrome checked running/paused tempo changes, note scheduling
+and tempo persistence across song skips during implementation. Space Race runtime,
 settings and shared runtime are unchanged. No new Space Race headset validation
 is claimed.
