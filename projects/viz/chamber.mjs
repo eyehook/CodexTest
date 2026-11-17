@@ -2,15 +2,7 @@ import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {phrase, chord, sample} from './score.mjs?v=progressions1';
 import {particleMotion} from './particle-motion.mjs?v=songs1';
 
-// One shell opens each seven-period movement. The six departures are shuffled per seed.
-function formAt(seed, period) {
-  const order = [0,1,2,3,4,5,6];
-  for (let i = order.length-1; i > 1; i--) {
-    const j = 1 + Math.floor(sample(seed, Math.floor(period/7), 70+i)*i);
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  return order[period%order.length];
-}
+import {shapePlan,shapeGLSL} from './shapes.mjs?v=families2';
 
 export function chamber(scene, seed) {
   // Each strip describes a lip of the shell. Angle runs around it, v across it.
@@ -23,91 +15,24 @@ export function chamber(scene, seed) {
   const layers = Float32Array.from({length:lips}, (_,i) => i/(lips-1));
   geometry.setAttribute('layer', new T.InstancedBufferAttribute(layers, 1));
   geometry.instanceCount = lips;
-  const uniforms = Object.fromEntries(['time','motion','particlePitch','particleVelocity','particlePull','blend','energy','hue','twist','f1','f2','root','pulse','melody','pitch','volume','fromForm','toForm'].map(k => [k,{value:0}]));
+  const uniforms = Object.fromEntries(['time','motion','particlePitch','particleVelocity','particlePull','blend','energy','hue','twist','f1','f2','root','pulse','melody','pitch','volume'].map(k => [k,{value:0}]));
+  for(const side of ['from','to'])for(const part of ['Curve','Section','Profile','Deform','Frame'])
+    uniforms[side+part]={value:new T.Vector4()};
   const material = new T.ShaderMaterial({uniforms, side:T.DoubleSide,
     vertexShader: `
       attribute float layer;
-      uniform float time,motion,blend,energy,twist,f1,f2,root,pulse,fromForm,toForm,melody,pitch,volume;
+      uniform float time,motion,blend,energy,twist,f1,f2,root,pulse,melody,pitch,volume;
       varying float singing; varying vec3 ink; varying float distanceFog;
-      vec3 shape(float form,float s,float v,float a,float fold){
-        float loop=a+2.8*s+time;
-        // A 64-beat cycle passes through the layers with a slight delay.
-        // Only periodic functions consume motion, so its wrap is seamless.
-        float opening=.5-.5*cos(motion-1.8*s);
-        float unfurl=sin(motion-2.4*s);
-        if(form<.5){
-          // Nested lips peel forward, then settle back into a cupped shell.
-          float fan=a+.30*s*unfurl;
-          float radius=.23+2.15*s+.18*v+(.10+.33*s)*fold;
-          radius*=.82+.22*opening;
-          return vec3(radius*cos(fan),radius*sin(fan)*(.70+.18*opening+.12*energy),
-            (1.3-1.05*opening)*(1.-s*s)+(.16+.48*s)*fold
-            +.38*s*sin(2.*fan-motion)+.16*v);
-        }
-        if(form<1.5){
-          // A spiral bloom: a curled stem opens into a three-lobed crown.
-          // Sweep the centerline as well as the lip to break the tube silhouette.
-          float flare=pow(s,1.65)*(.48+.60*opening);
-          loop+=.85*s*unfurl;
-          float petal=cos(3.*loop-4.*s);
-          float radius=.30+1.85*flare+(.045+.25*flare)*petal
-            +(.045+.16*s)*fold+.14*v;
-          float bend=3.8*s+.38*sin(motion);
-          vec2 center=vec2(.68*sin(bend),.46*cos(bend));
-          return vec3(center.x+radius*cos(loop),
-            (s-.5)*3.8+(.10+.42*flare)*sin(3.*loop-4.*s)+.15*v,
-            center.y+radius*sin(loop)*(.72+.18*s))*.85;
-        }
-        if(form<2.5){
-          // A traveling crest rolls the outer sheets up into a breaking wave.
-          float curl=.35+.80*opening;
-          float cross=(s-.5)*2.5;
-          float roll=cross*curl+.35*sin(a-motion);
-          return vec3(2.75*cos(a)*(1.+.14*s),
-            cross*cos(roll)+.52*sin(2.*a+motion)+.18*fold+.14*v,
-            1.25*sin(a)+cross*sin(roll)+.30*unfurl);
-        }
-        if(form<3.5){
-          // The three loops loosen together while a torsion wave unwinds the lips.
-          float b=3.*a+.45*sin(motion);
-          float winding=6.283*s+.80*unfurl;
-          float tube=(.24+.20*opening)*cos(winding)+.13*v;
-          float r=1.35+(.42+.28*opening)*cos(b)+tube;
-          return vec3(r*cos(2.*a),r*sin(2.*a)*(.88+.12*opening),
-            (.52+.40*opening)*sin(b)+.36*sin(winding)+.1*fold);
-        }
-        if(form<4.5){
-          // Latitude ribbons separate into a lantern and roll back into a globe.
-          float latitude=(s-.5)*(3.0-.55*opening)+.068*v;
-          float longitude=a+.55*unfurl*sin(latitude);
-          float r=(1.78+.22*opening)*cos(latitude)*(1.+.15*fold);
-          float pleat=.18*opening*cos(4.*a+2.*latitude-motion);
-          return vec3((r+pleat)*cos(longitude),
-            (1.75+.40*opening)*sin(latitude)+.16*sin(2.*loop),
-            (r+pleat)*sin(longitude));
-        }
-        if(form<5.5){
-          // Two wings hinge around the central spine; their tips lag behind.
-          float wing=sin(a), span=.45+2.35*s+.12*v;
-          float hinge=.28+.85*opening+.14*sin(motion-3.*s);
-          float reach=span*wing;
-          return vec3(reach*cos(hinge),
-            1.20*cos(2.*a)*s+.36*cos(a)+.24*fold,
-            abs(reach)*sin(hinge)-.65+.35*cos(a)+.22*s*sin(2.*a-motion));
-        }
-        // Opposing bells twist apart, trading a tight waist for a softer throat.
-        float waist=.42+.28*opening+1.20*pow(abs(2.*s-1.),1.4)+.12*fold;
-        float winding=a+(s-.5)*(2.8+2.0*unfurl)+.22*sin(motion);
-        return vec3(waist*cos(winding),
-          (s-.5)*(3.5+.35*opening)+.13*v+.20*sin(3.*winding-motion),
-          waist*sin(winding)*(.82+.12*opening)+.12*v);
-      }
+      uniform vec4 fromCurve,fromSection,fromProfile,fromDeform,fromFrame;
+      uniform vec4 toCurve,toSection,toProfile,toDeform,toFrame;
+      ${shapeGLSL}
       void main(){
         float s=layer, v=uv.y, a=uv.x*6.2831853;
         float turn=a+s*(2.1+twist*2.)+time;
         float fold=mix(cos(f1*turn),cos(f2*turn),blend);
-        vec3 p=shape(toForm,s,v,a,fold);
-        if(blend<1.) p=mix(shape(fromForm,s,v,a,fold),p,blend);
+        vec3 p=generatedShape(toCurve,toSection,toProfile,toDeform,toFrame,s,v,a,fold,motion);
+        if(blend<1.) p=mix(generatedShape(fromCurve,fromSection,fromProfile,fromDeform,fromFrame,
+          s,v,a,fold,motion),p,blend);
         float lane=s-pitch;
         singing=exp(-19.*lane*lane)*melody;
         float lift=singing*(.55+.28*cos(a+time));
@@ -215,13 +140,18 @@ export function chamber(scene, seed) {
   const rotationAxis=new T.Vector3(0,1,0);
   const rotationPeriod=80+32*sample(seed,0,93);
   const floatMotion=particleMotion();
-  let last, prev, next;
+  let last, prev, next,fromFolds,toFolds;
   const update=(beat, response) => {
     const index=Math.floor(beat/32);
     if(index!==last){
       prev=phrase(seed,Math.max(0,index-1)); next=phrase(seed,index); last=index;
-      uniforms.fromForm.value=formAt(seed,Math.max(0,index-1));
-      uniforms.toForm.value=formAt(seed,index);
+      const before=shapePlan(seed,Math.max(0,index-1)),after=shapePlan(seed,index);
+      fromFolds=before.folds;toFolds=after.folds;
+      for(const part of ['Curve','Section','Profile','Deform','Frame']){
+        const key=part.toLowerCase();
+        uniforms['from'+part].value.fromArray(before[key]);
+        uniforms['to'+part].value.fromArray(after[key]);
+      }
     }
     const local=beat%32, x=Math.min(1,local/5), blend=x*x*(3-2*x);
     const mix=(a,b)=>a+(b-a)*blend;
@@ -236,7 +166,8 @@ export function chamber(scene, seed) {
     uniforms.hue.value=prev.hue+(((next.hue-prev.hue+1.5)%1)-.5)*blend;
     update.hue=uniforms.hue.value;
     uniforms.twist.value=mix(prev.twist,next.twist);
-    uniforms.f1.value=prev.folds; uniforms.f2.value=next.folds;
+    // Generated shape plans own the broad fold count; music still drives the response.
+    uniforms.f1.value=fromFolds; uniforms.f2.value=toFolds;
     const step=Math.floor(beat*4), cellStart=Math.floor((step%128)/8)*8;
     const oldRoot=cellStart===0 ? chord(prev,127) : chord(next,cellStart-1);
     const approach=Math.min(1,(beat%2)*2);
