@@ -1,9 +1,11 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {Loom} from './audio.mjs?v=poploop1';
-import {chamber} from './chamber.mjs?v=poploop1';
+import {Loom} from './audio.mjs?v=progressions1';
+import {chamber} from './chamber.mjs?v=progressions1';
 
 import {Conductor} from './conductor.mjs?v=holdpointer1';
+
+import {songAt,sequence} from './score.mjs?v=progressions1';
 
 import {songSkipInput} from './song-input.mjs?v=songs1';
 
@@ -55,11 +57,19 @@ async function init(){
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth,innerHeight);
   }
+  let displayedSong;
+  const songBeats=sequence(seed).periods*32;
   resize(); window.addEventListener('resize',resize);
   renderer.setAnimationLoop((time,frame)=>{
     const session=renderer.xr.getSession();
     frameState.update(session,frame,renderer.xr.getReferenceSpace(),document.hidden);
     const beat=music?music.beat():0;
+    const songNumber=Math.floor(beat/songBeats);
+    if(songNumber!==displayedSong){
+      displayedSong=songNumber;
+      const song=songAt(seed,songNumber);
+      $('song-info').textContent=`Song ${songNumber+1} · ${song.progression.label}`;
+    }
     if(frameState.active)paint(beat,music?.readResponse());
     const choice=conductor.update(session,frameState,beat,paint.hue);
     if(music)music.setLeadChoice(choice,!!conductor.owner);

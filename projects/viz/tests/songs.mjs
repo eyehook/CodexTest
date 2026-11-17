@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sequence,songAt,phrase,events} from '../score.mjs';
+import {sequence,songAt,phrase,events,progressions} from '../score.mjs';
 import {Loom} from '../audio.mjs';
 import {songSkipInput} from '../song-input.mjs';
 
@@ -62,11 +62,32 @@ test('either thumbstick skips once, absorbs entry holds, and requires neutral',(
   sample([]);assert.equal(sample([right]),false);
 });
 
-test('all song sections use a major I–V–vi–IV loop, with a final IV–I close',()=>{
-  for(let seed=0;seed<48;seed++)for(let period=0;period<32;period++){
-    const p=phrase(seed,period);
-    assert.equal(p.key.minor,false);
-    assert.deepEqual(p.harmony.slice(0,12),[0,0,4,4,5,5,3,3,0,0,4,4]);
-    assert.deepEqual(p.harmony.slice(12),p.final?[3,3,0,0]:[5,5,3,3]);
+test('each song keeps its progression and visits all seven without adjacent repeats',()=>{
+  const seen=new Set();
+  for(let seed=0;seed<48;seed++){
+    const cycle=new Set();
+    for(let song=0;song<14;song++){
+      const info=songAt(seed,song),first=phrase(seed,song*info.periods);
+      cycle.add(info.progression.id);seen.add(info.progression.id);
+      assert.equal(first.key.minor,info.progression.minor);
+      if(song)assert.notEqual(info.progression.id,songAt(seed,song-1).progression.id);
+      for(let local=0;local<info.periods;local++){
+        const p=phrase(seed,song*info.periods+local);
+        assert.equal(p.progression.id,info.progression.id);
+        const expected=Array.from({length:16},(_,i)=>info.progression.degrees[Math.floor(i/2)%4]);
+        if(p.final){expected.fill(3,12,14);expected.fill(0,14);}
+        assert.deepEqual(p.harmony,expected);
+        assert.equal(p.key.tonic,first.key.tonic);
+      }
+      if(song===6)assert.equal(cycle.size,7);
+    }
   }
+  assert.equal(seen.size,progressions.length);
+});
+
+test('catalog includes all requested chord qualities, including a minor-centered loop',()=>{
+  assert.deepEqual(progressions.map(p=>p.label),[
+    'I–V–vi–IV','vi–IV–I–V','I–vi–IV–V','IV–V–vi–I','I–IV–V–I','I–vi–ii–V','i–VI–III–VII']);
+  assert.deepEqual(progressions.at(-1).degrees,[0,5,2,6]);
+  assert.equal(progressions.at(-1).minor,true);
 });

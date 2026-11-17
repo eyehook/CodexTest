@@ -1,5 +1,5 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
-import {phrase, chord, sample} from './score.mjs?v=poploop1';
+import {phrase, chord, sample} from './score.mjs?v=progressions1';
 import {particleMotion} from './particle-motion.mjs?v=songs1';
 
 // One shell opens each seven-period movement. The six departures are shuffled per seed.

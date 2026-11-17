@@ -1,4 +1,4 @@
-import {sample, phrase, events, sequence, leadChoices} from './score.mjs?v=poploop1';
+import {sample, phrase, events, sequence, leadChoices} from './score.mjs?v=progressions1';
 
 import {voicePalette} from './voices.mjs?v=songs1';
 

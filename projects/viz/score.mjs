@@ -6,6 +6,16 @@ export function sample(seed, index, lane = 0) {
   return ((x ^ x >>> 15) >>> 0) / 4294967296;
 }
 const major = [0,2,4,5,7,9,11];
+const minor = [0,2,3,5,7,8,10];
+export const progressions=Object.freeze([
+  ['pop','I–V–vi–IV',false,[0,4,5,3]],
+  ['reflective','vi–IV–I–V',false,[5,3,0,4]],
+  ['doo-wop','I–vi–IV–V',false,[0,5,3,4]],
+  ['rising','IV–V–vi–I',false,[3,4,5,0]],
+  ['primary','I–IV–V–I',false,[0,3,4,0]],
+  ['turnaround','I–vi–ii–V',false,[0,5,1,4]],
+  ['minor','i–VI–III–VII',true,[0,5,2,6]]
+].map(([id,label,minor,degrees])=>Object.freeze({id,label,minor,degrees:Object.freeze(degrees)})));
 const forms = [[0,1,2,3],[0,2,1,3],[0,1,3,2]];
 // Two-bar motifs combine clear beat anchors with short eighth-note runs.
 const rhythms = [
@@ -141,14 +151,15 @@ function makeLead(seed, index, key, harmony, role) {
   return notes;
 }
 
-function basePhrase(seed,index){
+function basePhrase(seed,index,progression){
   const r = lane => sample(seed,index,lane);
   const family=Math.floor(index/4), part=index%4;
   const role=forms[Math.floor(sample(seed,family,31)*forms.length)][part];
   const majorTonic=43+Math.floor(sample(seed,0,30)*12);
-  const key={tonic:majorTonic,minor:false,scale:major};
-  // A four-bar I–V–vi–IV loop, one chord per bar, repeated twice.
-  const harmony=[0,0,4,4,5,5,3,3,0,0,4,4,5,5,3,3];
+  const key={tonic:progression.minor?majorTonic-3:majorTonic,
+    minor:progression.minor,scale:progression.minor?minor:major};
+  // One chord per bar, with the four-bar loop repeated twice.
+  const harmony=Array.from({length:16},(_,i)=>progression.degrees[Math.floor(i/2)%4]);
   return {key,role,harmony,lead:makeLead(seed,index,key,harmony,role),
     folds:2+Math.floor(sample(seed,family+(part%3),5)*6),
     energy:[.45,.64,.88,.28][role]+.1*r(1),hue:r(2),twist:2*r(3)-1};
@@ -161,8 +172,13 @@ export function sequence(seed) {
 
 export function songAt(seed,index) {
   const {bpm,periods}=sequence(seed);
+  // Seven is prime: a seeded offset and stride visit every progression once
+  // per seven songs, without repeats at adjacent song boundaries.
+  const offset=Math.floor(sample(seed,0,6200)*progressions.length);
+  const stride=1+Math.floor(sample(seed,0,6201)*(progressions.length-1));
+  const progression=progressions[(offset+(index%progressions.length)*stride)%progressions.length];
   return {index,seed:index===0?seed:Math.floor(sample(seed,index,5000)*4294967296),
-    periods,bpm,seconds:periods*32*60/bpm};
+    progression,periods,bpm,seconds:periods*32*60/bpm};
 }
 
 export function phrase(seed,index) {
@@ -171,7 +187,7 @@ export function phrase(seed,index) {
   const section=position===0?'intro':position<3?'themeA':position<5?'themeB':
     position<7?'variation':position===7?'bridge':position<periods-2?'climax':'outro';
   const theme=section==='themeB'?5:section==='bridge'?9:0;
-  const p=basePhrase(song.seed,theme);
+  const p=basePhrase(song.seed,theme,song.progression);
   // Returning themes retain their pitches and rhythm; phrasing and orchestration develop.
   if(section==='variation') p.lead=p.lead.map(n=>n?{...n,length:Math.max(1,n.length-1)}:n);
   p.role={intro:3,themeA:0,themeB:1,variation:1,bridge:3,climax:2,outro:3}[section];
@@ -187,7 +203,7 @@ export function phrase(seed,index) {
     p.lead[96]={note:p.key.tonic+17,length:6,level:.26};
     p.lead[112]={note:p.key.tonic+12,length:6,level:.28};
   }
-  return {...p,song:number,songSeed:song.seed,songPeriod:position,songPeriods:periods,section,final};
+  return {...p,progression:song.progression,song:number,songSeed:song.seed,songPeriod:position,songPeriods:periods,section,final};
 }
 
 export function chord(p, step) { return p.harmony[Math.floor(step/8)%16]; }

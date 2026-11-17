@@ -166,8 +166,8 @@ Reviewed before the authorized Scene Test objects/materials/duplication release 
 
 ## Latest release review — 2026-11-17
 
-Reviewed before the authorized Nacre conductor, particle-pointer, rhythm and
-I–V–vi–IV progression push. The complete root suite passed, including Space Race,
-along with all 17 focused Nacre tests. Local Chrome checks covered audio and
-particle shaders. Space Race runtime, settings and shared runtime are unchanged.
-No new Space Race headset validation is claimed.
+Reviewed before the authorized Nacre seven-progression bank and song-readout push.
+The complete root suite passed, including Space Race, along with all 18 focused
+Nacre tests. Desktop Chrome checked the readout and offline audio for all seven
+progression types during implementation. Space Race runtime, settings and shared
+runtime are unchanged. No new Space Race headset validation is claimed.
