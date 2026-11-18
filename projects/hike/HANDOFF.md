@@ -6,8 +6,8 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.32** (lowered summit with a rounded rim and at least 3 m flat standing area).
-- Previous pushed version: **v0.25.31** (terrain shadows and 30° sun), commit `1baf19f`.
+- Release version: **v0.25.41** (sparrow flocks with a three-second takeoff sound; Quest review pending).
+- Previous pushed version: **v0.25.32** (lowered summit with a rounded rim).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
   Follow [repository guidance](../../AGENTS.md) for shared modules and publication.
 - Preview: serve the repository root and open `/projects/hike/`. For USB Quest
@@ -527,6 +527,70 @@ settings root hiding and graphics warm-up include it; page exit releases
 resources. `window.hike.raptor` exposes inspection state without player
 controls.
 
+## Sparrow flocks
+
+`sparrow-placement.mjs` generates encounter metadata in the startup worker after
+pines. Ground candidates occur every 150–300 m along the trail, starting 90–190 m
+in, with 3–7 birds. Six side-of-trail attempts reject slopes above 24°, rough
+1.6 m disks, world edges and elevations above 78% of summit height. Unsuitable
+stretches skip encounters. An independent seeded hash occupies ~5% of pines
+with 2–5 birds; canopy origins use the existing tree position/height scale.
+Seed 41729 has four ground encounters and 3,624 occupied trees (5.1%).
+
+`sparrows.mjs` buckets records into 32 m cells; 10 Hz proximity checks inspect
+only a 7×7 neighborhood. Ground flocks activate within 65 m and unload beyond
+75 m. Hidden trees have no individual bird state until triggered. Approaching
+within 30 m in 3D of a tree base triggers its flock. Ground flocks retain the
+15 m horizontal / 8 m vertical trigger. Both types are consumed immediately,
+before allocation. Stable pine-grid IDs and route-candidate IDs
+live in a session-long consumed Set independent of render membership. Leaving,
+returning, resetting, teleporting and ending/reentering XR never restore them;
+reloading the page starts a new session. Pool saturation consumes the encounter
+without spawning additional birds.
+
+A fixed pool holds 12 flocks / at most 84 birds. Three instanced batches share
+one Lambert material and two geometries: brown body/head, pale belly, beak,
+tail and two solid hinged wings, **38 triangles/bird**. Ground birds independently
+hop within a small disk, turn and peck; flight has staggered 0–.32 s launches,
+individual wing phases/frequencies and smoothed acceleration. Tree flocks choose
+a seeded left/right escape heading perpendicular to the player-to-tree direction
+at disturbance, emerging beside the canopy together. Ground flocks fly directly
+away from the player. At 15 Hz, bounded
+within-flock separation/alignment/cohesion combine with the original escape
+heading and smooth variation. Three predictive terrain probes per flock favor
+lower terrain and climbing; a per-moving-bird ground sample provides a final
+clearance floor. Very sharp banks can require a visible vertical correction.
+No tree collision, physics, skeletal animation, textures or shadow passes.
+
+Opaque geometry uses stereo-stable local-space dither between **150–200 m 3D
+viewer distance**, with normal depth writes and atmosphere. Fully distant flocks
+recycle; a 45 s safety lifetime also retires flocks if the player follows them.
+Matrix upload ranges reuse objects; bird CPU state and render resources are pooled.
+Uploads join existing capture accounting. Active gameplay supplies the already
+composed post-movement world head pose. Settings, warm-up and untracked/hidden
+frames pause simulation; existing root hiding and graphics preparation include
+sparrows. Page exit disposes resources. `window.hike.sparrows` exposes inspection
+state; there are no new controls. Each newly launched flock can play the CC0
+small-bird flutter in `sparrow-audio.mjs`, fading out at three seconds. It shares
+the existing Sound setting and audio lifecycle. Takeoff gain is ~1.3805 before
+the .35 master (1.95 reduced by 3 dB); forest
+ambience level is unchanged. A .25 s cooldown and three-voice
+cap prevent dense-tree bursts. One HRTF panner follows each sounding flock's
+centroid for three seconds, then retires. Inverse distance attenuation uses a
+30 m reference distance and rolloff 1. The listener uses the post-movement
+world head pose/orientation from `FlightView`, including physical head offset,
+rig yaw, height adjustment and same-frame teleport. Forest ambience remains
+non-positional. Positional audio transform/recycling tests and Chrome node
+checks pass; Quest direction and loudness still need listening validation. See [audio behavior](AUDIO.md#sparrow-takeoff-effect) and
+[asset provenance](../../assets/hike/audio/README.md#sparrow-takeoff).
+
+Validation: all **157 Hike tests** pass, including deterministic real-world
+occupancy, tree-record reordering, snapshot reconstruction, ground streaming,
+consumption/revisit/pool exhaustion, staggered launch, separation, rising terrain
+and recycling. Chrome checked seed 41729 ground rendering, takeoff and consumed-tree
+revisit without page/shader errors. Quest stereo appearance, naturalness and sustained frame-time
+impact remain pending; desktop checks are not a headset benchmark.
+
 ## Forest ambience
 
 `forest-audio.mjs` provides a non-positional stereo wind/vegetation bed from
@@ -546,18 +610,18 @@ notes](../../assets/hike/audio/README.md) for provenance and preparation.
 
 ## Profiling, validation and known limits
 
-The user approved the current terrain-shadow appearance and 30° sun. This is
-appearance feedback, not a formal stereo or sustained-performance benchmark.
-The user authorized publication of v0.25.32 on 2026-11-16. This release lowers
-the summit and rounds its rim, preserving the flat standing area. The user
-reported good appearance on the target Quest 3. Quest 2 crack visibility was
-exploratory feedback; no sky or terrain-crack changes were requested or made.
-See Git history for the release commit.
+The user authorized publication of **v0.25.41** on 2026-11-18, including
+sparrow encounters, sideways tree exits, 30 m tree / 15 m ground triggers and
+positional three-second takeoff audio. User feedback identified rear-of-tree
+occlusion and quiet takeoff audio; the final changes address those reports.
+Final Quest spatial direction/loudness and sustained performance are not yet
+formally validated. Earlier Quest 3 approval of the lowered summit and 30° sun
+remains appearance feedback, not a benchmark. See Git history for releases.
 
 Validation coverage:
 
-- The complete root suite passed, including all **147 Hike tests** on the final
-  summit-cut runtime. Hike coverage includes multiseed
+- The complete root suite passed, including all **157 Hike tests** on the final
+  sparrow runtime. Hike coverage includes encounters, spatial audio and multiseed
   walkability, flat landing/no-fill core, cut continuity, isolated high points,
   worker reconstruction, terrain rendering and existing shadow/vegetation checks.
 - Chrome rendered the seed 41729 lowered summit and marker without page/shader
@@ -598,5 +662,5 @@ Remaining limits and investigation context:
   dependent VR hitch. On seed 1435171212, a diagnostic capture showed ~10 Hz
   callbacks for ~5 s while measured CPU stayed low; cause was not established.
   Avoid attributing that to GPU or grass maintenance without further evidence.
-- Wildlife beyond the solitary raptor, collectibles, bridges and tree collisions are unimplemented;
+- Wildlife beyond the raptor and sparrows, collectibles, bridges and tree collisions are unimplemented;
   route-aligned render-grid refinement remains deferred.

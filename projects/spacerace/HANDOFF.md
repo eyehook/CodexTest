@@ -10,10 +10,11 @@ Space Race is a minimal seated/standing WebXR speed experiment for Meta Quest 3,
 
 The user requires this handoff to be reviewed and updated before every push of Space Race changes to GitHub. Update the current settings, behavior, architecture, validation results and remaining work as applicable, and include the handoff update in the same release.
 
-Current repository release review (2026-11-16): reviewed for the authorized Hike
-v0.25.32 push. Space Race runtime/settings and shared runtime are unchanged.
-The complete root suite, including Space Race and 147 Hike tests, passed.
-No new Space Race headset validation is claimed.
+Current repository release review (2026-11-18): reviewed for the authorized Hike
+v0.25.41 sparrow-flock and positional-takeoff-audio push. Space Race runtime,
+settings and shared runtime are unchanged. The complete root suite, including
+Space Race and 157 Hike tests, passed. No new Space Race headset validation is
+claimed.
 
 ## Release and run instructions
 
@@ -164,11 +165,9 @@ work. Physical Quest retesting of the new UI remains outstanding.
 
 Reviewed before the authorized Scene Test objects/materials/duplication release as required by repository guidance. Space Race runtime and shared runtime are unchanged. The complete root suite, including Space Race and 31 shared regressions, passed before publication. Existing physical-headset validation limits remain unchanged.
 
-## Latest release review — 2026-11-17
+## Latest release review — 2026-11-18
 
-Reviewed before the authorized Nacre thumbstick/desktop tempo-controls push.
-The complete root suite passed, including Space Race, along with all 26 focused
-Nacre tests. Desktop Chrome checked running/paused tempo changes, note scheduling
-and tempo persistence across song skips during implementation. Space Race runtime,
-settings and shared runtime are unchanged. No new Space Race headset validation
-is claimed.
+Reviewed before the authorized Hike v0.25.41 push. The complete root suite,
+including Space Race, passed. Hike's sparrow rendering and positional-audio
+browser checks passed during implementation. Space Race runtime, settings and
+shared runtime are unchanged; no new Space Race headset validation is claimed.

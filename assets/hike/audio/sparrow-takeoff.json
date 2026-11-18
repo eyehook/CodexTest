@@ -1,0 +1,20 @@
+{
+  "title": "Bird Wings",
+  "author": "IENBA",
+  "page": "https://freesound.org/people/IENBA/sounds/832945/",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "sourcePreview": "https://cdn.freesound.org/previews/832/832945_9616576-hq.mp3",
+  "sourceSha256": "af2db35542e7154bc5c0546ca29eb675f89c1c62001cf856fab0fea43ca55121",
+  "sourceStartSeconds": 13,
+  "sourceEndSeconds": 16,
+  "durationSeconds": 3,
+  "sampleRate": 32000,
+  "channels": 1,
+  "gainDb": 7.5029187044364996,
+  "peakDbfs": -9,
+  "edgeFadeSeconds": 0.01,
+  "file": "sparrow-takeoff.wav",
+  "bytes": 192044,
+  "sha256": "f1a142fed7f1deb21d832e4b0a0227b0d5cc6ccecf3cfdd9256fbbbc6d4ff40d"
+}

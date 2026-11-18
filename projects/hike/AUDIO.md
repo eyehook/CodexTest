@@ -1,4 +1,4 @@
-# Forest ambience
+# Hike audio
 
 `forest-audio.mjs` implements a non-positional stereo wind/vegetation bed from
 five local clips. General Settings provides a saved Sound checkbox (default on),
@@ -86,3 +86,41 @@ validation is applicable to this deliberately non-positional bed.
 loader, context factory, random source, master volume and scheduling options.
 A later wind integration can add a deliberate control interface here; no reads
 of terrain, grass deformation or procedural wind exist now.
+
+## Sparrow takeoff effect
+
+`sparrow-audio.mjs` exports `HikeAudio`, a small `ForestAmbience` subclass used
+by the app. It shares the existing AudioContext, master gain, gesture unlock,
+Sound setting, visibility/tracking gating and teardown. It downloads and decodes
+one local three-second mono PCM clip alongside the ambience on first activation;
+failed loads are optional and retry on a later gesture. Late loads do not replay
+missed encounters. The mono effect uses one HRTF PannerNode per sounding flock.
+
+A successful new ground/tree flock launch calls `playTakeoff()` once. Consumed
+encounters and exhausted bird pools produce no new sound. One source and gain
+per accepted event reuse the decoded buffer. Gain rises over 15 ms to ~1.3805 (1.95 reduced by 3 dB), holds
+until .65 s, then fades linearly to zero at 3 s; the existing .35 master applies.
+A .25 s cooldown and three-voice ceiling bound nearby simultaneous encounters.
+Ended source/gain/panner nodes disconnect; mute, hidden/untracked state, session
+exit and disposal stop and release active effects. There is no looping.
+Each panner follows the live flock centroid during the three-second effect;
+recycled flock slots cannot move old sounds to new encounters. Inverse distance
+attenuation uses a 30 m reference distance and rolloff 1, retaining the selected
+level within the tree trigger radius before becoming quieter farther away.
+
+The listener uses `FlightView`'s world head position and orientation, composing
+the current local viewer pose with the rig exactly once. Physical head offset,
+head rotation, rig yaw, height adjustment and same-frame movement/teleport are
+included. Forward is local −Z and up is +Y transformed by that orientation.
+Desktop uses the ordinary camera pose through the same rig composition. The
+listener also updates while settings/warm-up show; inactive frames stop effects.
+Only up to three active flock centroids and panners update per gameplay frame;
+there are no new audio nodes or allocations in those updates.
+Existing forest scheduling and non-positional stereo playback remain unchanged.
+
+`tests/sparrow-audio.mjs` checks gain timing, voice limits, buffer reuse, mute,
+failed/late loads, disposal, flock recycling, translated/rotated listener poses,
+height adjustment, teleport and asset provenance/hash/PCM duration. Native Chrome
+checks cover decode, spatial launch nodes, source retirement and mute. Human/Quest
+listening remains required for perceived loudness and naturalness. See
+[asset provenance](../../assets/hike/audio/README.md#sparrow-takeoff).

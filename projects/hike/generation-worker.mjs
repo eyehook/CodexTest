@@ -1,3 +1,4 @@
+import {generateSparrowEncounters} from './sparrow-placement.mjs?v=1';
 import {generateTerrainSunlight,sampleSunlight} from './terrain-sunlight.mjs?v=3';
 import {TREE_STRIDE,generatePines} from './flora-placement.mjs?v=noise32-2';
 import {createWorld} from './world.mjs?v=cut-1';
@@ -8,6 +9,7 @@ self.onmessage=({data})=>{
  try{
   const world=createWorld(data.options,(value,label)=>self.postMessage({type:'progress',value,label}));
   world.flora=generatePines(world,{},value=>self.postMessage({type:'progress',value:.9+value*.015,label:'Planting woodland'}));
+  world.sparrowEncounters=generateSparrowEncounters(world);
   self.postMessage({type:'progress',value:.916,label:'Tracing mountain sunlight'});
   world.sunlight=generateTerrainSunlight(world);
   world.flora.sunlight=new Float32Array(world.flora.count);

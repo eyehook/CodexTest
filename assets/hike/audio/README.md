@@ -5,7 +5,7 @@ Source: **silent windy pine forest.wav**, bruno.auzet,
 The source page lists **CC0 1.0**, stereo, 48 kHz / 24-bit WAV, 5:34.112.
 License: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 These extracted/level-adjusted derivatives are distributed under the same CC0
-terms. Credit is retained for provenance; no music or other sound sources are used.
+terms. Credit is retained for provenance. The separate sparrow effect is documented below; no music is used.
 
 The original WAV requires Freesound login. The bundled clips were made from its
 public [high-quality MP3 preview](https://cdn.freesound.org/previews/670/670307_11519060-hq.mp3)
@@ -68,3 +68,25 @@ script. Review the sound again if substituting a different source copy.
 
 See [the project audio guide](../../../projects/hike/AUDIO.md) for scheduling,
 activation, lifecycle, memory and validation limits.
+
+## Sparrow takeoff
+
+[sparrow-takeoff.wav](sparrow-takeoff.wav) derives from **Bird Wings** by
+**IENBA**, [Freesound 832945](https://freesound.org/people/IENBA/sounds/832945/),
+licensed [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+The author describes small-bird flight foley; this is not a sparrow field recording.
+The source page was checked on 2026-11-18. Its original is stereo 48 kHz/24-bit
+WAV; this derivative uses the public
+[HQ MP3 preview](https://cdn.freesound.org/previews/832/832945_9616576-hq.mp3).
+
+Preparation: decode the preview through Chrome Web Audio at 32 kHz, average its
+channels to mono, extract seconds **13–16**, apply **+7.502919 dB** static gain
+(sample peak −9 dBFS), and 10 ms linear de-click fades at both edges. Save as
+16-bit mono PCM WAV. The file is 192,044 bytes; decoded memory is 384,000 bytes
+at 32 kHz. No codec fallback is needed for PCM. Input/output hashes and precise
+parameters are in [sparrow-takeoff.json](sparrow-takeoff.json). The original
+preview is not retained in the repository. CC0 applies to this derivative too.
+
+Runtime adds a three-second gain envelope. Selection used the author's
+small-bird description and sample-energy inspection; auditory fit and headset
+loudness still need listening review.

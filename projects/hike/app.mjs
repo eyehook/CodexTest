@@ -1,7 +1,9 @@
+import {HikeAudio} from './sparrow-audio.mjs?v=4';
+import {Sparrows} from './sparrows.mjs?v=7';
 import {SUN_POSITION} from './terrain-sunlight.mjs?v=3';
 import {TerrainSunlight} from './terrain-sunlight-material.mjs?v=1';
 import {GroundNavigation} from './ground-navigation.mjs?v=4';
-import {ForestAmbience,bindForestAudio} from './forest-audio.mjs?v=1';
+import {bindForestAudio} from './forest-audio.mjs?v=1';
 import {GraphicsWarmup} from './graphics-warmup.mjs?v=1';
 import {createLoadingView} from './loading-view.mjs?v=2';
 import {Glider,LandingRunout} from './gliding.mjs?v=glide-17';
@@ -24,10 +26,10 @@ import {XRFrameState} from '../../shared/xr/session.mjs';
 import {FrameRateCounter} from '../../shared/performance/frame-rate.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
-import {createWorldAsync} from './world-async.mjs?v=cut-1';
+import {createWorldAsync} from './world-async.mjs?v=sparrows-1';
 import {placeAtEndpoint} from './teleport.mjs?v=settings-tabs-1';
 import {SettingsMenu} from './settings-menu.mjs?v=vr-6';
-import {APP_VERSION} from './version.mjs?v=0.25.32';
+import {APP_VERSION} from './version.mjs?v=0.25.41';
 import {Terrain} from './terrain.mjs?v=cut-1';
 import {SlopeSlide} from './movement.mjs?v=slide-1';
 
@@ -114,16 +116,19 @@ const rocks=new Rocks(scene,world,flora);
 const terrainSunlight=new TerrainSunlight(world.sunlight);
 terrainSunlight.apply(terrain.material);terrainSunlight.apply(flora.material,true);terrainSunlight.apply(rocks.material,true);
 const atmosphere=new Atmosphere(scene);
+const sparrows=new Sparrows(scene,world);
 const raptor=new Raptor(scene,world);let raptorTime=0;
-for(const material of [terrain.material,flora.material,triangleField.material,rocks.material,raptor.material,mast.material,pennant.material])atmosphere.apply(material);
+for(const material of [terrain.material,flora.material,triangleField.material,rocks.material,raptor.material,sparrows.material,mast.material,pennant.material])atmosphere.apply(material);
 await Promise.all([triangleField.initialize(spawn),rocks.initialize(spawn)]);
 const captureNotice=new CaptureNotice(scene);
-const ambience=new ForestAmbience();let audioRequested=false;
+const ambience=new HikeAudio();
+sparrows.onTakeoff=(record,flock)=>ambience.playTakeoff(record,flock);let audioRequested=false;
 const profiler=new HikeProfiler({gl:renderer.getContext(),onNotice:message=>captureNotice.show(message)});
 function visitCaptureBuffers(visit){
   visit(terrain.geometry.attributes.terrainHeight);visit(terrain.geometry.attributes.normal);visit(terrain.geometry.attributes.color);
   for(const mesh of flora.batches){visit(mesh.instanceMatrix);visit(mesh.instanceColor);visit(mesh.geometry.attributes.terrainSunlight);}
   for(const mesh of pineShadows.batches)visit(mesh.instanceMatrix);
+  for(const mesh of sparrows.meshes){visit(mesh.instanceMatrix);visit(mesh.instanceColor);}
   for(const name in triangleField.attributes)visit(triangleField.attributes[name]);
   visit(rocks.mesh.instanceMatrix);visit(rocks.mesh.instanceColor);visit(rocks.sunlight);
 }
@@ -188,7 +193,7 @@ const vrButton=VRButton.createButton(renderer);vrButton.disabled=true;vrButton.s
 vrButton.addEventListener('click',()=>void ambience.unlock());
 $('#explore').disabled=true;
 $('#world').addEventListener('webglcontextrestored',()=>warmup.invalidate());
-addEventListener('pagehide',()=>{raptor.dispose();terrainSunlight.dispose();atmosphere.dispose();rocks.dispose();ambience.dispose();warmup.cancel();loadingView.dispose();},{once:true});
+addEventListener('pagehide',()=>{sparrows.dispose();raptor.dispose();terrainSunlight.dispose();atmosphere.dispose();rocks.dispose();ambience.dispose();warmup.cancel();loadingView.dispose();},{once:true});
 renderer.xr.addEventListener('sessionstart',()=>{const session=renderer.xr.getSession();session.addEventListener('visibilitychange',()=>{if(session.visibilityState!=='visible')profiler.pause();});audioRequested=true;void ambience.unlock();bindForestAudio(session,ambience);glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;keys.clear();walk=true;document.body.classList.add('walking');camera.rotation.set(0,0,0);fps.reset();buttons.reset();last=0;});
 renderer.xr.addEventListener('sessionend',()=>{audioRequested=false;ambience.stop();warmup.cancel();loadingView.mesh.visible=false;profiler.pause();pendingTeleport=null;settingsMenu.close();flora.setCoverageSamples(flora.desktopSamples);state.reset();buttons.reset();fps.reset();last=0;camera.position.set(0,1.7,0);reset();});
 reset();
@@ -204,6 +209,7 @@ function stepFrame(time,frame){
   if(session){viewer.position.copy(state.pose.transform.position);viewer.orientation.copy(state.pose.transform.orientation);if(state.firstTracked){reset();const gl=renderer.getContext();flora.setCoverageSamples(gl.getParameter(gl.SAMPLES));}}
   else {viewer.position.copy(camera.position);viewer.orientation.copy(camera.quaternion);}
   applyHeightOffset(heightRig,viewer,settingsMenu.saved.heightOffset);
+  flightView.sample(rig,viewer);ambience.updateListener(flightView.head,flightView.orientation);
   rocks.syncCoverage();
   const graphicsKey=warmupKey(session?'immersive-vr':'desktop');
   if(!warmup.active&&!settingsMenu.open&&!warmup.ready.has(graphicsKey)){
@@ -304,6 +310,8 @@ function stepFrame(time,frame){
   if(tracing)profiler.set('grassMs',performance.now()-capturePhase);
   rocks.update(head,!terrainApplied);
   raptorTime+=state.resumed?0:elapsed;raptor.update(raptorTime);
+  ambience.updateListener(head,flightView.orientation);
+  sparrows.update(state.resumed?0:dt,head);ambience.updateSources();
   const reading=fps.sample(elapsed);if(reading!==null)stats.fps=reading;
   uiElapsed+=elapsed;
   if(uiElapsed>.5){uiElapsed=0;world.trail(head.x,head.z,projected,true);stats.along=projected.along;stats.remaining=world.totalLength-projected.along;stats.elevation=glider.active?rig.position.y:ground;if(panelOpen)model.refresh();$('#status').textContent=`${Math.round(stats.elevation)} m elevation · ${(stats.remaining/1000).toFixed(2)} km to summit${projected.distance>20?' · off trail':''}${stats.remaining<8&&projected.distance<10?' · Summit reached':''}${glider.active?' · Gliding · '+Math.max(0,Math.round(rig.position.y-ground))+' m above ground':''}`;}
@@ -322,7 +330,7 @@ function stepFrame(time,frame){
 }
 renderer.setAnimationLoop(stepFrame);
 // Desktop inspection surface for desktop acceptance checks.
-window.hike={terrainSunlight,raptor,groundNavigation,ambience,warmup,startupTimings,loadingView,profiler,captureNotice,heightRig,triangleField,rocks,atmosphere,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
+window.hike={sparrows,terrainSunlight,raptor,groundNavigation,ambience,warmup,startupTimings,loadingView,profiler,captureNotice,heightRig,triangleField,rocks,atmosphere,pineShadows,settingsMenu,version:APP_VERSION,world,terrain,flora,glider,runout,flightView,bankRig,stepFrame,settings,rig,camera,renderer,scene,model,stats,reset,get frameCount(){return frameCount;}};
 } catch(error) {
   document.body.classList.remove('loading');
   $('#intro').hidden=true;$('#status').textContent='Mountain generation failed · choose another seed';
