@@ -66,8 +66,8 @@ Three.js or browser globals and can be tested directly in Node.
 | `xr/input.mjs` | `buttonValue(source, index = 0)`; `ButtonEdges` | Surface, Scene Test and Secret Garden edges; Space Race trigger pressure; Surface locomotion axes |
 | `xr/pointer.mjs` | `createPointerLine(options)`; `ControllerPointer` | Surface, Scene Test and Secret Garden; Swarm and Weather through shared VR UI |
 | `xr/session.mjs` | `XRFrameState` | Surface, Scene Test and Secret Garden |
-| `performance/frame-rate.mjs` | `FrameRateCounter` (also exported as `FrameRate`) | Scene Test, Space Race, Weather, Clouds |
-| `xr/frame-rate.mjs` | `requestFrameRate(session, target)` | Space Race |
+| `performance/frame-rate.mjs` | `FrameRateCounter` (also exported as `FrameRate`) | Scene Test, Space Race, Weather, Clouds, Air Hockey |
+| `xr/frame-rate.mjs` | `requestFrameRate(session, target)` | Space Race, Air Hockey |
 
 ### Input
 
@@ -368,6 +368,25 @@ and no per-frame polygon work.
 
 [Nacre](../projects/viz/HANDOFF.md) uses XRFrameState for visible, tracked rendering. Its seated chamber uses local reference space and session select events for playback. Its project-owned music-stick adapter reuses `input.mjs` deadzone filtering for either thumbstick’s rightward song skip and vertical tempo adjustment, with dominant-axis selection, per-source neutral rearming and entry/resume absorption; see the Nacre handoff. Conductor mode additionally reuses ButtonEdges and ControllerPointer for A/X toggling, aiming and five world-anchored pitch targets. Its particle pointer and controller-sleep selection retention remain project-owned.
 
+### Reusable beveled 3D button
+
+`ui/beveled-button.mjs` exports `BeveledButton({label, width, height, onActivate})`.
+Add `.mesh` to the scene and raycast its fixed `.hitMesh`. The face uses beveled
+extruded geometry with a separate text texture, hover color, and physical depression.
+Current consumer: [Air Hockey result dialog](../projects/airhockey/HANDOFF.md).
+
+Call `.sample(pointerId, hover, down, {seed})` once per pointer per frame, including
+misses. Stable source identity owns a press. First samples and seeded samples absorb
+held buttons. Trigger-down while hovered depresses; leaving cancels immediately;
+returning while held cannot re-arm. Release while still hovered invokes `onActivate`
+once and returns true. Hosts own rays, tracking/session gates and mouse/trigger input.
+`.retain(activePointerIds)` accepts arrays or indexed array-like WebXR collections and prunes disconnected pointers; `.cancel()` clears gestures
+and visual feedback. Set `.enabled = false` to reject interaction; hidden ancestors
+also reject it. Call `.cancel()` when suspending. `.dispose()` is idempotent and
+releases owned GPU resources. Supply `onActivate: () => model.activate(id)` to bind
+an existing ControlModel action. `ButtonGesture` exposes the same state machine
+without rendering for tests. Tests: `tests/shared/beveled-button.mjs` (root suite).
+
 ### Air Hockey consumer
 
-[Air Club](../projects/airhockey/HANDOFF.md) uses the canonical Three.js r180 and VRButton, `ButtonEdges`, `XRFrameState`, `ControlModel`, `DesktopControls`, and `VRSliderPanel` (including its shared controller pointers). It has no artificial locomotion. Current-frame grip poses are composed with its fixed player rig for direct mallet input; rays are used only for settings. Project controls and testing remain in its handoff. No shared runtime changes were needed.
+[Air Club](../projects/airhockey/HANDOFF.md) uses the canonical Three.js r180 and VRButton, `ButtonEdges`, `XRFrameState`, `FrameRateCounter`, `ControlModel`, `DesktopControls`, `VRSliderPanel` (including its shared controller pointers), `BeveledButton`, and direct shared controller pointers for the result dialog. It has no artificial locomotion. Current-frame grip poses are composed with its fixed player rig for direct mallet input; rays are used only for settings and the result dialog. Project controls and testing remain in its handoff. Adds the reusable BeveledButton module; existing shared helpers are unchanged.

@@ -26,7 +26,7 @@ Read this file, inspect `git status`, then read the target project's handoff and
 | Chess | [Handoff](projects/chess/HANDOFF.md) | Buildless `projects/chess/src/`; editable assets in `assets/chess/` |
 | Space Race | [Handoff](projects/spacerace/HANDOFF.md) | Buildless `projects/spacerace/` |
 
-Keep detailed behavior, architecture, controls, asset workflows and project validation in each handoff and its linked documents. Update the relevant handoff as changes are made; review and update the Space Race handoff before every push, as explicitly requested by the user. Maintain handoffs as compact current-state guides: update sections in place rather than appending changelogs. Keep detailed history in Git and specialized workflows in linked documents. Keep this root file limited to shared guidance and project routing.
+Keep detailed behavior, architecture, controls, asset workflows and project validation in each handoff and its linked documents. Update the relevant handoff as changes are made. Maintain handoffs as compact current-state guides: update sections in place rather than appending changelogs. Keep detailed history in Git and specialized workflows in linked documents. Keep this root file limited to shared guidance and project routing.
 
 ## Shared functionality
 

@@ -8,7 +8,7 @@ Space Race is a minimal seated/standing WebXR speed experiment for Meta Quest 3,
 
 ## Handoff maintenance
 
-The user requires this handoff to be reviewed and updated before every push of Space Race changes to GitHub. Update the current settings, behavior, architecture, validation results and remaining work as applicable, and include the handoff update in the same release.
+Follow the shared repository guidance in [AGENTS.md](../../AGENTS.md). Keep this handoff current when Space Race behavior, settings or validation changes; there is no separate Space Race review requirement for pushes.
 
 Current repository release review (2026-11-18): reviewed for the authorized
 Air Club / Air Hockey Milestone 1 push. Space Race runtime, settings and shared

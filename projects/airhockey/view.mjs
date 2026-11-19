@@ -1,4 +1,7 @@
 import * as T from '../../shared/vendor/three-r180/three.module.js';
+import {createCelebration} from './celebration.mjs?v=1.0.5';
+import {createScoreLights,SCORE_EXTENSION_WIDTH,SCORE_PANEL_X} from './score-lights.mjs?v=1.0.14';
+import {createRails} from './rails-view.mjs?v=1.0.14';
 import {C,RAILS} from './physics.mjs';
 export function createView(scene){
   const table=new T.Group();scene.add(table);
@@ -21,13 +24,16 @@ export function createView(scene){
   const geo=new T.ShapeGeometry(shape,8),pos=geo.attributes.position,uv=geo.attributes.uv;
   for(let i=0;i<pos.count;i++)uv.setXY(i,(pos.getX(i)+w)/C.width,(pos.getY(i)+l)/C.length);
   const surface=new T.Mesh(geo,new T.MeshStandardMaterial({map:tex,roughness:.36}));surface.rotation.x=-Math.PI/2;table.add(surface);
-  for(const s of RAILS){const dx=s.bx-s.ax,dz=s.bz-s.az;const rail=box(table,Math.hypot(dx,dz)+.012,.065,.035,(s.ax+s.bx)/2,.025,(s.az+s.bz)/2,Math.abs(s.az+s.bz)<.1?white:(s.az+s.bz>0?blue:red));rail.rotation.y=-Math.atan2(dz,dx);}
+  table.add(createRails(RAILS,[white,blue,red]));
   for(const z of [-1,1]){box(table,C.goal,.045,.18,0,-.015,z*1.29,dark);box(table,C.goal,.06,.025,0,.015,z*1.39,navy);}
   function makeMallet(material){const g=new T.Group();cylinder(g,C.mallet,.028,0,.018,0,material);cylinder(g,.026,.055,0,.055,0,material);cylinder(g,.033,.018,0,.087,0,material);table.add(g);return g;}
   const player=makeMallet(blue),enemy=makeMallet(red),puck=cylinder(table,C.puck,.012,0,.008,0,dark);
   cylinder(puck,.022,.001,0,.0065,0,skin);
-  const scoreCanvas=document.createElement('canvas');scoreCanvas.width=1024;scoreCanvas.height=320;const sc=scoreCanvas.getContext('2d'),scoreTexture=new T.CanvasTexture(scoreCanvas);scoreTexture.colorSpace=T.SRGBColorSpace;
-  const score=new T.Mesh(new T.PlaneGeometry(.85,.266),new T.MeshBasicMaterial({map:scoreTexture}));score.position.set(0,.33,-1.33);score.rotation.x=-.26;table.add(score);box(table,.9,.3,.06,0,.33,-1.42,navy);for(const x of [-.37,.37])box(table,.035,.32,.035,x,.1,-1.42,navy);
+  // Matching six-inch extensions measured from the outer cabinet edges.
+  const scoreboard=new T.Group();table.add(scoreboard);
+  const panelMaterial=mat('#08090b');
+  for(const side of [-1,1])box(scoreboard,SCORE_EXTENSION_WIDTH,.045,2.56,side*SCORE_PANEL_X,.0025,0,panelMaterial);
+  const scoreLights=createScoreLights(scoreboard);
   const bot=new T.Group();bot.position.set(0,0,-1.68);table.add(bot);
   const body=cylinder(bot,.16,.38,0,.35,0,red);body.rotation.z=.07;
   const head=new T.Group();head.position.y=.68;bot.add(head);
@@ -35,16 +41,15 @@ export function createView(scene){
   for(const x of [-.078,.078]){const eye=new T.Mesh(new T.SphereGeometry(.045,12,8),white);eye.position.set(x,.025,.18);head.add(eye);const pupil=new T.Mesh(new T.SphereGeometry(.022,10,6),dark);pupil.position.set(x,.025,.216);head.add(pupil);}
   box(head,.08,.014,.018,0,-.075,.205,navy);
   const hat=cylinder(head,.24,.035,0,.19,0,blue);hat.rotation.z=-.12;
-  const hand=new T.Mesh(new T.IcosahedronGeometry(.058,1),skin);table.add(hand);
   const floor=new T.Mesh(new T.CircleGeometry(12,64),mat('#c5d6d4'));floor.rotation.x=-Math.PI/2;floor.position.y=-.005;scene.add(floor);
   const rug=new T.Mesh(new T.CircleGeometry(2.6,64),mat('#a2bdbc'));rug.rotation.x=-Math.PI/2;rug.position.y=-.003;scene.add(rug);
-  let last='',lastPlayer=-1,lastEnemy=-1;
+  const celebration=createCelebration(table);
   function update(game,time,paused){
-    table.position.y=game.height;player.position.set(game.player.x,0,game.player.z);enemy.position.set(game.enemy.x,0,game.enemy.z);puck.position.set(game.physics.puck.x,.008,game.physics.puck.z);puck.visible=game.state==='play'||game.state==='ready'||game.state==='serve';
-    hand.position.set(game.enemy.x,.14,game.enemy.z);bot.position.y=Math.sin(time*2)*.008;head.rotation.y=game.physics.puck.x*.38;body.rotation.z=-game.enemy.x*.12;
+    table.position.set(game.tableX,game.height,game.tableZ);player.position.set(game.player.x,0,game.player.z);enemy.position.set(game.enemy.x,0,game.enemy.z);if(game.state==='botplacing')puck.position.set(game.botServe.x,game.botServe.y,game.botServe.z);else puck.position.set(game.physics.puck.x,.008,game.physics.puck.z);puck.visible=game.state==='play'||game.state==='botplacing'||(game.state==='placing'&&game.servePreviewReady);
+    bot.position.y=Math.sin(time*2)*.008;head.rotation.y=game.physics.puck.x*.38;body.rotation.z=-game.enemy.x*.12;
     const reaction=game.state==='goal'||game.state==='won';if(reaction){const happy=game.message.startsWith('BOT');head.rotation.z=happy?Math.sin(time*12)*.16:.25;bot.position.y+=happy?Math.abs(Math.sin(time*9))*.07:-.04;}else head.rotation.z=0;
-    const message=paused||game.message||'FIRST TO 7';
-    if(message!==last||game.scores[0]!==lastPlayer||game.scores[1]!==lastEnemy){last=message;lastPlayer=game.scores[0];lastEnemy=game.scores[1];sc.fillStyle='#10283c';sc.fillRect(0,0,1024,320);sc.textAlign='center';sc.font='bold 33px sans-serif';sc.fillStyle='#6fcaff';sc.fillText('YOU',240,52);sc.fillStyle='#ff8b9c';sc.fillText('BOT',784,52);sc.font='bold 150px monospace';sc.fillStyle='#e9f7ff';sc.fillText(game.scores[0],240,211);sc.fillText(game.scores[1],784,211);sc.font='25px sans-serif';sc.fillStyle='#bad6df';sc.fillText(message,512,285);scoreTexture.needsUpdate=true;}
+    const flash=celebration.update(game,time,!!paused);
+    scoreLights.update(game.scores,celebration.winner,flash);
   }
-  return {table,player,enemy,puck,update};
+  return {table,player,enemy,puck,scoreboard,scoreLights,celebration,update};
 }
