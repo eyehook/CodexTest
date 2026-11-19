@@ -6,6 +6,8 @@ For project context in a new Codex conversation, read [AGENTS.md](AGENTS.md).
 
 ## Projects
 
+- [Air Club](projects/airhockey/): room-scale air hockey against an adjustable robot opponent; [handoff](projects/airhockey/HANDOFF.md).
+
 - [Nacre](projects/viz/): a seated generative music chamber for desktop and Quest; [handoff](projects/viz/HANDOFF.md).
 - [The Hike](projects/hike/): procedural mountain hiking for desktop and Quest, with a seeded 1.6 km trail and persistent adaptive terrain; [handoff](projects/hike/HANDOFF.md).
 

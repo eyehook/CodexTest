@@ -10,6 +10,7 @@ Read this file, inspect `git status`, then read the target project's handoff and
 
 | Project | Start here | Source/build overview |
 | --- | --- | --- |
+| Air Club / Air Hockey | [Handoff](projects/airhockey/HANDOFF.md) | Buildless `projects/airhockey/`; single-player room-scale air hockey |
 | Nacre | [Handoff](projects/viz/HANDOFF.md) | Buildless `projects/viz/`; seeded audiovisual chamber |
 | The Hike | [Handoff](projects/hike/HANDOFF.md) | Buildless `projects/hike/`; procedural massif, carved trail and a single snapped terrain grid |
 | Secret Garden | [Handoff](projects/secretGarden/HANDOFF.md) | Buildless `projects/secretGarden/`; deterministic procedural plants and animated growth |

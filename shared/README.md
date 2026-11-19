@@ -367,3 +367,7 @@ for provenance, modifications and retained notices. It performs no network loads
 and no per-frame polygon work.
 
 [Nacre](../projects/viz/HANDOFF.md) uses XRFrameState for visible, tracked rendering. Its seated chamber uses local reference space and session select events for playback. Its project-owned music-stick adapter reuses `input.mjs` deadzone filtering for either thumbstick’s rightward song skip and vertical tempo adjustment, with dominant-axis selection, per-source neutral rearming and entry/resume absorption; see the Nacre handoff. Conductor mode additionally reuses ButtonEdges and ControllerPointer for A/X toggling, aiming and five world-anchored pitch targets. Its particle pointer and controller-sleep selection retention remain project-owned.
+
+### Air Hockey consumer
+
+[Air Club](../projects/airhockey/HANDOFF.md) uses the canonical Three.js r180 and VRButton, `ButtonEdges`, `XRFrameState`, `ControlModel`, `DesktopControls`, and `VRSliderPanel` (including its shared controller pointers). It has no artificial locomotion. Current-frame grip poses are composed with its fixed player rig for direct mallet input; rays are used only for settings. Project controls and testing remain in its handoff. No shared runtime changes were needed.
