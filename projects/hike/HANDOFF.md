@@ -6,8 +6,8 @@ history for changes and [PROFILING.md](PROFILING.md) for the capture schema.
 
 ## State and workflow
 
-- Release version: **v0.25.41** (sparrow flocks with a three-second takeoff sound; Quest review pending).
-- Previous pushed version: **v0.25.32** (lowered summit with a rounded rim).
+- Release version: **v0.25.51** (minimum forward takeoff speed with projected velocity and uphill lift; earlier movement, settings, forest and bird tuning retained; publication authorized, Quest review pending).
+- Previous pushed version: **v0.25.41** (sparrow flocks with a three-second takeoff sound).
 - Buildless Three.js r180 / WebXR project in `projects/hike/`, targeting Quest 3.
   Follow [repository guidance](../../AGENTS.md) for shared modules and publication.
 - Preview: serve the repository root and open `/projects/hike/`. For USB Quest
@@ -62,20 +62,34 @@ Hidden/untracked XR pauses movement and interaction; held buttons are absorbed
 on resume.
 
 VR smooth walking defaults to **2 m/s**, adjustable from **1–10 m/s** in **0.5
-m/s** steps. Desktop retains **14 m/s** for testing. Sliding begins above
-**35°**, accelerates downhill and stops on gentler ground. Flight caps at **90
+m/s** steps. Desktop retains **14 m/s** for testing. Ground walking follows terrain height without slope-driven sliding or a steepness
+limit, including uphill movement and standing still. Flight caps at **90
 m/s**, with 75° maximum dive, 60°/s turn cap, .15 rescaled stick dead zone and
 3/s turn response. Banking defaults to zero. Landing preserves horizontal
 momentum in runout, uses 8 m/s² friction and hands off to walking when input can
 keep up. A fresh launch press is required after landing.
+Takeoff always uses the post-movement headset world heading projected horizontally
+(desktop: camera heading). Initial forward speed is the dot product of current
+horizontal movement velocity and that facing direction, clamped to **4–90 m/s**.
+The **4 m/s minimum applies immediately at takeoff**, including stationary,
+sideways, backward and slow walking jumps. Faster forward projection is retained.
+The base upward impulse gives **0.9 m** flat-ground jump height. Positive
+ground-following vertical velocity adds uphill lift, capped at **half the current
+horizontal walking speed**, preserving the earlier uphill-momentum limit.
+Downhill velocity does not reduce the impulse; standing still adds no rise. Existing flight minimum-speed behavior resumes
+after the initial jump phase. Head pitch/roll do not affect launch;
+existing stick steering and pitch-controlled flight take over afterward. Very steep
+uphill terrain can intersect the jump early; no extra clearance adjustment is used.
+Focused flight tests cover forward/diagonal/sideways/backward velocity projection,
+stationary/slow launches, uphill lift/capping, slopes and composed head/rig orientation;
+Quest trajectory/comfort feedback remains pending.
 
 Settings hides world roots against black while preserving head/controller
-tracking. Startup explicitly sets XR foveation to **1**. Opening settings sets
-it to **0** for full-resolution menu rendering. Every close path sets it back to
-**1**, including session exit and Base/Summit actions; a failed save leaves the
+tracking. Startup applies the saved XR foveation preference (default **1**). Opening settings sets
+it to **0** for full-resolution menu rendering. Every close path restores the saved gameplay value, including session exit and Base/Summit actions; a failed save leaves the
 menu open at zero. The XR manager retains this policy even without an active
 layer. Desktop rendering is unaffected. Focused lifecycle tests cover
-disable/reenable and failed-save behavior; Quest menu sharpness still needs
+saved startup/reload, slider mapping, discard, teleport and failed-save behavior; Quest menu sharpness still needs
 headset validation:
 
 - **General:** persisted Sound (default true) and Shadows (default false). Sound
@@ -85,7 +99,10 @@ headset validation:
   through `heightRig`; collision/ground rig height stays independent. Teleport movement and Snap turning default on (off selects smooth); snap
   angle slider 15°/30°/45°, default 30°. With Snap turning off, the same row
   becomes a Turn speed slider: 30/60/90/120°/s, default 90°/s. Both values are
-  remembered independently. Movement speed sits beneath Teleport movement,
+  remembered independently. Foveated rendering is a **0–1** slider in **0.1**
+  steps, default **1** (0 disables it; 1 gives the strongest peripheral reduction).
+  It takes effect after Save and Close; the menu itself always uses zero.
+  Movement speed sits beneath Teleport movement,
   is disabled while teleport is on, and retains its value. Preferences persist
   through Save and Close.
   Ground only; gliding and landing runout retain their existing physics.
@@ -96,15 +113,17 @@ headset validation:
 Ground teleport uses a curved initiating-controller arc against `world.height`,
 with green valid/red invalid feedback. Maximum displacement is a fixed **15 m**,
 measured in 3D from the current ground position beneath the head; pointing
-selects the distance. Landings outside the world or steeper than 35° are
-rejected. Orientation is retained; physical head X/Z and seated height offsets
+selects the distance. All terrain inclines are valid destinations within range; only out-of-world
+landings are rejected. The destination ring follows the terrain normal. Orientation is retained; physical head X/Z and seated height offsets
 are composed once. Release commits only a valid aim. New controllers, tracking
 recovery, menus and flight cancel aiming and require neutral input; snap turning
 likewise requires neutral between turns. With teleport on, either stick can aim
 with its own controller or turn sideways. The initiating hand owns the teleport
 until release; the other hand cannot take over. Equal simultaneous turns never
 double speed/angle, and equal opposite turns cancel. With teleport off, the left
-stick walks/strafes and only the right stick turns. `ground-navigation.mjs` owns
+stick walks/strafes and only the right stick turns. Focused navigation and flight
+checks cover steep-plane teleport commits and existing landing runout; Quest
+comfort on steep inclines remains pending. `ground-navigation.mjs` owns
 these policies and reuses shared Locomotion for smooth movement and head-pivot
 turns. Desktop movement remains smooth.
 
@@ -293,7 +312,10 @@ compiles it with the outdoor scene. Page exit releases its resources.
 `flora-placement.mjs` uses one world-aligned **4 m grid** with candidate centers
 jittered independently **±1 m in X/Z**. Smooth seeded value noise with a **32
 m** lattice and **0.7 threshold** selects woodland patches before terrain
-queries. The same seed produces the same forest. Existing 120 m boundary
+queries. Above the threshold, a separate seeded per-grid hash retains candidates
+with a flat **50% chance at every eligible noise value (0.7–1)**.
+These odds precede the existing terrain/clearance filters. The same
+seed produces the same forest. Existing 120 m boundary
 exclusion, trail edge clearance of 3.5 m, gradual elevation/slope suitability
 and maximum .65 m detailed/averaged ground difference remain. There are no
 ellipse clusters, cluster-count limits, spacing searches or minimum-five-tree
@@ -301,12 +323,14 @@ rule. The jittered grid guarantees at least 2 m horizontal separation.
 
 Output is grouped into **32 m spatial buckets solely for rendering/shadows**;
 buckets never select trees or impose population rules. Grid jitter, woodland
-noise, terrain thinning and appearance use independent seeded channels. Changing
+noise, interior thinning, terrain thinning and appearance use independent seeded channels. Changing
 bucket size preserves all tree records; raising the threshold removes candidates
 without changing surviving trees' appearance. Startup reports “Planting
-woodland”. Trees have no collision. Seeds 41729 / 1435171212 / 42 produce
-**71,060 / 77,048 / 96,068** trees. The full map tests 921,600 cheap grid/noise
-candidates; only threshold survivors reach terrain checks.
+woodland”. Trees have no collision. The full map tests 921,600 cheap grid/noise
+candidates; only threshold and interior-thinning survivors reach terrain checks.
+The full root suite passes with the flat 50% tuning, including flora, shadow,
+worker and sparrow regressions.
+Quest appearance remains pending.
 
 `pine-geometry.mjs` supplies three flat-shaded variants: five-sided trunks and
 2/3/4 six-sided foliage cones, **44/56/68 triangles**. Tier skirts overlap;
@@ -531,11 +555,12 @@ controls.
 
 `sparrow-placement.mjs` generates encounter metadata in the startup worker after
 pines. Ground candidates occur every 150–300 m along the trail, starting 90–190 m
-in, with 3–7 birds. Six side-of-trail attempts reject slopes above 24°, rough
+in, with 3–7 birds. A seeded selection retains one or two suitable ground
+groups across the whole hike (fewer if suitable locations are unavailable). Six side-of-trail attempts reject slopes above 24°, rough
 1.6 m disks, world edges and elevations above 78% of summit height. Unsuitable
-stretches skip encounters. An independent seeded hash occupies ~5% of pines
+stretches skip encounters. An independent seeded hash occupies ~1% of pines
 with 2–5 birds; canopy origins use the existing tree position/height scale.
-Seed 41729 has four ground encounters and 3,624 occupied trees (5.1%).
+Ground flock sizes remain 3–7 birds; tree flock sizes remain 2–5.
 
 `sparrows.mjs` buckets records into 32 m cells; 10 Hz proximity checks inspect
 only a 7×7 neighborhood. Ground flocks activate within 65 m and unload beyond
@@ -584,7 +609,8 @@ non-positional. Positional audio transform/recycling tests and Chrome node
 checks pass; Quest direction and loudness still need listening validation. See [audio behavior](AUDIO.md#sparrow-takeoff-effect) and
 [asset provenance](../../assets/hike/audio/README.md#sparrow-takeoff).
 
-Validation: all **157 Hike tests** pass, including deterministic real-world
+Validation: the full root suite passes on v0.25.51, including all **157 Hike
+tests** and deterministic real-world
 occupancy, tree-record reordering, snapshot reconstruction, ground streaming,
 consumption/revisit/pool exhaustion, staggered launch, separation, rising terrain
 and recycling. Chrome checked seed 41729 ground rendering, takeoff and consumed-tree
@@ -610,18 +636,21 @@ notes](../../assets/hike/audio/README.md) for provenance and preparation.
 
 ## Profiling, validation and known limits
 
-The user authorized publication of **v0.25.41** on 2026-11-18, including
-sparrow encounters, sideways tree exits, 30 m tree / 15 m ground triggers and
-positional three-second takeoff audio. User feedback identified rear-of-tree
-occlusion and quiet takeoff audio; the final changes address those reports.
-Final Quest spatial direction/loudness and sustained performance are not yet
-formally validated. Earlier Quest 3 approval of the lowered summit and 30° sun
-remains appearance feedback, not a benchmark. See Git history for releases.
+The user authorized publication of **v0.25.51** on 2026-11-23: fewer ground
+flocks, 1% tree occupancy, flat 50% woodland thinning, saved VR foveation,
+unrestricted slope walking/teleporting and forward-projected takeoff with
+immediate 4 m/s minimum speed and capped uphill lift. Quest review of the final
+settings, forest density and movement behavior remains pending. Earlier Quest 3
+approval of the lowered summit and 30° sun remains appearance feedback, not a
+benchmark. Spatial audio and sustained performance are not formally validated.
+See Git history for releases.
 
 Validation coverage:
 
 - The complete root suite passed, including all **157 Hike tests** on the final
-  sparrow runtime. Hike coverage includes encounters, spatial audio and multiseed
+  v0.25.51 runtime. Hike coverage includes forward launch projection, immediate
+  minimum launch speed, uphill lift, steep-plane teleports, saved foveation,
+  deterministic forest thinning, encounters, spatial audio and multiseed
   walkability, flat landing/no-fill core, cut continuity, isolated high points,
   worker reconstruction, terrain rendering and existing shadow/vegetation checks.
 - Chrome rendered the seed 41729 lowered summit and marker without page/shader

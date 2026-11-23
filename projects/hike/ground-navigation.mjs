@@ -62,7 +62,7 @@ export class GroundNavigation {
     for(let j=0;j<10;j++){const f=(lo+hi)/2,x=T.MathUtils.lerp(this.previous.x,this.point.x,f),z=T.MathUtils.lerp(this.previous.z,this.point.z,f),y=T.MathUtils.lerp(this.previous.y,this.point.y,f);if(y>this.world.height(x,z))lo=f;else hi=f;}
     this.point.lerpVectors(this.previous,this.point,hi);this.point.y=this.world.height(this.point.x,this.point.z);this.destination.copy(this.point);
     const distance=Math.hypot(this.point.x-head.x,this.point.y-floor,this.point.z-head.z);
-    this.valid=distance<=TELEPORT_RANGE&&Math.abs(this.point.x)<=this.world.extent&&Math.abs(this.point.z)<=this.world.extent&&this.world.normal(this.point.x,this.point.z,this.normal).slope<=35;
+    this.valid=distance<=TELEPORT_RANGE&&Math.abs(this.point.x)<=this.world.extent&&Math.abs(this.point.z)<=this.world.extent;
     this.world.normal(this.point.x,this.point.z,this.normal);
     this.surfaceNormal.set(this.normal.x,this.normal.y,this.normal.z).normalize();
     this.marker.quaternion.setFromUnitVectors(this.markerAxis,this.surfaceNormal);

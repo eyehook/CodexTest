@@ -56,8 +56,10 @@ export function generatePines(world,options={},onProgress=()=>{}){
    candidates++;
    const x=centerX+(cellSeed(seed^0x6a697478,ix,iz)/4294967296*2-1)*jitter,z=centerZ+(cellSeed(seed^0x6a69747a,ix,iz)/4294967296*2-1)*jitter;
    if(Math.abs(x)>world.extent-rules.boundaryMargin||Math.abs(z)>world.extent-rules.boundaryMargin)continue;
-   if(forestNoise(seed,x,z,noiseScale)<noiseThreshold)continue;
+   const noise=forestNoise(seed,x,z,noiseScale);
+   if(noise<noiseThreshold)continue;
    noiseCandidates++;
+   if(cellSeed(seed^0x7468696e,gx,gz)/4294967296>=.5)continue;
    const y=world.height(x,z),density=cellSeed(seed^0x64656e73,ix,iz)/4294967296;
    if(density>plantSuitability(y,0,range,rules))continue;
    world.trail(x,z,near);if(near.distance<world.config.trailWidth/2+rules.trailMargin)continue;

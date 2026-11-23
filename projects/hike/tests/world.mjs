@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {createWorld} from '../world.mjs';
 import {cachedWorld} from './helpers/world-fixture.mjs';
 import {createTerrainSampler} from '../terrain-sampler.mjs';
-import {SlopeSlide} from '../movement.mjs';
 const world=createWorld();
 test('seed reproduces terrain, route and summit independent of query order',async()=>{
  const other=createWorld();assert.deepEqual(world.route,other.route);
@@ -15,12 +14,11 @@ test('seed reproduces terrain, route and summit independent of query order',asyn
 });
 test('validated routes remain continuous, grounded and walkable for multiple seeds',async()=>{
  for(const seed of [41729,1,42,999,123456]){
-  const w=await cachedWorld({seed}),slide=new SlopeSlide(w);assert.ok(w.totalLength>=1300&&w.totalLength<=2000);assert.ok(w.maxGrade<=.301);
+  const w=await cachedWorld({seed});assert.ok(w.totalLength>=1300&&w.totalLength<=2000);assert.ok(w.maxGrade<=.301);
   assert.ok(w.totalLength/1.4/60>15&&w.totalLength/1.4/60<24);
   for(let i=0;i<w.route.length;i++){
    const p=w.route[i];assert.ok(Math.abs(w.height(p.x,p.z)-p.y)<1e-8);
    const n=w.normal(p.x,p.z);assert.ok(Number.isFinite(n.slope));assert.ok(n.slope<30,`seed ${seed} slope ${n.slope} at ${i}`);
-   assert.equal(slide.update(p.x,p.z,1/72,35,14).active,false,`trail slides ${seed}:${i}`);
   }
  }
 });

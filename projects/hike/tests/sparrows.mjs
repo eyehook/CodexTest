@@ -29,7 +29,7 @@ test('flight climbs terrain, separates, stays bounded and recycles beyond fade d
 });
 test('real-world encounters are deterministic, sparse, suitable, stable under tree reordering and snapshot-safe',async()=>{
  const w=await cachedWorld();w.flora=generatePines(w);const a=generateSparrowEncounters(w),b=generateSparrowEncounters(w);assert.deepEqual(a,b);
- const trees=a.filter(r=>r.kind==='tree'),ground=a.filter(r=>r.kind==='ground');assert.ok(trees.length/w.flora.count>.045&&trees.length/w.flora.count<.055);assert.ok(ground.length>=2);
+ const trees=a.filter(r=>r.kind==='tree'),ground=a.filter(r=>r.kind==='ground');assert.ok(trees.length/w.flora.count>.007&&trees.length/w.flora.count<.013);assert.ok(ground.length>=1&&ground.length<=2);
  for(const r of ground){assert.ok(w.normal(r.x,r.z,{}).slope<24);assert.equal(w.height(r.x,r.z),r.y);}
  w.sparrowEncounters=a;assert.deepEqual(restoreWorld(structuredClone(snapshotWorld(w))).sparrowEncounters,a);
  const reversed=new Float32Array(w.flora.trees.length);for(let i=0;i<w.flora.count;i++)reversed.set(w.flora.trees.subarray(i*9,i*9+9),(w.flora.count-1-i)*9);

@@ -9,12 +9,20 @@ import {FlightView} from '../flight-view.mjs';
 import {FlightButtons} from '../flight-input.mjs';
 test('settings validate and persist sound, shadows and seated height offset',()=>{
  const storage={value:null,getItem(){return this.value;},setItem(k,v){this.value=v;}};
- assert.deepEqual(loadSettings(storage),{shadows:false,heightOffset:0,sound:true,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2});
+ assert.deepEqual(loadSettings(storage),{shadows:false,heightOffset:0,sound:true,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2,foveation:1});
  storage.value='{broken';assert.equal(loadSettings(storage).shadows,false);
  storage.value='{"shadows":"true"}';assert.equal(loadSettings(storage).shadows,false);
- saveSettings(storage,{shadows:true,heightOffset:1.25,sound:false,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2});assert.deepEqual(loadSettings(storage),{shadows:true,heightOffset:1.25,sound:false,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2});
+ saveSettings(storage,{shadows:true,heightOffset:1.25,sound:false,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2,foveation:1});assert.deepEqual(loadSettings(storage),{shadows:true,heightOffset:1.25,sound:false,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2,foveation:1});
  storage.value=JSON.stringify({shadows:true});assert.equal(loadSettings(storage).sound,true);storage.value=JSON.stringify({sound:"false"});assert.equal(loadSettings(storage).sound,true);
  storage.value=JSON.stringify({heightOffset:9});assert.equal(loadSettings(storage).heightOffset,1.5);storage.value=JSON.stringify({heightOffset:-1});assert.equal(loadSettings(storage).heightOffset,0);storage.value=JSON.stringify({heightOffset:'1'});assert.equal(loadSettings(storage).heightOffset,0);
+});
+test('foveation preference defaults, clamps, quantizes and rejects invalid values',()=>{
+ const storage={value:null,getItem(){return this.value;},setItem(k,v){this.value=v;}};
+ for(const [value,expected] of [[undefined,1],[null,1],['0.5',1],[-1,0],[2,1],[.36,.4],[0,0],[1,1]]){
+  storage.value=JSON.stringify({foveation:value});assert.equal(loadSettings(storage).foveation,expected);
+ }
+ for(const value of [NaN,Infinity]){saveSettings(storage,{foveation:value});assert.equal(loadSettings(storage).foveation,1);}
+ saveSettings(storage,{foveation:.3});assert.equal(loadSettings(storage).foveation,.3);
 });
 test('Y and B open settings and absorbs held/reconnected buttons',()=>{
  const left={handedness:'left',targetRaySpace:{},gamepad:{mapping:'xr-standard',buttons:Array.from({length:6},()=>({pressed:false}))}};
@@ -39,6 +47,7 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   const debugModel=new ControlModel(Array.from({length:18},(_,i)=>({id:`stat${i}`,kind:'readout',label:`Stat ${i}`,get:()=>i})));
   const xr={foveation:.65,getFoveation(){return this.foveation;},setFoveation(value){this.foveation=value;}};
   const menu=new SettingsMenu(scene,rig,{xr},controllers,{debugModel,onTeleport:id=>teleports.push(id)});
+  assert.equal(xr.foveation,1,'startup uses the saved default');
   menu.show(new T.Vector3(5,2,3),new T.Quaternion());
   assert.equal(scene.background.getHex(),0);assert.equal(scene.fog,null);assert.equal(world.visible,false);assert.equal(rig.visible,true);assert.equal(menu.panel.mesh.visible,true);
   assert.equal(xr.foveation,0);menu.show(new T.Vector3(),new T.Quaternion());assert.equal(xr.foveation,0);
@@ -54,19 +63,21 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   menu.panel.activate(menu.panel.hitAt(625,288));assert.equal(menu.draft.moveSpeed,5.5);
   menu.models.VR.activate('teleport');assert.equal(menu.panel.hitAt(625,288),null);
   assert.equal(menu.draft.moveSpeed,5.5,'teleport retains the selected speed');menu.models.VR.activate('teleport');
-  assert.equal(menu.panel.pageRows.at(-1).id,'snapAngle');
+  assert.equal(menu.panel.pageRows.at(-2).id,'snapAngle');
   menu.panel.activate(menu.panel.hitAt(970,432));assert.equal(menu.draft.snapAngle,45);
   menu.panel.activate(menu.panel.hitAt(280,432));assert.equal(menu.draft.snapAngle,15);
   menu.panel.activate(menu.panel.hitAt(625,432));assert.equal(menu.draft.snapAngle,30);
   menu.models.VR.set('snapAngle',45);menu.models.VR.activate('snapTurn');
-  assert.equal(menu.panel.pageRows.at(-1).id,'turnSpeed');
+  assert.equal(menu.panel.pageRows.at(-2).id,'turnSpeed');
   for(const [x,speed] of [[280,30],[510,60],[740,90],[970,120]]){
    menu.panel.activate(menu.panel.hitAt(x,432));assert.equal(menu.draft.turnSpeed,speed);
   }
-  menu.models.VR.activate('snapTurn');assert.equal(menu.panel.pageRows.at(-1).id,'snapAngle');
+  menu.models.VR.activate('snapTurn');assert.equal(menu.panel.pageRows.at(-2).id,'snapAngle');
   assert.equal(menu.draft.snapAngle,45);assert.equal(menu.draft.turnSpeed,120);menu.models.VR.activate('snapTurn');
   assert.equal(menu.models.VR.disabled(menu.models.VR.definition('snapAngle')),true);
   assert.equal(menu.saved.teleport,true);menu.selectTab('VR');
+  assert.equal(menu.panel.pageRows.at(-1).id,'foveation');
+  for(const [x,value] of [[280,0],[970,1],[556,.4]]){menu.panel.activate(menu.panel.hitAt(x,504));assert.equal(menu.draft.foveation,value);assert.equal(xr.foveation,0,'menu stays sharp while editing');}
   menu.models.VR.set('heightOffset',1.25);
   // Exercise real ray-to-tab mapping with a controller at the viewer position.
   const controller=controllers[0],panel=menu.panel;
@@ -89,7 +100,8 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   assert.equal(panel.hitAt(120,170),null);
   menu.selectTab('General');assert.equal(menu.draft.shadows,true);
   menu.saveAndExit();assert.equal(menu.open,false);assert.equal(scene.background,background);assert.equal(scene.fog,fog);assert.equal(world.visible,true);assert.equal(hidden.visible,false);
-  assert.equal(xr.foveation,1);
+  assert.equal(xr.foveation,.4);
+  assert.equal(loadSettings(globalThis.localStorage).foveation,.4);
   assert.equal(loadSettings(globalThis.localStorage).turnSpeed,120);
   assert.equal(loadSettings(globalThis.localStorage).moveSpeed,5.5);
   assert.equal(loadSettings(globalThis.localStorage).teleport,false);assert.equal(loadSettings(globalThis.localStorage).snapTurn,false);assert.equal(loadSettings(globalThis.localStorage).snapAngle,45);
@@ -98,19 +110,21 @@ test('black settings scene preserves rig, restores world and saves only on exit'
   for(const destination of ['base','summit']){
    menu.show(new T.Vector3(),new T.Quaternion());assert.equal(menu.draft.shadows,true);
    menu.selectTab('Teleport');menu.panel.activate(menu.panel.hitAt(500,destination==='base'?130:202));
-   assert.equal(menu.open,false);assert.equal(xr.foveation,1);assert.equal(teleports.at(-1),destination);
+   assert.equal(menu.open,false);assert.equal(xr.foveation,.4);assert.equal(teleports.at(-1),destination);
   }
-  menu.show(new T.Vector3(),new T.Quaternion());menu.model.activate('sound');assert.equal(menu.draft.sound,true);menu.close();
+  menu.show(new T.Vector3(),new T.Quaternion());menu.model.activate('sound');menu.models.VR.set('foveation',.9);assert.equal(menu.draft.sound,true);menu.close();assert.equal(xr.foveation,.4,'discard restores saved foveation');
   menu.show(new T.Vector3(),new T.Quaternion());assert.equal(menu.draft.sound,false,'closing without saving discards sound draft');menu.selectTab('Debug');
+  menu.models.VR.set('foveation',.8);
   globalThis.localStorage.setItem=()=>{throw Error('quota');};
   assert.equal(menu.saveAndExit(),false);assert.equal(menu.open,true);assert.match(menu.panel.footer,/Could not save/);assert.equal(xr.foveation,0);
-  menu.close();assert.equal(xr.foveation,1);menu.close();assert.equal(xr.foveation,1);menu.panel.dispose();
+  menu.close();assert.equal(xr.foveation,.4);menu.close();assert.equal(xr.foveation,.4);menu.panel.dispose();
   const desktopMenu=new SettingsMenu(scene,rig,{},controllers);
   desktopMenu.show(new T.Vector3(),new T.Quaternion());desktopMenu.close();desktopMenu.panel.dispose();
   xr.getFoveation=()=>undefined;xr.setFoveation=value=>{xr.foveation=value;};
   const noLayerMenu=new SettingsMenu(scene,rig,{xr},controllers);
+  assert.equal(xr.foveation,.4,'reload applies stored preference even before an XR layer exists');
   noLayerMenu.show(new T.Vector3(),new T.Quaternion());assert.equal(xr.foveation,0);
-  noLayerMenu.close();assert.equal(xr.foveation,1);noLayerMenu.panel.dispose();
+  noLayerMenu.close();assert.equal(xr.foveation,.4);noLayerMenu.panel.dispose();
  }finally{globalThis.document=oldDocument;globalThis.localStorage=oldStorage;}
 });
 

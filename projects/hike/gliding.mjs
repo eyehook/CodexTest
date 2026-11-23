@@ -7,14 +7,14 @@ export class Glider {
  constructor(world,options={}){this.world=world;this.settings={...GLIDE_DEFAULTS,...options};this.position={x:0,y:0,z:0};this.velocity={x:0,y:0,z:0};this.landingVelocity={x:0,z:0};this.reset();}
  reset(){this.landingVelocity.x=this.landingVelocity.z=0;this.active=false;this.landed=false;this.velocity.x=this.velocity.y=this.velocity.z=0;this.heading=0;this.pathPitch=0;this.turnRate=0;this.bank=0;this.boostTime=0;}
  get speed(){const v=this.velocity;return Math.hypot(v.x,v.y,v.z);}
- launch(x,y,z,headYaw,vx=0,vz=0,groundRiseSpeed=0){
+ launch(x,y,z,headYaw,groundVX=0,groundVZ=0,groundRiseSpeed=0){
   if(this.active)return false;
-  const c=this.settings,v=this.velocity,p=this.position,ground=this.world.height(x,z),horizontal=Math.hypot(vx,vz);
-  if(horizontal<.05){vx=-Math.sin(headYaw)*c.launchSpeed;vz=-Math.cos(headYaw)*c.launchSpeed;}
-  else {const scale=clamp(horizontal,c.launchSpeed,c.maxSpeed)/horizontal;vx*=scale;vz*=scale;}
-  const impulse=Math.sqrt(2*c.gravity*c.launchHeight),rise=clamp(groundRiseSpeed,0,Math.hypot(vx,vz)*.5);
+  const c=this.settings,v=this.velocity,p=this.position,ground=this.world.height(x,z);
+  const forwardX=-Math.sin(headYaw),forwardZ=-Math.cos(headYaw);
+  const speed=clamp(groundVX*forwardX+groundVZ*forwardZ,c.launchSpeed,c.maxSpeed),vx=forwardX*speed,vz=forwardZ*speed;
+  const impulse=Math.sqrt(2*c.gravity*c.launchHeight),rise=clamp(groundRiseSpeed,0,Math.hypot(groundVX,groundVZ)*.5);
   v.x=vx;v.z=vz;v.y=impulse+rise;p.x=x;p.y=Math.max(y,ground)+.005;p.z=z;
-  this.heading=Math.atan2(-vx,-vz);this.pathPitch=Math.atan2(v.y,Math.hypot(vx,vz));this.turnRate=0;this.bank=0;this.boostTime=impulse/c.gravity;this.active=true;this.landed=false;return true;
+  this.heading=wrap(headYaw);this.pathPitch=Math.atan2(v.y,Math.hypot(vx,vz));this.turnRate=0;this.bank=0;this.boostTime=impulse/c.gravity;this.active=true;this.landed=false;return true;
  }
  settle(dt){this.bankToward(dt,0);}
  bankToward(dt,target){
@@ -46,6 +46,8 @@ export class Glider {
    if(this.boostTime>1e-8){
     const horizontal=Math.hypot(v.x,v.z),next=horizontal/(1+c.drag*horizontal*h);
     v.x=-Math.sin(this.heading)*next;v.z=-Math.cos(this.heading)*next;v.y-=c.gravity*h;this.boostTime=Math.max(0,this.boostTime-h);this.pathPitch=Math.atan2(v.y,next);
+    // A vertical-only jump reaches its apex with no forward flight path.
+    if(this.boostTime<=1e-8&&next<1e-8)this.pathPitch=-Math.atan(1/c.glideRatio);
    }else{
     const pitchInput=Math.sign(headPitch)*Math.max(0,Math.abs(headPitch)-c.pitchDeadZone),requested=clamp(-Math.atan(1/c.glideRatio)+pitchInput,-c.maxDive,c.maxClimb),authority=ease(speed,c.stallSpeed,c.fullLiftSpeed),target=-c.stallDive*(1-authority)+requested*authority;
     const oldPitch=this.pathPitch,delta=(target-oldPitch)*(1-Math.exp(-c.pitchResponse*h));this.pathPitch+=clamp(delta,-c.maxPitchRate*h,c.maxPitchRate*h);

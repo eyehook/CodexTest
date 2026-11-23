@@ -2,11 +2,11 @@ import {HikeAudio} from './sparrow-audio.mjs?v=4';
 import {Sparrows} from './sparrows.mjs?v=7';
 import {SUN_POSITION} from './terrain-sunlight.mjs?v=3';
 import {TerrainSunlight} from './terrain-sunlight-material.mjs?v=1';
-import {GroundNavigation} from './ground-navigation.mjs?v=4';
+import {GroundNavigation} from './ground-navigation.mjs?v=5';
 import {bindForestAudio} from './forest-audio.mjs?v=1';
 import {GraphicsWarmup} from './graphics-warmup.mjs?v=1';
 import {createLoadingView} from './loading-view.mjs?v=2';
-import {Glider,LandingRunout} from './gliding.mjs?v=glide-17';
+import {Glider,LandingRunout} from './gliding.mjs?v=glide-21';
 import {FlightButtons} from './flight-input.mjs?v=settings-tabs-1';
 import {FlightView} from './flight-view.mjs?v=glide-17';
 import {applyHeightOffset} from './height-offset.mjs?v=seated-1';
@@ -26,12 +26,11 @@ import {XRFrameState} from '../../shared/xr/session.mjs';
 import {FrameRateCounter} from '../../shared/performance/frame-rate.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {DesktopControls} from '../../shared/ui/desktop.mjs';
-import {createWorldAsync} from './world-async.mjs?v=sparrows-1';
+import {createWorldAsync} from './world-async.mjs?v=pine-thinning-3';
 import {placeAtEndpoint} from './teleport.mjs?v=settings-tabs-1';
-import {SettingsMenu} from './settings-menu.mjs?v=vr-6';
-import {APP_VERSION} from './version.mjs?v=0.25.41';
+import {SettingsMenu} from './settings-menu.mjs?v=vr-7';
+import {APP_VERSION} from './version.mjs?v=0.25.51';
 import {Terrain} from './terrain.mjs?v=cut-1';
-import {SlopeSlide} from './movement.mjs?v=slide-1';
 
 const $=s=>document.querySelector(s);
 $('#version').textContent=$('#loading-version').textContent=`v${APP_VERSION}`;
@@ -71,12 +70,12 @@ showProgress(.93,'Preparing landscape');
 const preparationStarted=performance.now();
 // Start at the canonical trailhead, facing up the trail.
 const spawn=world.start;
-const settings={speed:14,slideSlope:35};
+const settings={speed:14};
 const scene=new T.Scene();scene.background=new T.Color(0x9fbac6);scene.fog=new T.Fog(0x9fbac6,650,950);
 const camera=new T.PerspectiveCamera(70,innerWidth/innerHeight,.08,1200);camera.position.y=1.7;camera.rotation.order='YXZ';camera.rotation.x=.18;
 const rig=new T.Group(),bankRig=new T.Group(),heightRig=new T.Group();scene.add(rig);rig.add(bankRig);bankRig.add(heightRig);heightRig.add(camera);
 const renderer=new T.WebGLRenderer({canvas:$('#world'),antialias:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');renderer.xr.setFoveation(1);
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
 renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1;renderer.outputColorSpace=T.SRGBColorSpace;renderer.setClearColor(scene.background);
 scene.add(new T.HemisphereLight(0xe2edf0,0x665644,1.2));const sun=new T.DirectionalLight(0xffe5b5,2.2);sun.position.copy(SUN_POSITION);scene.add(sun);
 const terrain=new Terrain(scene,world,{initialPosition:spawn,onProgress:value=>showProgress(.93+value*.06,'Preparing landscape')});
@@ -97,7 +96,7 @@ function getTeleportRay(frame,source,origin,direction){
  heightRig.updateWorldMatrix(true,false);origin.copy(pose.transform.position).applyMatrix4(heightRig.matrixWorld);
  rayQuaternion.copy(pose.transform.orientation);direction.set(0,0,-1).applyQuaternion(rayQuaternion);heightRig.getWorldQuaternion(rayQuaternion);direction.applyQuaternion(rayQuaternion);return true;
 }
-const sliding=new SlopeSlide(world),glider=new Glider(world),runout=new LandingRunout(world),flightView=new FlightView(bankRig),walkVelocity=new T.Vector3();
+const glider=new Glider(world),runout=new LandingRunout(world),flightView=new FlightView(bankRig);
 const state=new XRFrameState(),buttons=new FlightButtons(),fps=new FrameRateCounter();
 const viewer={position:new T.Vector3(),orientation:new T.Quaternion()},head=new T.Vector3(),heading=new T.Quaternion(),euler=new T.Euler(0,0,0,'YXZ');
 const stats={triangles:0,fps:0,elevation:0,remaining:world.totalLength,along:0};const projected={};
@@ -105,7 +104,7 @@ let pendingTeleport=null;
 let walk=false,last=0,uiElapsed=0,frameCount=0,launchQueued=false;
 const keys=new Set();
 function reset(destination='base') {
-  groundNavigation.reset();sliding.reset();glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;
+  groundNavigation.reset();glider.reset();runout.reset();flightView.reset();launchQueued=false;
   placeAtEndpoint(rig,viewer,world,destination,renderer.xr.isPresenting&&!!state.pose);
   camera.rotation.set(.18,0,0);rig.updateMatrixWorld(true);
 }
@@ -194,7 +193,7 @@ vrButton.addEventListener('click',()=>void ambience.unlock());
 $('#explore').disabled=true;
 $('#world').addEventListener('webglcontextrestored',()=>warmup.invalidate());
 addEventListener('pagehide',()=>{sparrows.dispose();raptor.dispose();terrainSunlight.dispose();atmosphere.dispose();rocks.dispose();ambience.dispose();warmup.cancel();loadingView.dispose();},{once:true});
-renderer.xr.addEventListener('sessionstart',()=>{const session=renderer.xr.getSession();session.addEventListener('visibilitychange',()=>{if(session.visibilityState!=='visible')profiler.pause();});audioRequested=true;void ambience.unlock();bindForestAudio(session,ambience);glider.reset();runout.reset();flightView.reset();walkVelocity.set(0,0,0);launchQueued=false;keys.clear();walk=true;document.body.classList.add('walking');camera.rotation.set(0,0,0);fps.reset();buttons.reset();last=0;});
+renderer.xr.addEventListener('sessionstart',()=>{const session=renderer.xr.getSession();session.addEventListener('visibilitychange',()=>{if(session.visibilityState!=='visible')profiler.pause();});audioRequested=true;void ambience.unlock();bindForestAudio(session,ambience);glider.reset();runout.reset();flightView.reset();launchQueued=false;keys.clear();walk=true;document.body.classList.add('walking');camera.rotation.set(0,0,0);fps.reset();buttons.reset();last=0;});
 renderer.xr.addEventListener('sessionend',()=>{audioRequested=false;ambience.stop();warmup.cancel();loadingView.mesh.visible=false;profiler.pause();pendingTeleport=null;settingsMenu.close();flora.setCoverageSamples(flora.desktopSamples);state.reset();buttons.reset();fps.reset();last=0;camera.position.set(0,1.7,0);reset();});
 reset();
 startupTimings.preparationMs=performance.now()-preparationStarted;
@@ -270,30 +269,25 @@ function stepFrame(time,frame){
     // height is rig.y, preserving the live standing/headset height above it.
     const turn=session?readMovementAxes(session.inputSources,locomotion.axes).turn:walk&&!panelOpen?Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')):0;
     flightView.advance(glider,rig,viewer,dt,turn);
-    if(glider.landed){sliding.reset();runout.start(glider.landingVelocity.x,glider.landingVelocity.z);walkVelocity.set(0,0,0);}
+    if(glider.landed){runout.start(glider.landingVelocity.x,glider.landingVelocity.z);}
   }else if(inputLocked){
     groundNavigation.reset();
     const point=runout.update(dt,head.x,head.z);
     rig.position.x+=point.x-head.x;rig.position.z+=point.z-head.z;rig.position.y=point.y;
-    ground=point.y;glider.settle(dt);walkVelocity.set(0,0,0);
+    ground=point.y;glider.settle(dt);
   }else{
     const beforeX=head.x,beforeZ=head.z,beforeFloor=rig.position.y;
     locomotion.settings.moveSpeed=moveSpeed;
     if(!session)locomotion.settings.turnSpeed=Math.PI/2;
     let groundTeleported=false;
     if(session)groundTeleported=groundNavigation.update(locomotion,dt,session.inputSources,viewer,settingsMenu.saved,s=>state.isTracked(s.targetRaySpace),(s,o,d)=>getTeleportRay(frame,s,o,d));
-    if(groundTeleported){sliding.reset();walkVelocity.set(0,0,0);launchPressed=false;}
+    if(groundTeleported){launchPressed=false;}
     if(!session&&walk&&!panelOpen)locomotion.move(dt,Number(keys.has('KeyD'))-Number(keys.has('KeyA')),Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp')),Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')),viewer);
     flightView.sample(rig,viewer);head.copy(flightView.head);
-    if(session||walk){
-      const slide=sliding.update(head.x,head.z,dt,settings.slideSlope,moveSpeed);
-      rig.position.x+=slide.x-head.x;rig.position.z+=slide.z-head.z;head.x=slide.x;head.z=slide.z;
-    }
     ground=world.height(head.x,head.z);rig.position.y+=(ground-rig.position.y)*(1-Math.exp(-dt*18));
-    if(dt>0&&!groundTeleported)walkVelocity.set((head.x-beforeX)/dt,(rig.position.y-beforeFloor)/dt,(head.z-beforeZ)/dt);
     flightView.sample(rig,viewer);head.copy(flightView.head);
     if(launchPressed&&(session||walk)){
-      groundNavigation.reset();glider.launch(head.x,rig.position.y,head.z,flightView.heading,walkVelocity.x,walkVelocity.z,walkVelocity.y);rig.position.y=glider.position.y;sliding.reset();
+      groundNavigation.reset();glider.launch(head.x,rig.position.y,head.z,flightView.heading,dt>0&&!groundTeleported?(head.x-beforeX)/dt:0,dt>0&&!groundTeleported?(head.z-beforeZ)/dt:0,dt>0&&!groundTeleported?(rig.position.y-beforeFloor)/dt:0);rig.position.y=glider.position.y;
     }else glider.settle(dt);
   }
   flightView.sample(rig,viewer);head.copy(flightView.head);flightView.bank(viewer,glider.bank);rig.updateMatrixWorld(true);

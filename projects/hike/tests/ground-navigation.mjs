@@ -27,13 +27,13 @@ test('teleport release uses authoritative elevation and current rotated head off
  const head=viewer.position.clone().applyMatrix4(rig.matrixWorld);assert.ok(Math.hypot(head.x-destination.x,head.z-destination.z)<1e-9);assert.equal(rig.position.y,10);assert.equal(ground.arc.visible,false);
  left.gamepad.axes[3]=0;tick();left.gamepad.axes[3]=-1;tick();tick(false);assert.equal(ground.active,false);assert.equal(ground.marker.visible,false);
 });
-test('range includes elevation and rejects steep/out-of-bounds targets',()=>{
+test('range includes elevation, accepts steep targets and rejects out-of-bounds targets',()=>{
  const {ground}=setup(),origin=new T.Vector3(0,12,0),direction=new T.Vector3(0,0,-1),head=origin.clone();
  ground.aim(origin,direction,head,10);assert.equal(ground.valid,true);
  ground.aim(origin,direction,head,-10);assert.equal(ground.valid,false,'vertical displacement counts toward fifteen metres');
  const raised=new T.Vector3(0,.45,-1).normalize();ground.aim(origin,raised,head,10);
  assert.equal(ground.valid,true);assert.ok(ground.destination.distanceTo(new T.Vector3(0,10,0))>14,'arc reaches the extended range');
- ground.world={...world,normal:(x,z,out)=>Object.assign(out,{x:0,y:1,z:0,slope:36})};ground.aim(origin,direction,head,10);assert.equal(ground.valid,false);
+ ground.world={...world,normal:(x,z,out)=>Object.assign(out,{x:0,y:1,z:0,slope:60})};ground.aim(origin,direction,head,10);assert.equal(ground.valid,true);
  ground.world={...world,extent:1};ground.aim(origin,direction,head,10);assert.equal(ground.valid,false);
 });
 test('smooth mode preserves shared movement and smooth turning',()=>{
@@ -75,4 +75,18 @@ test('smooth movement with snap turning reserves left stick for strafe and right
  tick();left.gamepad.axes[2]=1;left.gamepad.axes[3]=-1;const before=rig.position.clone();tick();
  assert.equal(rig.rotation.y,.8);assert.ok(rig.position.distanceTo(before)>0);assert.equal(ground.active,false);
  right.gamepad.axes[2]=1;tick();assert.ok(Math.abs(rig.rotation.y-(.8-Math.PI/6))<1e-9);
+});
+
+test('teleport commits onto a real steep uphill plane with a slope-aligned marker',()=>{
+ const {ground,rig,nav,viewer}=setup(),left=source('left'),grade=Math.tan(Math.PI/3);
+ rig.position.set(0,10,0);rig.rotation.y=0;
+ ground.world={extent:1920,height:(x,z)=>10-z*grade,normal:(x,z,out)=>Object.assign(out,{x:0,y:.5,z:Math.sqrt(3)/2,slope:60})};
+ const tick=()=>ground.update(nav,.02,[left],viewer,settings,()=>true,(source,o,d)=>{o.copy(viewer.position).applyMatrix4(rig.matrixWorld);d.set(0,0,-1);return true;});
+ tick();left.gamepad.axes[3]=-1;tick();assert.equal(ground.valid,true);
+ const destination=ground.destination.clone(),normal=new T.Vector3(0,.5,Math.sqrt(3)/2);
+ assert.ok(new T.Vector3(0,0,1).applyQuaternion(ground.marker.quaternion).distanceTo(normal)<1e-9);
+ assert.ok(destination.y>10);left.gamepad.axes[3]=0;assert.equal(tick(),true);
+ const head=viewer.position.clone().applyMatrix4(rig.matrixWorld);
+ assert.ok(Math.hypot(head.x-destination.x,head.z-destination.z)<1e-9);
+ assert.equal(rig.position.y,ground.world.height(head.x,head.z));
 });

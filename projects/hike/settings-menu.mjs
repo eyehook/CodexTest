@@ -4,8 +4,8 @@ import {sliderValue} from '../../shared/ui/slider.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
 import {VRControlPanel} from '../../shared/ui/vr-panel.mjs';
 export const SETTINGS_KEY='hike.settings';
-const defaults=()=>({shadows:false,heightOffset:0,sound:true,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2});
-function normalizeSettings(value){return {turnSpeed:[30,60,90,120].includes(value?.turnSpeed)?value.turnSpeed:90,moveSpeed:typeof value?.moveSpeed==='number'&&Number.isFinite(value.moveSpeed)?Math.round(Math.max(1,Math.min(10,value.moveSpeed))*2)/2:2,teleport:typeof value?.teleport==='boolean'?value.teleport:true,snapTurn:typeof value?.snapTurn==='boolean'?value.snapTurn:true,snapAngle:[15,30,45].includes(value?.snapAngle)?value.snapAngle:30,sound:typeof value?.sound==='boolean'?value.sound:true,shadows:value?.shadows===true,heightOffset:typeof value?.heightOffset==='number'&&Number.isFinite(value.heightOffset)?Math.max(0,Math.min(1.5,value.heightOffset)):0};}
+const defaults=()=>({shadows:false,heightOffset:0,sound:true,teleport:true,snapTurn:true,snapAngle:30,turnSpeed:90,moveSpeed:2,foveation:1});
+function normalizeSettings(value){return {foveation:typeof value?.foveation==='number'&&Number.isFinite(value.foveation)?Math.round(Math.max(0,Math.min(1,value.foveation))*10)/10:1,turnSpeed:[30,60,90,120].includes(value?.turnSpeed)?value.turnSpeed:90,moveSpeed:typeof value?.moveSpeed==='number'&&Number.isFinite(value.moveSpeed)?Math.round(Math.max(1,Math.min(10,value.moveSpeed))*2)/2:2,teleport:typeof value?.teleport==='boolean'?value.teleport:true,snapTurn:typeof value?.snapTurn==='boolean'?value.snapTurn:true,snapAngle:[15,30,45].includes(value?.snapAngle)?value.snapAngle:30,sound:typeof value?.sound==='boolean'?value.sound:true,shadows:value?.shadows===true,heightOffset:typeof value?.heightOffset==='number'&&Number.isFinite(value.heightOffset)?Math.max(0,Math.min(1.5,value.heightOffset)):0};}
 export function loadSettings(storage){try{return normalizeSettings(JSON.parse(storage.getItem(SETTINGS_KEY)));}catch{return defaults();}}
 export function saveSettings(storage,settings){storage.setItem(SETTINGS_KEY,JSON.stringify(normalizeSettings(settings)));}
 const TABS=['General','VR','Teleport','Debug'];
@@ -85,7 +85,7 @@ class SettingsPanel extends VRControlPanel {
 }
 export class SettingsMenu {
  constructor(scene,rig,renderer,controllers,{debugModel=null,onTeleport=()=>{}}={}){
-  this.scene=scene;this.rig=rig;this.xr=renderer.xr;this.open=false;this.saved=defaults();try{this.saved=loadSettings(globalThis.localStorage);}catch{}this.draft={...this.saved};
+  this.scene=scene;this.rig=rig;this.xr=renderer.xr;this.open=false;this.saved=defaults();try{this.saved=loadSettings(globalThis.localStorage);}catch{}this.draft={...this.saved};this.xr?.setFoveation(this.saved.foveation);
   this.model=new ControlModel([
    {id:'shadows',kind:'toggle',label:'Shadows',get:()=>this.draft.shadows,set:v=>this.draft.shadows=v},
    {id:'sound',kind:'toggle',label:'Sound',get:()=>this.draft.sound,set:v=>this.draft.sound=v},
@@ -98,6 +98,7 @@ export class SettingsMenu {
    {id:'snapTurn',kind:'toggle',label:'Snap turning',get:()=>this.draft.snapTurn,set:v=>this.draft.snapTurn=v},
    {id:'turnSpeed',kind:'number',slider:true,label:'Turn speed',min:30,max:120,step:30,stepBase:0,get:()=>this.draft.turnSpeed,set:v=>this.draft.turnSpeed=v,format:v=>`${v}°/s`,disabled:()=>this.draft.snapTurn},
    {id:'snapAngle',kind:'number',slider:true,label:'Snap angle',min:15,max:45,step:15,get:()=>this.draft.snapAngle,set:v=>this.draft.snapAngle=v,format:v=>`${v}°`,disabled:()=>!this.draft.snapTurn},
+   {id:'foveation',kind:'number',slider:true,label:'Foveated rendering',min:0,max:1,step:.1,stepBase:0,get:()=>this.draft.foveation,set:v=>this.draft.foveation=v,format:v=>v.toFixed(1)},
   ]),Teleport:new ControlModel(['base','summit'].map(id=>({id,kind:'action',label:id==='base'?'Base':'Summit',run:()=>{if(this.saveAndExit())onTeleport(id);}}))),Debug:debugModel??new ControlModel([])};
   this.models.VR.onChange=id=>{if(id==='snapTurn')this.panel.cancelInteraction();};
   this.panel.onTab=tab=>this.selectTab(tab);this.panel.onSave=()=>this.saveAndExit();
@@ -121,7 +122,7 @@ export class SettingsMenu {
  }
  close(){
   if(!this.open)return;
-  this.xr?.setFoveation(1);
+  this.xr?.setFoveation(this.saved.foveation);
   this.scene.background=this.previous.background;this.scene.fog=this.previous.fog;
   for(const [child,visible] of this.previous.visible)child.visible=visible;
   this.open=false;this.panel.enabled=false;this.panel.mesh.visible=false;this.panel.hideRays();this.panel.footer='';

@@ -23,7 +23,8 @@ See [repository guidance](../../AGENTS.md) for setup and publishing rules.
 
 VR settings offer smooth walking and turning instead of teleport/snap movement,
 plus height offset and movement speed. Smooth VR walking defaults to 2 m/s;
-desktop uses 14 m/s for testing. Slopes above 35° cause sliding.
+desktop uses 14 m/s for testing. Players can walk uphill and stand on steep
+slopes without sliding. Teleport accepts inclines within its 15 m range.
 
 ## Landscape and lighting
 

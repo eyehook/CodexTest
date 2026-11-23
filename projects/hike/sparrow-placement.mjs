@@ -6,7 +6,7 @@ export function generateSparrowEncounters(world){
  const trees=world.flora?.trees??[];
  for(let k=0;k<trees.length;k+=TREE_STRIDE){
   const x=trees[k],z=trees[k+2],gx=Math.floor(x/4),gz=Math.floor(z/4),h=cellSeed(seed^0x73706172,gx,gz);
-  if(h/4294967296>=.05)continue;
+  if(h/4294967296>=.01)continue;
   records.push({id:`t:${gx}:${gz}`,kind:'tree',x,z,y:trees[k+1],canopy:3.5*trees[k+4],count:2+(h%4),seed:h});
  }
  const random=randomSource(seed^0x67726e64),route=world.route;let i=1,index=0;
@@ -24,5 +24,9 @@ export function generateSparrowEncounters(world){
    records.push({id:`g:${index}`,kind:'ground',x,y,z,canopy:0,count:3+Math.floor(random()*5),seed:cellSeed(seed^0x67726f75,index,0)});break;
   }
  }
- return records;
+ // Choose across all suitable locations rather than keeping only early encounters.
+ const ground=records.filter(r=>r.kind==='ground');
+ ground.sort((a,b)=>cellSeed(a.seed,17,0)-cellSeed(b.seed,17,0));
+ const chosen=new Set(ground.slice(0,1+(cellSeed(seed^0x67726e64,17,0)%2)));
+ return records.filter(r=>r.kind==='tree'||chosen.has(r));
 }

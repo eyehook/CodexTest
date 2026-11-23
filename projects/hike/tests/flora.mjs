@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from '../../../shared/vendor/three-r180/three.module.js';
-import {generatePines,forestNoise,pineTint,plantSuitability,PINE_RULES,TREE_STRIDE} from '../flora-placement.mjs';
+import {generatePines,forestNoise,cellSeed,pineTint,plantSuitability,PINE_RULES,TREE_STRIDE} from '../flora-placement.mjs';
 import {AveragedHeightmap} from '../averaged-heightmap.mjs';
 import {createPineVariants} from '../pine-geometry.mjs';
 import {Flora,selectPineVisibility,pineFadeShader,FLORA_RENDER} from '../flora.mjs';
@@ -22,6 +22,20 @@ test('noise woodland is deterministic, jittered, spaced and clear of the trail',
   for(let j=0;j<i;j++){const q=j*TREE_STRIDE;assert.ok(Math.hypot(x-a.trees[q],z-a.trees[q+2])>=2-.0001);}
  }
  assert.equal(variants.size,3);
+});
+test('woodland retains a deterministic half of eligible candidates regardless of noise strength',()=>{
+ const world=synthetic(),forest=generatePines(world),present=new Set();
+ for(let i=0;i<forest.count;i++){const k=i*TREE_STRIDE;present.add(`${Math.floor(forest.trees[k]/4)},${Math.floor(forest.trees[k+2]/4)}`);}
+ let rejected=0,eligible=0;
+ for(let gz=-50;gz<50;gz++)for(let gx=-50;gx<50;gx++){
+  const ix=gx+90,iz=gz+90,x=(gx+.5)*4+(cellSeed(42^0x6a697478,ix,iz)/4294967296*2-1),z=(gz+.5)*4+(cellSeed(42^0x6a69747a,ix,iz)/4294967296*2-1);
+  const noise=forestNoise(42,x,z);if(noise<.7)continue;
+  eligible++;
+  const keep=cellSeed(42^0x7468696e,gx,gz)/4294967296<.5;
+  if(!keep){rejected++;assert.ok(!present.has(`${gx},${gz}`));}
+  else if(Math.abs(z)>=6)assert.ok(present.has(`${gx},${gz}`));
+ }
+ assert.ok(rejected/eligible>.45&&rejected/eligible<.55);
 });
 test('species suitability uses normalized elevation and soft slope/treeline fades',()=>{
  const range={min:100,max:300};assert.equal(plantSuitability(100,0,range),0);assert.equal(plantSuitability(280,0,range),0);assert.equal(plantSuitability(200,33,range),0);

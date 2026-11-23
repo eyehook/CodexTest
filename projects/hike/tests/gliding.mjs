@@ -6,15 +6,58 @@ import {FlightButtons} from '../flight-input.mjs';
 import {FlightView} from '../flight-view.mjs';
 const flat={height:()=>0},advance=(g,seconds,pitch=0,tilt=0,hz=120)=>{for(let i=0;i<Math.round(seconds*hz)&&g.active;i++)g.update(1/hz,g.position.x,g.position.y,g.position.z,tilt,pitch);};
 function airborne(speed=14,options={}){const g=new Glider(flat,options);g.launch(0,300,0,0,0,-speed);return g;}
-test('stationary launch gains about 0.9 m with modest forward speed and no relaunch boost',()=>{
- const g=new Glider(flat);assert.equal(g.launch(0,0,0,0),true);assert.equal(g.velocity.z,-4);const velocity=g.velocity,position=g.position,vy=g.velocity.y;
+test('stationary launch gains about 0.9 m with immediate forward speed and no relaunch boost',()=>{
+ const g=new Glider(flat);assert.equal(g.launch(0,0,0,0),true);assert.equal(Math.hypot(g.velocity.x,g.velocity.z),4);const velocity=g.velocity,position=g.position,vy=g.velocity.y;
  assert.equal(g.launch(0,0,0,0),false);assert.equal(g.velocity.y,vy);let peak=0;
  for(let i=0;i<240&&g.active;i++){g.update(1/120,g.position.x,g.position.y,g.position.z,0,0);peak=Math.max(peak,g.position.y);}
  assert.ok(Math.abs(peak-.9)<.02,`launch gain ${peak}`);assert.equal(g.velocity,velocity);assert.equal(g.position,position);
 });
-test('walking momentum, including uphill rise, carries smoothly into launch',()=>{
- const world={height:x=>x*.3},g=new Glider(world);g.launch(0,0,0,-Math.PI/2,14,0,4.2);
- assert.equal(g.velocity.x,14);assert.equal(g.velocity.z,0);advance(g,.4,0,0);assert.equal(g.active,true);assert.ok(g.position.y-world.height(g.position.x,g.position.z)>.7);
+test('launch uses horizontal facing and a fixed impulse on flat, uphill and downhill terrain',()=>{
+ for(const grade of [-2,0,2])for(const yaw of [0,.7,-Math.PI/2,Math.PI]){
+  const world={height:(x,z)=>10+grade*x},g=new Glider(world);
+  g.launch(3,world.height(3,4)-.2,4,yaw,14,-20);
+  const speed=Math.max(4,14*-Math.sin(yaw)+-20*-Math.cos(yaw));
+  assert.ok(Math.abs(g.velocity.x+Math.sin(yaw)*speed)<1e-12);
+  assert.ok(Math.abs(g.velocity.z+Math.cos(yaw)*speed)<1e-12);
+  assert.equal(g.velocity.y,Math.sqrt(2*9.81*.9));
+  assert.equal(g.position.y,world.height(3,4)+.005);
+ }
+});
+test('uphill rise adds lift while downhill and stationary motion cannot add it',()=>{
+ const impulse=Math.sqrt(2*9.81*.9);
+ for(const [vx,vz,rise,expected] of [[0,-6,1.8,1.8],[0,-6,-1.8,0],[0,-6,20,3],[0,0,3,0],[6,0,1.8,1.8]]){
+  const g=new Glider(flat);g.launch(0,0,0,0,vx,vz,rise);
+  assert.ok(Math.abs(g.velocity.y-(impulse+expected))<1e-12);
+  assert.equal(Math.hypot(g.velocity.x,g.velocity.z),Math.max(4,-vz));
+ }
+ const uphill={height:x=>x*.3},g=new Glider(uphill);g.launch(0,0,0,-Math.PI/2,14,0,4.2);
+ advance(g,.4);assert.equal(g.active,true);assert.ok(g.position.y-uphill.height(g.position.x)>.7);
+});
+test('launch projects velocity onto facing with immediate minimum forward speed',()=>{
+ for(const yaw of [0,.9,-2.2])for(const angle of [0,Math.PI/4,Math.PI/2,Math.PI]){
+  const g=new Glider(flat),speed=6;g.launch(0,0,0,yaw,-Math.sin(yaw+angle)*speed,-Math.cos(yaw+angle)*speed);
+  const expected=Math.max(4,speed*Math.cos(angle));
+  assert.ok(Math.abs(Math.hypot(g.velocity.x,g.velocity.z)-expected)<1e-12);
+  assert.ok(Math.abs(g.heading-yaw)<1e-12);
+ }
+ for(const [vx,vz] of [[0,0],[6,0],[0,6],[0,-.5]]){
+  const g=new Glider(flat);g.launch(0,0,0,.7,vx,vz);const before=g.position.y;
+  g.update(1/120,0,before,0,0,0);
+  assert.ok(Math.hypot(g.position.x,g.position.z)>.03,'forward travel starts on the first rising frame');
+  assert.ok(g.position.y>before);assert.ok(g.boostTime>0);
+ }
+ const still=new Glider(flat);still.launch(0,0,0,1.2);assert.ok(Math.abs(Math.hypot(still.velocity.x,still.velocity.z)-4)<1e-12);assert.equal(still.heading,1.2);
+ const slow=new Glider(flat);slow.launch(0,0,0,0,0,-.5);assert.equal(slow.velocity.z,-4);
+});
+test('takeoff faces the composed world head yaw with physical offset, pitch and roll',()=>{
+ const rig=new T.Group(),bank=new T.Group();rig.add(bank);rig.position.set(120,30,-40);rig.rotation.y=.8;
+ const view=new FlightView(bank),viewer={position:new T.Vector3(.7,1.8,-.4),orientation:new T.Quaternion()};
+ for(const pitch of [-.8,0,.8])for(const roll of [-.4,0,.4]){
+  viewer.orientation.setFromEuler(new T.Euler(pitch,.6,roll,'YXZ'));view.sample(rig,viewer);
+  const g=new Glider(flat);g.launch(view.head.x,rig.position.y,view.head.z,view.heading,-Math.sin(1.4)*4,-Math.cos(1.4)*4);
+  assert.ok(Math.abs(g.heading-1.4)<1e-12);assert.ok(Math.abs(Math.hypot(g.velocity.x,g.velocity.z)-4)<1e-12);
+  assert.equal(g.velocity.y,Math.sqrt(2*9.81*.9));
+ }
 });
 test('level flight approaches an 8:1 descent and naturally sheds fast launch speed',()=>{
  const g=airborne();advance(g,25);assert.equal(g.active,true);assert.ok(g.position.y<300);assert.ok(g.speed<14);
@@ -74,7 +117,7 @@ test('landing beneath a translated, yawed, banked head preserves live standing h
  for(const height of [1.2,1.7,2]){
   const world={height:(x,z)=>x*.04+z*.02},rig=new T.Group(),bank=new T.Group(),camera=new T.Object3D();rig.add(bank);bank.add(camera);rig.position.set(100,20,40);rig.rotation.y=.7;
   const viewer={position:new T.Vector3(1.2,height,.6),orientation:new T.Quaternion()},view=new FlightView(bank),g=new Glider(world);camera.position.copy(viewer.position);view.sample(rig,viewer);
-  g.launch(view.head.x,rig.position.y,view.head.z,view.heading,0,-8);g.boostTime=0;g.pathPitch=-1;Object.assign(g.velocity,{x:0,y:-20,z:-8});
+  g.launch(view.head.x,rig.position.y,view.head.z,view.heading);g.boostTime=0;g.pathPitch=-1;Object.assign(g.velocity,{x:0,y:-20,z:-8});
   for(let i=0;i<500&&g.active;i++){view.sample(rig,viewer);const p=g.update(1/72,view.head.x,rig.position.y,view.head.z,0,-1);rig.position.x+=p.x-view.head.x;rig.position.z+=p.z-view.head.z;rig.position.y=p.y;view.bank(viewer,.05);rig.updateMatrixWorld(true);}
   view.sample(rig,viewer);const ground=world.height(view.head.x,view.head.z),actual=camera.getWorldPosition(new T.Vector3());assert.equal(g.active,false);assert.ok(Math.abs(rig.position.y-ground)<1e-8);assert.ok(Math.abs(actual.y-ground-height)<1e-8);
  }
@@ -84,7 +127,7 @@ test('thumbstick rotates the body with travel around the head and eases out on r
  for(const side of [-1,1]){
   const rig=new T.Group(),bank=new T.Group();rig.add(bank);rig.position.set(120,300,-70);rig.rotation.y=3.1;
   const viewer={position:new T.Vector3(1.2,1.65,-.6),orientation:new T.Quaternion().setFromEuler(new T.Euler(-.2,1.1,side*.5,'YXZ'))};
-  const view=new FlightView(bank),g=new Glider(flat);view.sample(rig,viewer);g.launch(view.head.x,300,view.head.z,3.1,-Math.sin(3.1)*14,-Math.cos(3.1)*14);
+  const view=new FlightView(bank),g=new Glider(flat);view.sample(rig,viewer);g.launch(view.head.x,300,view.head.z,3.1);
   const startYaw=rig.rotation.y,raw=viewer.orientation.clone();
   for(let i=0;i<240;i++){
    view.advance(g,rig,viewer,1/120,-side);view.bank(viewer,g.bank);view.sample(rig,viewer);
