@@ -13,6 +13,7 @@ Read this file, inspect `git status`, then read the target project's handoff and
 | Air Club / Air Hockey | [Handoff](projects/airhockey/HANDOFF.md) | Buildless `projects/airhockey/`; single-player room-scale air hockey |
 | Nacre | [Handoff](projects/viz/HANDOFF.md) | Buildless `projects/viz/`; seeded audiovisual chamber |
 | The Hike | [Handoff](projects/hike/HANDOFF.md) | Buildless `projects/hike/`; procedural massif, carved trail and a single snapped terrain grid |
+| Mount Snow | [Handoff](projects/ski/HANDOFF.md) | Buildless `projects/ski/`; real-world elevation and adaptive terrain |
 | Secret Garden | [Handoff](projects/secretGarden/HANDOFF.md) | Buildless `projects/secretGarden/`; deterministic procedural plants and animated growth |
 | Scene Test | [Handoff](projects/sceneTest/HANDOFF.md) | Buildless `projects/sceneTest/`; interactive WebXR objects, materials and lighting lab |
 | Clouds | [Handoff](projects/clouds/HANDOFF.md) | Buildless `projects/clouds/`; per-eye depth-aware ray marching |

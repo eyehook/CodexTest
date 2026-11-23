@@ -62,10 +62,10 @@ Three.js or browser globals and can be tested directly in Node.
 
 | Module | Interface | Current consumers |
 | --- | --- | --- |
-| `xr/locomotion.mjs` | `Locomotion` | Surface, Scene Test, Secret Garden |
+| `xr/locomotion.mjs` | `Locomotion` | Surface, Scene Test, Secret Garden, Mount Snow |
 | `xr/input.mjs` | `buttonValue(source, index = 0)`; `ButtonEdges` | Surface, Scene Test and Secret Garden edges; Space Race trigger pressure; Surface locomotion axes |
 | `xr/pointer.mjs` | `createPointerLine(options)`; `ControllerPointer` | Surface, Scene Test and Secret Garden; Swarm and Weather through shared VR UI |
-| `xr/session.mjs` | `XRFrameState` | Surface, Scene Test and Secret Garden |
+| `xr/session.mjs` | `XRFrameState` | Surface, Scene Test, Secret Garden, Mount Snow |
 | `performance/frame-rate.mjs` | `FrameRateCounter` (also exported as `FrameRate`) | Scene Test, Space Race, Weather, Clouds, Air Hockey |
 | `xr/frame-rate.mjs` | `requestFrameRate(session, target)` | Space Race, Air Hockey |
 

@@ -1,0 +1,121 @@
+# Mount Snow — terrain viewer
+
+Buildless Three.js r180 terrain viewer for desktop and Quest, with mapped
+downhill pistes highlighted in pale blue for visual inspection.
+
+## Versioning
+
+[version.mjs](version.mjs) defines the `major.minor.patch` version shown in the
+page header and browser title. Starting with `0.1.0`, increment the patch for
+each completed Ski edit, including local edits. Keep the entry script and
+version import query values in sync. Update cache keys for any other changed
+runtime files. Reset patch to zero when deliberately bumping major or minor.
+
+## Preview and controls
+
+Serve the repository root and open `/projects/ski/`. For Quest over USB, use
+the [local VR launcher](../../Start-VR.command) and open the same route in
+Quest Browser. Both modes start at the shared Big Dipper and Cloud Nine
+trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
+
+- Desktop: WASD to walk or strafe, left/right arrows to turn, up/down arrows
+  to look. Eye height is 1.7 m.
+- Quest: left stick to walk or strafe, right stick to turn. The ground rig
+  follows the DEM beneath the tracked head, with eye height from local-floor
+  headset tracking.
+- Full stick or keyboard input walks at 10 m/s and turns at 90°/s. Travel is
+  clamped to the dataset extent.
+
+## Terrain rendering
+
+[terrain.mjs](terrain.mjs) uses 256 m frustum-culled tiles, with 2, 4, 8, 16
+and 32 m vertex spacing in distance bands. Like The Hike, it chooses detail
+by player position on a snapped grid and stitches geometry across detail
+boundaries. Tiles rebuild vertex data on spacing changes and reuse vertex
+samples when only the edge topology changes. Indices are cached by topology.
+The 1 m elevation grid remains available for ground queries.
+
+The shader grades elevation from blue-gray low terrain to bright snow at
+high elevations. DEM normals shade slopes, and a 4 m baked visibility texture
+adds ridge shadows from a fixed northwest sun at 15° elevation. To regenerate
+it after preparing the DEM, run `python projects/ski/bake-shadows.py` in the
+same Python environment. Distance haze softens the far terrain. The viewer
+uses a single terrain material. The trail mask blends pale blue (`#B8DDEB`)
+into the snow before lighting, so trails inherit slope shading and distance haze
+across all LODs.
+
+## Source and coverage
+
+Elevation comes from the Vermont Center for Geographic Information and USGS
+3DEP Spring 2023 QL1 hydro-flattened bare-earth DEM. The native 35 cm samples
+use Vermont State Plane NAD83(2011), EPSG:6589, and NAVD88 orthometric elevations
+in meters (GEOID18). See [VCGI's dataset metadata](https://maps.vcgi.vermont.gov/gisdata/metadata/ElevationDEM_DEMHF0p35M2023.htm).
+
+The acquisition uses the handoff's provisional WGS84 rectangle, 42.945° to
+42.980° N and −72.940° to −72.875° longitude. It encloses that rectangle in
+the projected grid and includes a small native margin for resampling. The
+native GeoTIFF crop retains the original float samples from the remote tile
+windows and is held locally in `source/`. The [runtime metadata](data/mount-snow-1m.json)
+records the source tiles, grid origin, spacing, and elevation range.
+
+## Build and consume
+
+Use a Python environment with Rasterio and NumPy, then run
+`python projects/ski/prepare_dem.py` from the checkout. The first run reads
+public GeoTIFF windows over HTTPS. Later runs reuse the native crop. Remove
+the cached crop before rebuilding with a different footprint.
+
+[heightmap.mjs](heightmap.mjs) fetches and decompresses the grid in the browser.
+The returned object exposes `height(x, z)` for bilinear elevation sampling
+and `normal(x, z, out)` for reusable surface normals with slope in degrees.
+These match the elevation and normal interfaces used by
+[The Hike's terrain sampler](../hike/terrain-samples.mjs). Its procedural
+color, trail and world-generation inputs are separate from these interfaces.
+
+Local X increases east and local Z increases south at one unit per meter.
+The northwestern sample is (0, 0) in local coordinates. Absolute projected
+coordinates are `easting = firstSampleEasting + x`,
+`northing = firstSampleNorthing - z`. Height is absolute NAVD88 meters.
+Queries outside the grid clamp to its edge. The data is a 1 m grid resampled
+from the native DEM and rounded to the nearest centimeter for encoding.
+Terrain vertices use the same absolute elevations as ground sampling.
+
+## Piste data
+
+The [retained OpenStreetMap extract](source/mount-snow-pistes.osm) contains
+125 centerline ways, six closed piste areas and five route relations. Main
+Face, North Face, Sunbrook and Carinthia are represented. The crop remains
+provisional and mapped coverage can differ from the resort inventory.
+The [mask and trailhead manifest](data/mount-snow-pistes.json) use the same
+local coordinates as the DEM. The 2 m mask uses mapped area boundaries and
+buffered centerlines. Centerlines without a mapped width use a 24 m corridor.
+These widths are for visual testing and may differ from actual cleared runs.
+
+Run `python projects/ski/bake-pistes.py` with Rasterio, NumPy and Shapely
+to rebake from the retained snapshot. To refresh it, download the
+[OSM map extract](https://api.openstreetmap.org/api/0.6/map?bbox=-72.940,42.945,-72.875,42.980)
+and pass its path with `--osm-map`. The baker samples the high endpoint of
+each centerline against the DEM and generates the starting position and
+downhill heading. Big Dipper and Cloud Nine tie at the same OSM node.
+
+Piste data and mask © OpenStreetMap contributors, licensed under the
+[Open Database License](https://www.openstreetmap.org/copyright).
+[Mount Snow's trail maps](https://www.mountsnow.com/the-mountain/about-the-mountain/trail-maps.aspx)
+are the resort coverage reference.
+
+## Validation
+
+The native crop has no missing cells. The browser grid has 5,324 columns and
+3,916 rows and spans about 5.32 km east–west by 3.92 km north–south. The gzip
+asset is 36 MiB and decodes to about 40 MiB of unsigned 16-bit samples. The
+summit-area check returned 1,092.86 m on the runtime grid and 1,092.87 m in the
+native source. Node checks exercised the loader, interpolation, normals and
+The Hike's near and far elevation sampling. The tile regression
+(`node --test projects/ski/tests/*.mjs`) checks mixed-resolution edge vertices,
+coverage and winding. Desktop Chrome loaded the real grid, rendered the
+terrain, and responded to walking and turning with no shader or page errors.
+The piste bake is byte-reproducible from the retained extract. The mask was
+checked against representative centerlines on all four faces, and desktop
+Chrome showed the blue overlay from the Big Dipper start.
+Quest controls, comfort, stereo seams and sustained frame rate still need
+headset validation.

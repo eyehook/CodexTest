@@ -1,0 +1,25 @@
+{
+  "asset": "mount-snow-pistes.u8.gz",
+  "spacingMeters": 2,
+  "columns": 2662,
+  "rows": 1958,
+  "centerlineWays": 125,
+  "areaWays": 6,
+  "routeRelations": 5,
+  "defaultCenterlineWidthMeters": 24,
+  "spawn": {
+    "name": "Big Dipper",
+    "osmWay": 143902293,
+    "longitude": -72.9227614,
+    "latitude": 42.9592496,
+    "x": 1415.0631227504928,
+    "z": 2313.2209806437386,
+    "elevationMeters": 1094.6535702186866,
+    "towardX": 1379.7645024960361,
+    "towardZ": 2345.6209473311797
+  },
+  "sharedStart": [
+    "Big Dipper",
+    "Cloud Nine"
+  ]
+}
