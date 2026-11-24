@@ -3,7 +3,9 @@ import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {loadHeightmap} from './heightmap.mjs';
 import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.2';
-import {APP_VERSION} from './version.mjs?v=0.1.2';
+import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
+import {createLiftModels} from './lift-models.mjs?v=0.1.6';
+import {APP_VERSION} from './version.mjs?v=0.1.6';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -16,9 +18,11 @@ const EYE_HEIGHT = 1.7;
 
 async function start() {
   const pistesUrl = new URL('./data/mount-snow-pistes.json?v=1', import.meta.url);
-  const [map, response] = await Promise.all([loadHeightmap(), fetch(pistesUrl)]);
+  const liftUrl = new URL('./data/mount-snow-lifts.json?v=0.1.6', import.meta.url);
+  const [map, response, lifts] = await Promise.all([loadHeightmap(), fetch(pistesUrl), fetch(liftUrl)]);
   if (!response.ok) throw new Error(`Could not load trail metadata (HTTP ${response.status})`);
-  const pistes = await response.json();
+  if (!lifts.ok) throw new Error(`Could not load lift destinations (HTTP ${lifts.status})`);
+  const [pistes, liftGroups] = await Promise.all([response.json(), lifts.json()]);
   const material = await createTerrainMaterial(map.metadata, pistes, pistesUrl);
   const renderer = new THREE.WebGLRenderer({antialias: true});
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
@@ -31,7 +35,9 @@ async function start() {
   const rig = new THREE.Group();
   rig.add(camera);
   scene.add(rig);
+  const liftMenu = new LiftMenu(rig, liftGroups);
   const terrain = createTerrain(scene, map, material);
+  createLiftModels(scene, map, liftGroups);
   const movement = new Locomotion(rig, {moveSpeed: 10, turnSpeed: TURN_SPEED});
   const xr = new XRFrameState();
   const trackedView = {position: new THREE.Vector3(), orientation: new THREE.Quaternion()};
@@ -51,6 +57,12 @@ async function start() {
     const z = THREE.MathUtils.clamp(rig.position.z + headOffset.z, 0, terrain.depth);
     rig.position.set(x - headOffset.x, map.height(x, z), z - headOffset.z);
     terrain.update(x, z);
+  }
+
+  function placeTrackedHead(x, z) {
+    headOffset.copy(trackedView.position).applyQuaternion(rig.quaternion);
+    rig.position.x = x - headOffset.x;
+    rig.position.z = z - headOffset.z;
   }
 
   function resetDesktopCamera() {
@@ -79,14 +91,20 @@ async function start() {
     keys.add(event.code);
   });
   addEventListener('keyup', event => keys.delete(event.code));
-  renderer.xr.addEventListener('sessionend', resetDesktopCamera);
+  renderer.xr.addEventListener('sessionend', () => {
+    liftMenu.hide();
+    resetDesktopCamera();
+  });
 
   renderer.setAnimationLoop((time, frame) => {
     const dt = Math.min((time - (previousTime ?? time)) / 1000, 0.05);
     previousTime = time;
     const session = renderer.xr.getSession();
     xr.update(session, frame, renderer.xr.getReferenceSpace(), document.hidden);
-    if (!xr.active) return;
+    if (!xr.active) {
+      liftMenu.hide();
+      return;
+    }
 
     if (session) {
       const {position, orientation} = xr.pose.transform;
@@ -96,9 +114,12 @@ async function start() {
         headOffset.set(0, 0, -1).applyQuaternion(trackedView.orientation);
         const heading = Math.atan2(-headOffset.x, -headOffset.z);
         rig.rotation.y = startYaw - heading;
-        headOffset.copy(trackedView.position).applyQuaternion(rig.quaternion);
-        rig.position.set(startX - headOffset.x, 0, startZ - headOffset.z);
-      } else if (!xr.resumed) {
+        placeTrackedHead(startX, startZ);
+      }
+      const lift = liftMenu.update(frame, xr.referenceSpace, session.inputSources, trackedView);
+      if (lift) {
+        placeTrackedHead(lift.x, lift.z);
+      } else if (!xr.resumed && !liftMenu.visible) {
         movement.update(dt, session.inputSources, trackedView);
       }
       ground(trackedView);
@@ -121,7 +142,7 @@ async function start() {
       let session;
       enter.disabled = true;
       try {
-        session = await navigator.xr.requestSession('immersive-vr', {requiredFeatures: ['local-floor']});
+        session = await navigator.xr.requestSession('immersive-vr', {requiredFeatures: ['local-floor'], optionalFeatures: ['hand-tracking']});
         await renderer.xr.setSession(session);
         status.hidden = true;
         session.addEventListener('end', () => { enter.disabled = false; }, {once: true});

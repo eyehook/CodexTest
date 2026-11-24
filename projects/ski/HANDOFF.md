@@ -1,7 +1,7 @@
 # Mount Snow — terrain viewer
 
 Buildless Three.js r180 terrain viewer for desktop and Quest, with mapped
-downhill pistes in pale blue and likely tree canopy in green for visual inspection.
+downhill pistes in pale blue, likely tree canopy in green, and simple lift models.
 
 ## Versioning
 
@@ -23,6 +23,12 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
 - Quest: left stick to walk or strafe, right stick to turn. The ground rig
   follows the DEM beneath the tracked head, with eye height from local-floor
   headset tracking.
+- Quest lift map: press **Y** on the left controller to open or close the
+  panel. It follows the tracked left hand and faces the viewer.
+  Aim with the right controller and pull the trigger to choose a resort area
+  and then a lift. The panel closes on teleport. A tracked right hand can
+  point and pinch to select an open menu. Gray pills mark tracked hand or
+  controller positions. Locomotion pauses while the panel is open.
 - Full stick or keyboard input walks at 10 m/s and turns at 90°/s. Travel is
   clamped to the dataset extent.
 
@@ -104,6 +110,31 @@ Piste data and mask © OpenStreetMap contributors, licensed under the
 [Mount Snow's trail maps](https://www.mountsnow.com/the-mountain/about-the-mountain/trail-maps.aspx)
 are the resort coverage reference.
 
+## Lift destinations
+
+The [retained OpenStreetMap lift extract](source/mount-snow-lifts.geojson)
+contains 13 chairlifts, five carpets and the Voyager rope tow. The
+[19 destinations](data/mount-snow-lifts.json) are grouped by resort area,
+including Main Face Learning Area and Tubing Hill. Names and groupings are
+based on the [resort lift listings](https://www.mountsnow.com/explore-the-resort/about-the-mountain/hours-of-operation.aspx).
+Lift routes are rendered with simple static geometry. Chairlifts have posts,
+cables and small chairs, carpets have teal strips, and Voyager has a low
+rope line. Orange blocks mark both ends of every route. All positions are
+based on mapped centerlines and terrain heights. Support spacing, cable
+clearance, and chair locations are approximate. Each lift uses one culled
+instanced batch.
+
+Lift geometry is © OpenStreetMap contributors under the
+[Open Database License](https://www.openstreetmap.org/copyright).
+
+Run `python -B projects/ski/bake-lifts.py` to rebake from the retained geometry
+with the same GIS environment used for pistes. Pass `--osm-map` with the
+resort OSM XML to refresh the lift extract. The higher DEM endpoint is used
+as the upper terminal. Each arrival is approximately 8 m from it, with at
+least 2 m of clearance from mapped building footprints. These are estimated
+unloading locations. The teleport keeps your facing and places your tracked
+head over the destination in X/Z, with the rig floor set by the local DEM.
+
 ## Canopy data
 
 [VCGI's 35 cm first-return DSM](https://maps.vcgi.vermont.gov/arcgis/rest/services/EGC_services/IMG_VCGI_LIDARDSM_SP_NOCACHE_V1/ImageServer)
@@ -145,5 +176,7 @@ Chrome showed the blue overlay from the Big Dipper start.
 Canopy checks verified the strict threshold, coverage/height agreement and
 structure exclusions. Chrome displayed the green overlay and blue pistes
 together at the trailhead.
-Quest controls, comfort, stereo seams and sustained frame rate still need
-headset validation.
+Simulated XR input checks cover Y button edges, left-hand anchoring, tracked markers, trigger and
+pinch selection, and ray targeting under a rotated player rig. The destination check covers all 19 lifts. Quest gesture comfort,
+panel legibility, stereo seams and sustained frame rate still need headset
+validation.
