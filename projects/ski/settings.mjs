@@ -14,11 +14,12 @@ export function loadSettings(storage) {
     return {
       trees: typeof value?.trees === 'boolean' ? value.trees : true,
       shadows: value?.shadows === true,
+      trails: value?.trails !== false,
       heightOffset: Number.isFinite(value?.heightOffset)
         ? Math.max(0, Math.min(HEIGHT_MAX, value.heightOffset)) : 0,
     };
   } catch {
-    return {trees: true, shadows: false, heightOffset: 0};
+    return {trees: true, shadows: false, trails: true, heightOffset: 0};
   }
 }
 
@@ -75,6 +76,8 @@ export class SkiSettings {
         get: () => this.draft.trees, set: value => { this.draft.trees = value; }, format: () => ''},
       {id: 'shadows', kind: 'toggle', label: 'Shadows', group: 'Graphics',
         get: () => this.draft.shadows, set: value => { this.draft.shadows = value; }, format: () => ''},
+      {id: 'trails', kind: 'toggle', label: 'Trails', group: 'Graphics',
+        get: () => this.draft.trails, set: value => { this.draft.trails = value; }, format: () => ''},
       {id: 'heightOffset', kind: 'number', label: 'Height Offset', group: 'VR',
         min: 0, max: HEIGHT_MAX, step: HEIGHT_STEP, stepBase: 0,
         get: () => this.draft.heightOffset, set: value => { this.draft.heightOffset = value; },

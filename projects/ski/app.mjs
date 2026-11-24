@@ -5,14 +5,14 @@ import {Atmosphere, ATMOSPHERE} from '../hike/atmosphere.mjs?v=1';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {loadHeightmap} from './heightmap.mjs?v=0.1.25';
-import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.39';
+import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.45';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
-import {createLiftModels} from './lift-models.mjs?v=0.1.6';
-import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.37';
+import {createLiftModels} from './lift-models.mjs?v=0.1.44';
+import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.43';
 import {createSkis} from './skis.mjs?v=0.1.38';
 import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.39';
-import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.29';
-import {APP_VERSION} from './version.mjs?v=0.1.40';
+import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.45';
+import {APP_VERSION} from './version.mjs?v=0.1.45';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -55,7 +55,7 @@ async function start() {
   landscape.add(atmosphere.mesh);
   const liftMenu = new LiftMenu(heightRig, liftGroups);
   const terrain = createTerrain(landscape, map, material);
-  const liftsModel = createLiftModels(landscape, map, liftGroups);
+  const {model: liftsModel, highlightNearestBase} = createLiftModels(landscape, map, liftGroups);
   const trees = createTrees(landscape, map, canopy, material.uniforms.canopyViewer);
   atmosphere.apply(material);
   for (const lift of liftsModel.children) atmosphere.apply(lift.material);
@@ -97,6 +97,11 @@ async function start() {
     rig.position.set(x - headOffset.x, ski.airborne ? Math.max(floor, ski.y) : floor, z - headOffset.z);
     terrain.update(x, z);
     if (preferences.trees) trees.update(x, z);
+  }
+
+  function highlightLiftAtHead(view) {
+    headOffset.copy(view.position).applyQuaternion(rig.quaternion);
+    return highlightNearestBase(rig.position.x + headOffset.x, rig.position.z + headOffset.z);
   }
 
   function placeHead(view, x, z) {
@@ -142,6 +147,7 @@ async function start() {
   function applySettings() {
     trees.group.visible = preferences.trees;
     material.uniforms.showTreeModels.value = preferences.trees;
+    material.uniforms.showTrails.value = preferences.trails;
     landscape.visible = !settings.visible;
     scene.background = settings.visible ? black : atmosphere.horizon;
   }
@@ -174,6 +180,7 @@ async function start() {
   });
   addEventListener('keyup', event => keys.delete(event.code));
   renderer.xr.addEventListener('sessionend', () => {
+    highlightNearestBase(Infinity, Infinity);
     liftMenu.hide();
     settings.close();
     settings.suspend();
@@ -189,6 +196,7 @@ async function start() {
     const session = renderer.xr.getSession();
     xr.update(session, frame, renderer.xr.getReferenceSpace(), document.hidden);
     if (!xr.active) {
+      highlightNearestBase(Infinity, Infinity);
       liftMenu.hide();
       settings.suspend();
       resetSki();
@@ -222,22 +230,26 @@ async function start() {
       if (right !== rightController) skiButtons.reset();
       const seed = blocked || right !== rightController;
       const push = right && skiButtons.sample(right, 0, seed).pressed;
-      const pole = right && skiButtons.sample(right, 4, seed).pressed;
+      const aPressed = right && skiButtons.sample(right, 4, seed).pressed;
+      const destination = lift ?? (aPressed && !blocked ? highlightLiftAtHead(trackedView) : null);
       rightController = right;
-      if (lift) {
+      if (destination) {
         stopSki();
         ski.updateTuck(dt, 0);
-        placeHead(trackedView, lift.x, lift.z);
+        placeHead(trackedView, destination.x, destination.z);
       } else if (blocked) {
         stopSki();
         ski.updateTuck(dt, 0);
       } else {
+        const pole = aPressed;
         readMovementAxes(session.inputSources, axes);
         const steer = ski.active || push || pole ? steering.read(left ? axes.x : 0, right ? axes.turn : 0) : 0;
         navigate(dt, trackedView, axes.x, axes.z, axes.turn, steer, push, pole, buttonValue(left), buttonValue(right));
         if (!ski.active) steering.reset();
       }
       if (!settings.visible) ground(trackedView);
+      if (settingsConsumedFrame || liftMenu.visible) highlightNearestBase(Infinity, Infinity);
+      else highlightLiftAtHead(trackedView);
     } else {
       desktopPitch = THREE.MathUtils.clamp(
         desktopPitch + dt * TURN_SPEED * axis('ArrowDown', 'ArrowUp'), -1.45, 1.45);
@@ -253,6 +265,7 @@ async function start() {
       navigate(dt, desktopView, side, axis('KeyW', 'KeyS'), turn, side || turn,
         push, pole, Number(keys.has('ShiftLeft') || keys.has('ShiftRight')), Number(pushDown));
       ground(desktopView);
+      highlightLiftAtHead(desktopView);
     }
     const viewer = session ? trackedView : desktopView;
     heightRig.position.y = ski.viewOffset(session ? preferences.heightOffset : 0, viewer.position.y);

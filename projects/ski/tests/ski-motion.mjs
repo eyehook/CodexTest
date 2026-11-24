@@ -207,7 +207,7 @@ test('tucking eases view height relative to seated offset and reduces drag witho
   assert.equal(tucked.viewOffset(1.2, 0.55), 1.2);
 });
 
-test('a pole push adds 5 m/s from walking and at all grounded ski speeds', () => {
+test('a pole push adds 5 m/s from walking and at all forward ski speeds', () => {
   const ski = new SkiMotion(() => 500, 1000, 1000);
   ski.polePush(0, -1);
   assert.equal(ski.active, true);
@@ -222,6 +222,24 @@ test('a pole push adds 5 m/s from walking and at all grounded ski speeds', () =>
   ski.vz = -4;
   ski.polePush(1, 0);
   assert.equal(speed(ski), 4);
+});
+
+test('a pole push counters backward travel along the skis and preserves sideways momentum', () => {
+  const ski = new SkiMotion(() => 500, 1000, 1000);
+  for (const [initial, expected] of [[8, 3], [3, -2]]) {
+    ski.push(0, -1);
+    ski.vx = 2;
+    ski.vz = initial;
+    ski.polePush(0, -1);
+    assert.equal(ski.vx, 2);
+    assert.equal(ski.vz, expected);
+  }
+
+  ski.vx = 0;
+  ski.vz = 5;
+  ski.polePush(0, -1);
+  assert.equal(ski.vz, 0);
+  assert.equal(ski.active, false);
 });
 
 test('releasing a tuck adds immediate upward momentum on flat snow or a steady incline', () => {

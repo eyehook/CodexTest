@@ -129,6 +129,7 @@ export async function createTerrainMaterial(
       canopySpacing: {value: canopy.spacingMeters},
       canopyGreen: {value: new THREE.Color(0x579657)},
       canopyViewer: {value: new THREE.Vector2()},
+      showTrails: {value: true},
       showTreeModels: {value: true},
       pineShadowsEnabled: {value: false},
       pineDepth: {value: null},
@@ -157,7 +158,7 @@ export async function createTerrainMaterial(
     fragmentShader: `
       uniform vec3 sun, low, middle, high, trailBlue, canopyGreen;
       uniform sampler2D shadows, trails, trees;
-      uniform bool showTreeModels, pineShadowsEnabled, skiShadowsEnabled;
+      uniform bool showTrails, showTreeModels, pineShadowsEnabled, skiShadowsEnabled;
       uniform vec3 skiShadowCenters[2], skiShadowNormals[2], skiShadowRight;
       uniform vec2 skiShadowSize;
       uniform sampler2D pineDepth;
@@ -211,8 +212,10 @@ export async function createTerrainMaterial(
         float elevation = clamp((terrainPoint.y - minHeight) / (maxHeight - minHeight), 0.0, 1.0);
         vec3 snow = mix(low, middle, smoothstep(0.0, 0.57, elevation));
         snow = mix(snow, high, smoothstep(0.38, 1.0, elevation));
-        float trail = texture2D(trails, (terrainPoint.xz / trailSpacing + 0.5) / trailSize).r;
-        snow = mix(snow, trailBlue, trail);
+        if (showTrails) {
+          float trail = texture2D(trails, (terrainPoint.xz / trailSpacing + 0.5) / trailSize).r;
+          snow = mix(snow, trailBlue, trail);
+        }
         float canopy = texture2D(trees, (terrainPoint.xz / canopySpacing + 0.5) / canopySize).r;
         float canopyFade = showTreeModels ? smoothstep(${FADE_START.toFixed(1)}, ${FAR.toFixed(1)},
           length(terrainPoint.xz - canopyViewer)) : 1.0;

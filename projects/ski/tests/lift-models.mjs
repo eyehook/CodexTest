@@ -9,7 +9,7 @@ test('all mapped lift types render distinct ground-aligned routes with finite tr
   const lifts = Object.values(groups).flat();
   const scene = new THREE.Scene();
   const height = (x, z) => 700 + x * 0.08 - z * 0.025;
-  const model = createLiftModels(scene, {height}, groups);
+  const {model} = createLiftModels(scene, {height}, groups);
   assert.equal(model.children.length, 19);
   assert.equal(scene.children[0], model);
   const matrix = new THREE.Matrix4();
@@ -28,4 +28,31 @@ test('all mapped lift types render distinct ground-aligned routes with finite tr
     assert.ok(position.distanceTo(new THREE.Vector3(x, height(x, z) + 0.8, z)) < 0.001);
     assert.deepEqual(lift.route.at(-1), [lift.upper.x, lift.upper.z]);
   }
+});
+
+test('the closest base within fifteen meters highlights and returns its unloading destination', () => {
+  const first = {name: 'First', type: 'Carpet', route: [[0, 0], [0, 30]], x: 0, z: 38};
+  const second = {name: 'Second', type: 'Carpet', route: [[4, 0], [4, 30]], x: 4, z: 38};
+  const {model, highlightNearestBase} = createLiftModels(
+    new THREE.Scene(), {height: () => 0}, {area: [first, second]});
+  const color = new THREE.Color();
+  const baseColor = mesh => {
+    mesh.getColorAt(0, color);
+    return color.getHex();
+  };
+  const [firstMesh, secondMesh] = model.children;
+  const original = baseColor(firstMesh);
+
+  assert.equal(highlightNearestBase(-15.01, 0), null);
+  assert.equal(highlightNearestBase(-15, 0), first);
+  const highlight = baseColor(firstMesh);
+  assert.notEqual(highlight, original);
+  assert.equal(baseColor(secondMesh), original);
+
+  assert.equal(highlightNearestBase(3, 0), second);
+  assert.equal(baseColor(firstMesh), original);
+  assert.equal(baseColor(secondMesh), highlight);
+
+  assert.equal(highlightNearestBase(...second.route.at(-1)), null);
+  assert.equal(baseColor(secondMesh), original);
 });

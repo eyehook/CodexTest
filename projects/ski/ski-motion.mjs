@@ -90,10 +90,15 @@ export class SkiMotion {
   polePush(forwardX, forwardZ) {
     if (this.airborne) return;
     const speed = Math.hypot(this.vx, this.vz);
-    if (this.active && speed > 0) {
+    const alongSkis = this.vx * forwardX + this.vz * forwardZ;
+    if (this.active && speed > 0 && alongSkis >= 0) {
       const scale = 1 + POLE_PUSH_SPEED / speed;
       this.vx *= scale;
       this.vz *= scale;
+    } else if (this.active) {
+      this.vx += forwardX * POLE_PUSH_SPEED;
+      this.vz += forwardZ * POLE_PUSH_SPEED;
+      if (this.vx === 0 && this.vz === 0) this.stop();
     } else {
       this.vx = forwardX * POLE_PUSH_SPEED;
       this.vz = forwardZ * POLE_PUSH_SPEED;

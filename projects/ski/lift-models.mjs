@@ -35,6 +35,9 @@ export function createLiftModels(scene, map, groups) {
   const matrices = [];
   const colors = [];
   const terminals = new THREE.Color(0xda8542);
+  const highlightedTerminal = new THREE.Color(0xfff45c);
+  const bases = [];
+  let highlighted = null;
   const steel = new THREE.Color(0x626e78);
 
   function box(position, width, height, depth, color) {
@@ -105,7 +108,33 @@ export function createLiftModels(scene, map, groups) {
     }
     mesh.computeBoundingSphere();
     model.add(mesh);
+    const [x, z] = lift.route[0];
+    bases.push({x, z, mesh, lift});
   }
   scene.add(model);
-  return model;
+  function highlightNearestBase(x, z) {
+    let nearest = null;
+    let nearestDistanceSquared = 15 ** 2;
+    for (const base of bases) {
+      const distanceSquared = (base.x - x) ** 2 + (base.z - z) ** 2;
+      if (distanceSquared <= nearestDistanceSquared && (!nearest || distanceSquared < nearestDistanceSquared)) {
+        nearest = base;
+        nearestDistanceSquared = distanceSquared;
+      }
+    }
+    if (nearest !== highlighted) {
+      if (highlighted) {
+        highlighted.mesh.setColorAt(0, terminals);
+        highlighted.mesh.instanceColor.needsUpdate = true;
+      }
+      if (nearest) {
+        nearest.mesh.setColorAt(0, highlightedTerminal);
+        nearest.mesh.instanceColor.needsUpdate = true;
+      }
+      highlighted = nearest;
+    }
+    return nearest?.lift ?? null;
+  }
+
+  return {model, highlightNearestBase};
 }

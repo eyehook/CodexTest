@@ -6,7 +6,7 @@ instanced pine trees, and ground-following skiing.
 
 ## Start here
 
-- Current version **v0.1.40**. Start with [app.mjs](app.mjs) for the runtime,
+- Current version **v0.1.45**. Start with [app.mjs](app.mjs) for the runtime,
   [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
   [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
 - The newest rendering change is the **2048² PCFSoft pine-shadow filter**.
@@ -42,7 +42,8 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
   the trigger to choose a tab or change a setting. **Graphics → Trees**
   toggles individual pine models. With Trees off, the green canopy tint
   is visible at every distance. **Graphics →
-  Shadows** enables local pine and ski shadows. **VR → Height
+  Shadows** enables local pine and ski shadows. **Graphics → Trails**
+  toggles the blue piste overlay. **VR → Height
   Offset** raises the tracked view and hands by 0–2 m in 0.05 m steps for
   seated play. Preferences load on startup and apply when the menu closes.
 - Quest lift map: press **Y** on the left controller to open or close the
@@ -55,7 +56,9 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
   clamped to the dataset extent.
 - Quest ski mode: press the right trigger to push off along the skis. Steer
   with either thumbstick and squeeze the left trigger to brake. Hold the right trigger to tuck, and release to stand.
-  Press **A** to push with your poles, including from walk mode.
+  Press **A** to push with your poles, including from walk mode. When a
+  lift base is highlighted in yellow, **A** takes you to that lift's upper
+  unloading point and stops an active ski run.
 - Desktop ski mode: Space pushes off, hold Space to tuck, A/D or left/right
   arrows steer, E pole-pushes, and Shift brakes. A full stop automatically
   resumes walking in both modes.
@@ -63,8 +66,8 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
 ## Settings
 
 [settings.mjs](settings.mjs) uses the shared control model and VR slider
-panel, with inline Trees and Shadows checkboxes and the Height Offset slider.
-Defaults are Trees on, Shadows off and 0 m height offset. The browser saves
+panel, with inline Trees, Shadows and Trails checkboxes and the Height Offset slider.
+Defaults are Trees and Trails on, Shadows off and 0 m height offset. The browser saves
 on B close and when leaving XR with the settings open. While the menu is visible,
 walking, skiing and the lift map are suspended. The VR offset lives on a
 child rig containing the camera, hands and menus, so terrain contact and
@@ -91,7 +94,9 @@ The player can look down to see them while skiing.
 
 The right-trigger launch is 5.5 m/s. A pole push from walk mode starts at
 5 m/s. While skiing on snow, each fresh press adds 5 m/s along the current
-course at any speed. Pole pushes have no effect in the air. Sliding
+course during forward travel. While sliding backward, a push adds 5 m/s
+along the skis’ forward heading, slowing or reversing the slide. Pole
+pushes have no effect in the air. Sliding
 resistance and air drag slow the skier.
 Holding the right trigger while skiing eases the head toward 1 m above
 the ski stance, including when a seated offset is set, and reduces
@@ -240,7 +245,10 @@ including Main Face Learning Area and Tubing Hill. Names and groupings are
 based on the [resort lift listings](https://www.mountsnow.com/explore-the-resort/about-the-mountain/hours-of-operation.aspx).
 Lift routes are rendered with simple static geometry. Chairlifts have posts,
 cables and small chairs, carpets have teal strips, and Voyager has a low
-rope line. Orange blocks mark both ends of every route. All positions are
+rope line. Orange blocks mark both ends of every route. The closest lower terminal
+within 15 m horizontally of the player's head position turns yellow in
+desktop and Quest. The highlight is suspended while a Quest menu is open.
+All positions are
 based on mapped centerlines and terrain heights. Support spacing, cable
 clearance, and chair locations are approximate. Each lift uses one culled
 instanced batch.
@@ -336,5 +344,5 @@ even when Trees is off.
   from 17.0 ms to 5.1 ms after incremental tile updates. That measured
   CPU tile work before rendering.
 - On Quest, verify stereo sky and terrain seams, seated tuck and pop feel,
-  menu legibility and lift arrivals. Compare Shadows off and on on the
+  menu legibility, lift arrivals and the **A** shortcut at highlighted bases. Compare Shadows off and on on the
   same run if there are hitches. Sustained headset frame time is unmeasured.
