@@ -1,11 +1,13 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {ButtonEdges, buttonValue, deadzone, readMovementAxes} from '../../shared/xr/input.mjs';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {loadHeightmap} from './heightmap.mjs';
 import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.2';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
 import {createLiftModels} from './lift-models.mjs?v=0.1.6';
-import {APP_VERSION} from './version.mjs?v=0.1.6';
+import {SkiMotion} from './ski-motion.mjs?v=0.1.8';
+import {APP_VERSION} from './version.mjs?v=0.1.8';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -39,17 +41,23 @@ async function start() {
   const terrain = createTerrain(scene, map, material);
   createLiftModels(scene, map, liftGroups);
   const movement = new Locomotion(rig, {moveSpeed: 10, turnSpeed: TURN_SPEED});
+  const ski = new SkiMotion(map.height, terrain.width, terrain.depth);
+  const skiForward = new THREE.Vector3();
+  const axes = {x: 0, z: 0, turn: 0};
+  const trigger = new ButtonEdges();
   const xr = new XRFrameState();
   const trackedView = {position: new THREE.Vector3(), orientation: new THREE.Quaternion()};
   const desktopView = {position: camera.position, orientation: camera.quaternion};
   const headOffset = new THREE.Vector3();
   const keys = new Set();
-  const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
+  const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'ShiftLeft', 'ShiftRight']);
   const {x: startX, z: startZ, towardX, towardZ} = pistes.spawn;
   const startYaw = Math.atan2(startX - towardX, startZ - towardZ);
   const axis = (negative, positive) => Number(keys.has(positive)) - Number(keys.has(negative));
   let previousTime;
   let desktopPitch = -0.13;
+  let desktopPushDown = false;
+  let rightController = null;
 
   function ground(view) {
     headOffset.copy(view.position).applyQuaternion(rig.quaternion);
@@ -59,10 +67,36 @@ async function start() {
     terrain.update(x, z);
   }
 
-  function placeTrackedHead(x, z) {
-    headOffset.copy(trackedView.position).applyQuaternion(rig.quaternion);
+  function placeHead(view, x, z) {
+    headOffset.copy(view.position).applyQuaternion(rig.quaternion);
     rig.position.x = x - headOffset.x;
     rig.position.z = z - headOffset.z;
+  }
+
+  function navigate(dt, view, x, z, turn, steer, push, brake) {
+    if (push) {
+      skiForward.set(0, 0, -1).applyQuaternion(view.orientation);
+      skiForward.y = 0;
+      if (skiForward.lengthSq() < 1e-8) skiForward.set(0, 0, -1);
+      skiForward.normalize().applyQuaternion(rig.quaternion);
+      ski.push(skiForward.x, skiForward.z);
+    }
+    if (!ski.active) {
+      movement.move(dt, x, z, turn, view);
+      return;
+    }
+    headOffset.copy(view.position).applyQuaternion(rig.quaternion);
+    ski.advance(dt, rig.position.x + headOffset.x, rig.position.z + headOffset.z,
+      deadzone(steer, 0.15), brake);
+    rig.rotation.y = ski.followYaw(rig.rotation.y, dt);
+    placeHead(view, ski.x, ski.z);
+  }
+
+  function resetSki() {
+    ski.stop();
+    trigger.reset();
+    rightController = null;
+    desktopPushDown = false;
   }
 
   function resetDesktopCamera() {
@@ -93,6 +127,7 @@ async function start() {
   addEventListener('keyup', event => keys.delete(event.code));
   renderer.xr.addEventListener('sessionend', () => {
     liftMenu.hide();
+    resetSki();
     resetDesktopCamera();
   });
 
@@ -103,6 +138,7 @@ async function start() {
     xr.update(session, frame, renderer.xr.getReferenceSpace(), document.hidden);
     if (!xr.active) {
       liftMenu.hide();
+      resetSki();
       return;
     }
 
@@ -114,21 +150,40 @@ async function start() {
         headOffset.set(0, 0, -1).applyQuaternion(trackedView.orientation);
         const heading = Math.atan2(-headOffset.x, -headOffset.z);
         rig.rotation.y = startYaw - heading;
-        placeTrackedHead(startX, startZ);
+        resetSki();
+        placeHead(trackedView, startX, startZ);
       }
       const lift = liftMenu.update(frame, xr.referenceSpace, session.inputSources, trackedView);
+      let left, right;
+      for (const source of session.inputSources) {
+        if (source.handedness === 'left' && source.gamepad && xr.isTracked(source.targetRaySpace)) left = source;
+        if (source.handedness === 'right' && source.gamepad && xr.isTracked(source.targetRaySpace)) right = source;
+      }
+      const blocked = xr.resumed || liftMenu.visible || !!lift;
+      if (right !== rightController) trigger.reset();
+      const push = right && trigger.sample(right, 0, blocked || right !== rightController).pressed;
+      rightController = right;
       if (lift) {
-        placeTrackedHead(lift.x, lift.z);
-      } else if (!xr.resumed && !liftMenu.visible) {
-        movement.update(dt, session.inputSources, trackedView);
+        ski.stop();
+        placeHead(trackedView, lift.x, lift.z);
+      } else if (blocked) {
+        ski.stop();
+      } else {
+        readMovementAxes(session.inputSources, axes);
+        navigate(dt, trackedView, axes.x, axes.z, axes.turn, left ? axes.x : 0, push, buttonValue(left));
       }
       ground(trackedView);
     } else {
       desktopPitch = THREE.MathUtils.clamp(
         desktopPitch + dt * TURN_SPEED * axis('ArrowDown', 'ArrowUp'), -1.45, 1.45);
       camera.rotation.x = desktopPitch;
-      movement.move(dt, axis('KeyA', 'KeyD'), axis('KeyW', 'KeyS'),
-        axis('ArrowLeft', 'ArrowRight'), desktopView);
+      const pushDown = keys.has('Space');
+      const push = pushDown && !desktopPushDown && !xr.resumed;
+      desktopPushDown = pushDown;
+      const side = axis('KeyA', 'KeyD');
+      const turn = axis('ArrowLeft', 'ArrowRight');
+      navigate(dt, desktopView, side, axis('KeyW', 'KeyS'), turn, side || turn,
+        push, Number(keys.has('ShiftLeft') || keys.has('ShiftRight')));
       ground(desktopView);
     }
     renderer.render(scene, camera);

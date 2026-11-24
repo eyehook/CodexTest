@@ -1,7 +1,8 @@
 # Mount Snow — terrain viewer
 
 Buildless Three.js r180 terrain viewer for desktop and Quest, with mapped
-downhill pistes in pale blue, likely tree canopy in green, and simple lift models.
+downhill pistes in pale blue, likely tree canopy in green, simple lift models,
+and ground-following skiing.
 
 ## Versioning
 
@@ -31,6 +32,26 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
   controller positions. Locomotion pauses while the panel is open.
 - Full stick or keyboard input walks at 10 m/s and turns at 90°/s. Travel is
   clamped to the dataset extent.
+- Quest ski mode: press the right trigger to push off in the direction
+  you're looking. Steer with left-stick left/right and squeeze the left
+  trigger to brake. Release and press the right trigger again to boost.
+- Desktop ski mode: Space pushes off or boosts, A/D or left/right
+  arrows steer, and Shift brakes. A full stop automatically resumes walking
+  in both modes.
+
+## Ski motion
+
+[The ski simulation](ski-motion.mjs) projects gravity onto the local slope
+sampled from the DEM. Momentum carries across the slope, steering changes
+course with a speed-dependent turn rate, and sliding resistance plus
+quadratic air drag slow the skier. The launch is 5.5 m/s and each fresh
+boost adds 3 m/s along the current course. Brake pressure controls
+deceleration. The rig follows the ground and smoothly turns toward actual
+travel direction, including downhill drift. A 5° yaw dead zone limits small
+corrections, and course following only runs above 1 m/s. The right stick has
+no ski-mode binding. Head tracking remains independent of rig yaw.
+The map, lift teleports, and tracking loss stop the current run. Skiing
+also ends at the terrain edge or when speed reaches the standing threshold.
 
 ## Terrain rendering
 
@@ -180,3 +201,7 @@ Simulated XR input checks cover Y button edges, left-hand anchoring, tracked mar
 pinch selection, and ray targeting under a rotated player rig. The destination check covers all 19 lifts. Quest gesture comfort,
 panel legibility, stereo seams and sustained frame rate still need headset
 validation.
+
+Focused ski checks cover gravity on uphill/downhill grades, boost, braking,
+steering, stopping at the terrain boundary, 72 Hz versus 120 Hz integration,
+and course following during cross-slope drift and across the yaw wrap.
