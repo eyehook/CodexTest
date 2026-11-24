@@ -41,13 +41,18 @@ test('tree batches unload and reproduce their instance transforms when revisited
   const map = {metadata: {columns: 1001, rows: 1001}, height: () => 500};
   const trees = createTrees(scene, map, canopy());
   trees.update(20, 20);
-  const initial = trees.group.children[0].instanceMatrix.array.slice();
+  const firstChunk = trees.group.children[0];
+  const initial = firstChunk.instanceMatrix.array.slice();
   const count = trees.group.children.length;
-  assert.ok(count > 0 && count <= 36);
+  assert.ok(trees.group.children.some(mesh => mesh.boundingSphere.center.distanceTo(
+    new THREE.Vector3(20, 500, 20)) > 750));
   trees.update(980, 980);
-  assert.notDeepEqual(trees.group.children[0].instanceMatrix.array, initial);
+  assert.equal(firstChunk.parent, null);
   trees.update(20, 20);
-  assert.deepEqual(trees.group.children[0].instanceMatrix.array, initial);
+  const rebuilt = trees.group.children.find(mesh =>
+    mesh.instanceMatrix.array[12] === initial[12] && mesh.instanceMatrix.array[14] === initial[14]);
+  assert.ok(rebuilt);
+  assert.deepEqual(rebuilt.instanceMatrix.array, initial);
   assert.equal(trees.group.children.length, count);
 });
 
@@ -94,4 +99,24 @@ test('streamed trees clear rotated building footprints, including overhanging cr
   assert.equal(hasTree(inside), false);
   assert.equal(hasTree(overhang), false);
   assert.equal(hasTree(clear), true);
+});
+
+test('distant tree chunks switch to a pyramid and trunk without rebuilding instances', () => {
+  const map = {metadata: {columns: 1001, rows: 1001}, height: () => 500};
+  const trees = createTrees(new THREE.Scene(), map, canopy());
+  trees.update(20, 20);
+  const near = trees.group.children[0];
+  const far = trees.group.children.find(mesh => mesh.boundingSphere.center.x > 550 &&
+    mesh.boundingSphere.center.x < 650 && mesh.boundingSphere.center.z < 96);
+  assert.ok(far);
+  assert.equal(near.geometry.attributes.position.count / 3, 46);
+  assert.equal(far.geometry.attributes.position.count / 3, 18);
+  const matrices = far.instanceMatrix;
+  const colors = far.instanceColor;
+
+  trees.update(300, 20);
+  assert.equal(far.parent, trees.group);
+  assert.equal(far.geometry, near.geometry);
+  assert.equal(far.instanceMatrix, matrices);
+  assert.equal(far.instanceColor, colors);
 });

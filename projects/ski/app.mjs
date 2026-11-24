@@ -5,15 +5,15 @@ import {Atmosphere, ATMOSPHERE} from '../hike/atmosphere.mjs?v=1';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {loadHeightmap} from './heightmap.mjs?v=0.1.25';
-import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.48';
+import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.59';
 import {createBuildings} from './buildings.mjs?v=0.1.47';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
 import {createLiftModels} from './lift-models.mjs?v=0.1.46';
 import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.43';
-import {createSkis} from './skis.mjs?v=0.1.38';
-import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.48';
+import {createSkis} from './skis.mjs?v=0.1.58';
+import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.59';
 import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.45';
-import {APP_VERSION} from './version.mjs?v=0.1.48';
+import {APP_VERSION} from './version.mjs?v=0.1.59';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -45,7 +45,7 @@ async function start() {
   document.getElementById('view').appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(ATMOSPHERE.horizon, 1900, 4800);
+  scene.fog = new THREE.Fog(ATMOSPHERE.horizon, 1000, 3000);
   const atmosphere = new Atmosphere(scene, {
     ...ATMOSPHERE,
     heightScale: map.metadata.minimumElevationMeters + ATMOSPHERE.heightScale,
@@ -276,7 +276,7 @@ async function start() {
     }
     const viewer = session ? trackedView : desktopView;
     heightRig.position.y = ski.viewOffset(session ? preferences.heightOffset : 0, viewer.position.y);
-    skis.update(viewer, ski, !settings.visible, preferences.shadows);
+    skis.update(viewer, ski, !settings.visible, preferences.shadows, dt);
     const shadowViewer = material.uniforms.canopyViewer.value;
     shadows.update(preferences.shadows && preferences.trees && !settings.visible, shadowViewer.x, shadowViewer.y);
     renderer.render(scene, camera);

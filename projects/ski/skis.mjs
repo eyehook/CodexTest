@@ -4,6 +4,8 @@ const LENGTH = 1.7;
 const HALF_WIDTH = 0.055;
 const SEPARATION = 0.28;
 const THICKNESS = 0.035;
+const SURFACE_CLEARANCE = 0.005;
+const POSE_TIME_CONSTANT = 0.06;
 
 export function createSkiShadowUniforms() {
   return {
@@ -46,10 +48,12 @@ export function createSkis(rig, height, shadows = createSkiShadowUniforms()) {
   const orientation = new THREE.Quaternion();
 
   return {
-    update(view, motion, visible, castShadows = false) {
+    update(view, motion, visible, castShadows = false, dt = 0) {
+      const wasVisible = pair.visible;
       pair.visible = visible && motion.active;
       shadows.skiShadowsEnabled.value = pair.visible && castShadows;
       if (!pair.visible) return;
+      const blend = wasVisible ? -Math.expm1(-dt / POSE_TIME_CONSTANT) : 1;
       pair.position.set(view.position.x, 0, view.position.z);
       pair.rotation.y = motion.angle ?? 0;
       const yaw = rig.rotation.y + pair.rotation.y;
@@ -57,17 +61,18 @@ export function createSkis(rig, height, shadows = createSkiShadowUniforms()) {
       const fz = -Math.cos(yaw) * LENGTH / 2;
       if (castShadows) shadows.skiShadowRight.value.set(Math.cos(yaw), 0, -Math.sin(yaw));
       for (const [i, ski] of skis.entries()) {
-        if (motion.airborne) {
-          ski.position.y = 0.025;
-          ski.rotation.x = 0;
-        } else {
+        let targetOffset = SURFACE_CLEARANCE;
+        let targetPitch = 0;
+        if (!motion.airborne) {
           point.set(ski.position.x, 0, 0);
           pair.localToWorld(point);
           const nose = height(point.x + fx, point.z + fz);
           const tail = height(point.x - fx, point.z - fz);
-          ski.position.y = Math.max(height(point.x, point.z), (nose + tail) / 2) - rig.position.y + 0.025;
-          ski.rotation.x = Math.atan2(nose - tail, LENGTH);
+          targetOffset += Math.max(height(point.x, point.z), (nose + tail) / 2) - rig.position.y;
+          targetPitch = Math.atan2(nose - tail, LENGTH);
         }
+        ski.position.y = THREE.MathUtils.lerp(ski.position.y, targetOffset, blend);
+        ski.rotation.x = THREE.MathUtils.lerp(ski.rotation.x, targetPitch, blend);
         if (castShadows) {
           ski.getWorldPosition(shadows.skiShadowCenters.value[i]);
           ski.getWorldQuaternion(orientation);

@@ -6,7 +6,7 @@ instanced pine trees, and ground-following skiing.
 
 ## Start here
 
-- Current version **v0.1.48**. Start with [app.mjs](app.mjs) for the runtime,
+- Current version **v0.1.59**. Start with [app.mjs](app.mjs) for the runtime,
   [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
   [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
 - The repository contains the generated browser assets. GIS tools and the
@@ -85,7 +85,11 @@ independent of rig yaw.
 Ski steering has a 5% stick dead zone. The first stick outside it owns
 steering until it returns to neutral. If both engage on the same frame,
 the stronger input wins, with left taking an exact tie. The visible 1.70 m skis
-follow the tracked horizontal footprint and pitch to match the snow.
+follow the tracked horizontal footprint and move vertically with the rig
+each frame. Each ski smooths pitch and its individual height offset relative
+to the rig, with a 5 mm rendering clearance. The response covers about 95%
+of a pose change in 180 ms. Ski physics and the player rig use immediate
+contact.
 The player can look down to see them while skiing.
 
 The right-trigger launch is 5.5 m/s. A pole push from walk mode starts at
@@ -132,8 +136,8 @@ The [sunlight manifest](data/mount-snow-sun.json) supplies the direction for
 the terrain, pine and ski shaders. The trail mask blends pale blue
 (`#B8DDEB`) into the snow before lighting, so trails inherit slope shading
 and distance haze across all LODs. Near the viewer, forest ground uses the snow palette.
-From 380 m to 400 m, the shader blends in the green canopy mask, which
-represents distant forest after the individual trees fade out.
+From 750 m to 800 m, the shader blends in a muted gray-green canopy tint (`#465743`)
+matched to the pine palette as individual trees fade out.
 
 ## Sky and atmospheric perspective
 
@@ -142,7 +146,7 @@ horizon-to-zenith sky and distance haze on terrain, trees, lifts and buildings.
 The full-screen triangle uses each render eye's inverse projection.
 Mount Snow uses the same sky palette and 90–950 m atmospheric blend,
 with a height scale adjusted for the DEM's absolute elevations and a
-1,900–4,800 m final visibility fade suited to the larger terrain footprint.
+1,000–3,000 m final visibility fade into the sky.
 Settings hide the sky with the landscape. Hands, skis and menus are outside
 the atmosphere hook.
 
@@ -300,8 +304,10 @@ corridors, including glades, are left available for visual comparison.
 
 ## Trees
 
-[trees.mjs](trees.mjs) uses one low-poly model with three foliage tiers and a
-trunk. Grid coordinates seed the position, height, crown radius, yaw and
+[trees.mjs](trees.mjs) uses three foliage tiers and a trunk nearby, and a
+single square pyramid with a trunk for chunks entirely beyond 400 m, with
+padding for the snapped update grid. The two models reuse the same instance
+transforms and colors. Grid coordinates seed the position, height, crown radius, yaw and
 color. A jittered 6 m grid gives each eligible cell a 50% spawn chance. The
 jittered position must have at least 25% lidar canopy coverage in its 2 m
 cell. Tree height is 1.5 times the lidar-derived height with ±15% variation.
@@ -314,9 +320,9 @@ for the trees and terrain canopy mask.
 
 Trees are instanced in frustum-culled 96 m chunks. Chunks near the viewer
 stay resident and rebuild deterministically when revisited. A world-stable
-dither fades trees from 380 m to 400 m horizontally, with opaque depth writes.
-No tree collision. A fully eligible 400 m radius
-would average roughly 6,980 trees before frustum culling. Actual Quest frame
+dither fades trees from 750 m to 800 m horizontally, with opaque depth writes.
+No tree collision. A fully eligible 800 m radius
+would average roughly 27,925 trees before frustum culling. Actual Quest frame
 time and the visual fade still need headset testing.
 
 ## Pine-cast shadows

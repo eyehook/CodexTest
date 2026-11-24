@@ -7,9 +7,10 @@ const CHUNK = GRID * CELLS_PER_CHUNK;
 const MIN_COVERAGE = 64;
 const SPAWN_CHANCE = 0.5;
 const HEIGHT_SCALE = 1.5;
-export const FADE_START = 380;
-export const FAR = 400;
+export const FADE_START = 750;
+export const FAR = 800;
 const UPDATE_STEP = 12;
+const DETAIL_RANGE = 400 + Math.SQRT2 * UPDATE_STEP;
 const PREFETCH = FAR + Math.SQRT2 * UPDATE_STEP;
 
 function random(column, row, stream) {
@@ -79,7 +80,7 @@ export async function loadTreeHeights(canopy) {
   canopy.heights = new DataView(data);
 }
 
-function treeGeometry() {
+function treeGeometry(simplified = false) {
   const positions = [];
   const colors = [];
   function append(part, center, color) {
@@ -96,9 +97,13 @@ function treeGeometry() {
     part.dispose();
   }
   append(new THREE.CylinderGeometry(0.045, 0.075, 0.32, 5, 1, true), 0.155, new THREE.Color(0x997654));
-  append(new THREE.ConeGeometry(1, 0.52, 6), 0.38, new THREE.Color(0xb4c3a6));
-  append(new THREE.ConeGeometry(0.76, 0.47, 6), 0.575, new THREE.Color(0xc6d2b5));
-  append(new THREE.ConeGeometry(0.49, 0.42, 6), 0.79, new THREE.Color(0xd4dfc2));
+  if (simplified) {
+    append(new THREE.ConeGeometry(1, 0.88, 4), 0.56, new THREE.Color(0xbac9ae));
+  } else {
+    append(new THREE.ConeGeometry(1, 0.52, 6), 0.38, new THREE.Color(0xb4c3a6));
+    append(new THREE.ConeGeometry(0.76, 0.47, 6), 0.575, new THREE.Color(0xc6d2b5));
+    append(new THREE.ConeGeometry(0.49, 0.42, 6), 0.79, new THREE.Color(0xd4dfc2));
+  }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -114,7 +119,13 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
     sin: Math.sin(building.yaw),
     bound: Math.hypot(building.width, building.depth) / 2,
   }));
-  const geometry = treeGeometry();
+  const detailed = treeGeometry();
+  const simplified = treeGeometry(true);
+  detailed.computeBoundingSphere();
+  simplified.computeBoundingSphere();
+  // Chunk bounds must cover both silhouettes when a mesh switches geometry.
+  detailed.boundingSphere.union(simplified.boundingSphere);
+  simplified.boundingSphere.copy(detailed.boundingSphere);
   const material = new THREE.MeshBasicMaterial({vertexColors: true});
   material.onBeforeCompile = shader => {
     shader.uniforms.skiTreeViewer = viewer;
@@ -145,7 +156,7 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
   let previousX = Infinity;
   let previousZ = Infinity;
 
-  function addChunk(cx, cz) {
+  function addChunk(cx, cz, geometry) {
     let records = [];
     let maxRadius = 0;
     for (let iz = cz * CELLS_PER_CHUNK; iz < (cz + 1) * CELLS_PER_CHUNK; iz++) {
@@ -197,7 +208,12 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
         if (dx * dx + dz * dz > PREFETCH * PREFETCH) continue;
         const key = cz * (Math.floor(width / CHUNK) + 1) + cx;
         needed.add(key);
-        if (!chunks.has(key)) chunks.set(key, addChunk(cx, cz));
+        const geometry = dx * dx + dz * dz > DETAIL_RANGE * DETAIL_RANGE ? simplified : detailed;
+        if (!chunks.has(key)) chunks.set(key, addChunk(cx, cz, geometry));
+        else {
+          const mesh = chunks.get(key);
+          if (mesh) mesh.geometry = geometry;
+        }
       }
     }
     for (const [key, mesh] of chunks) {
