@@ -1,0 +1,393 @@
+{
+  "sources": {
+    "alpine-ski-pov": {
+      "title": "007024_Alpine_ski_POV",
+      "credit": "freesound_community",
+      "url": "https://pixabay.com/sound-effects/nature-007024-alpine-ski-pov-16659/",
+      "license": "Pixabay Content License",
+      "licenseUrl": "https://pixabay.com/service/license-summary/",
+      "duration": 209.472,
+      "originalFilename": "freesound_community-007024_alpine_ski_pov-16659.mp3"
+    }
+  },
+  "categories": {
+    "gentle-glide": "Gentle ski glide",
+    "fast-glide": "Fast ski glide",
+    "carving": "Aggressive carving",
+    "braking": "Braking / snow spray",
+    "wind": "Wind rush",
+    "launch": "Launch / takeoff",
+    "landing": "Landing",
+    "pole-push": "Pole push"
+  },
+  "samples": [
+    {
+      "id": "gentle-glide-01",
+      "title": "Soft track",
+      "category": "gentle-glide",
+      "filename": "gentle-glide/soft-track.wav",
+      "duration": 5.41,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          16.25,
+          21.9
+        ]
+      ],
+      "processing": "Mono, 140\u20137,200 Hz filtering, level matched within category. Smoothed level and crossfaded loop. Glide intensity is an audition estimate."
+    },
+    {
+      "id": "gentle-glide-02",
+      "title": "Light grain",
+      "category": "gentle-glide",
+      "filename": "gentle-glide/light-grain.wav",
+      "duration": 6.66,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          155.2,
+          162.1
+        ]
+      ],
+      "processing": "Mono, 120\u20136,800 Hz filtering, level matched within category. Smoothed level and crossfaded loop. Glide intensity is an audition estimate."
+    },
+    {
+      "id": "gentle-glide-03",
+      "title": "Quiet runout",
+      "category": "gentle-glide",
+      "filename": "gentle-glide/quiet-runout.wav",
+      "duration": 7.96,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          195.4,
+          203.6
+        ]
+      ],
+      "processing": "Mono, 170\u20136,200 Hz filtering, level matched within category. Smoothed level and crossfaded loop. Glide intensity is an audition estimate."
+    },
+    {
+      "id": "fast-glide-01",
+      "title": "Steady rush",
+      "category": "fast-glide",
+      "filename": "fast-glide/steady-rush.wav",
+      "duration": 5.26,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          20.9,
+          26.4
+        ]
+      ],
+      "processing": "Mono, 150\u20138,600 Hz filtering, level matched within category. Smoothed level and crossfaded loop. Glide intensity is an audition estimate."
+    },
+    {
+      "id": "fast-glide-02",
+      "title": "Dense track",
+      "category": "fast-glide",
+      "filename": "fast-glide/dense-track.wav",
+      "duration": 5.56,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          102.6,
+          108.4
+        ]
+      ],
+      "processing": "Mono, 180\u20138,800 Hz filtering, level matched within category. Smoothed level and crossfaded loop. Glide intensity is an audition estimate."
+    },
+    {
+      "id": "fast-glide-03",
+      "title": "Rough track",
+      "category": "fast-glide",
+      "filename": "fast-glide/rough-track.wav",
+      "duration": 5.66,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          123.85,
+          129.75
+        ]
+      ],
+      "processing": "Mono, 165\u20138,200 Hz filtering, level matched within category. Smoothed level and crossfaded loop. Glide intensity is an audition estimate."
+    },
+    {
+      "id": "carving-01",
+      "title": "Rounded edge",
+      "category": "carving",
+      "filename": "carving/rounded-edge.wav",
+      "duration": 2.61,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          33.7,
+          36.55
+        ]
+      ],
+      "processing": "Mono, 185\u20139,200 Hz filtering, level matched within category. Crossfaded loop with edge pulses preserved."
+    },
+    {
+      "id": "carving-02",
+      "title": "Pulsing edge",
+      "category": "carving",
+      "filename": "carving/pulsing-edge.wav",
+      "duration": 4.26,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          83.95,
+          88.45
+        ]
+      ],
+      "processing": "Mono, 220\u20139,400 Hz filtering, level matched within category. Crossfaded loop with edge pulses preserved."
+    },
+    {
+      "id": "carving-03",
+      "title": "Hard edge",
+      "category": "carving",
+      "filename": "carving/hard-edge.wav",
+      "duration": 3.76,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          183.8,
+          187.8
+        ]
+      ],
+      "processing": "Mono, 200\u20139,500 Hz filtering, level matched within category. Crossfaded loop with edge pulses preserved."
+    },
+    {
+      "id": "braking-01",
+      "title": "Short spray",
+      "category": "braking",
+      "filename": "braking/short-spray.wav",
+      "duration": 2.07,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          43.98,
+          46.05
+        ]
+      ],
+      "processing": "Braking candidate from a decaying spray burst. Mono, 180\u20139,400 Hz filtering, level matched within category. Short fades."
+    },
+    {
+      "id": "braking-02",
+      "title": "Breaking edge",
+      "category": "braking",
+      "filename": "braking/breaking-edge.wav",
+      "duration": 2.93,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          136.02,
+          138.95
+        ]
+      ],
+      "processing": "Braking candidate from a decaying spray burst. Mono, 210\u20139,000 Hz filtering, level matched within category. Short fades."
+    },
+    {
+      "id": "braking-03",
+      "title": "Runout spray",
+      "category": "braking",
+      "filename": "braking/runout-spray.wav",
+      "duration": 3.0,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          191.95,
+          194.95
+        ]
+      ],
+      "processing": "Braking candidate from a decaying spray burst. Mono, 140\u20138,800 Hz filtering, level matched within category. Short fades."
+    },
+    {
+      "id": "wind-01",
+      "title": "Low rush",
+      "category": "wind",
+      "filename": "wind/low-rush.wav",
+      "duration": 6.12,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          103.1,
+          109.6
+        ]
+      ],
+      "processing": "Mono, 65\u2013510 Hz filtering, level matched within category. Smoothed level and crossfaded loop. Low-band rush isolated from the mixed ski recording."
+    },
+    {
+      "id": "wind-02",
+      "title": "Open rush",
+      "category": "wind",
+      "filename": "wind/open-rush.wav",
+      "duration": 6.92,
+      "playback": "loop",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          184.15,
+          191.45
+        ]
+      ],
+      "processing": "Mono, 85\u2013680 Hz filtering, level matched within category. Smoothed level and crossfaded loop. Low-band rush isolated from the mixed ski recording."
+    },
+    {
+      "id": "launch-01",
+      "title": "Light release",
+      "category": "launch",
+      "filename": "launch/light-release.wav",
+      "duration": 0.45,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          56.35,
+          56.8
+        ]
+      ],
+      "processing": "Reconstructed release from a short snow scrape. Mono, 260\u20137,900 Hz filtering, level matched within category. Shaped decay."
+    },
+    {
+      "id": "launch-02",
+      "title": "Quick release",
+      "category": "launch",
+      "filename": "launch/quick-release.wav",
+      "duration": 0.32,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          72.4,
+          72.72
+        ]
+      ],
+      "processing": "Reconstructed release from a short snow scrape. Mono, 225\u20138,300 Hz filtering, level matched within category. Shaped decay."
+    },
+    {
+      "id": "launch-03",
+      "title": "Firm release",
+      "category": "launch",
+      "filename": "launch/firm-release.wav",
+      "duration": 0.57,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          97.5,
+          98.07
+        ]
+      ],
+      "processing": "Reconstructed release from a short snow scrape. Mono, 190\u20139,100 Hz filtering, level matched within category. Shaped decay."
+    },
+    {
+      "id": "pole-push-01",
+      "title": "Light pole plant",
+      "category": "pole-push",
+      "filename": "pole-push/light-pole-plant.wav",
+      "duration": 0.35,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          1.75,
+          2.1
+        ]
+      ],
+      "processing": "Short snow scrape from the source recording with a shaped decay. Mono, 220\u20137,400 Hz filtering, level matched within category."
+    },
+    {
+      "id": "pole-push-02",
+      "title": "Quick pole plant",
+      "category": "pole-push",
+      "filename": "pole-push/quick-pole-plant.wav",
+      "duration": 0.31,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          4.55,
+          4.86
+        ]
+      ],
+      "processing": "Short snow scrape from the source recording with a shaped decay. Mono, 270\u20138,200 Hz filtering, level matched within category."
+    },
+    {
+      "id": "pole-push-03",
+      "title": "Firm pole plant",
+      "category": "pole-push",
+      "filename": "pole-push/firm-pole-plant.wav",
+      "duration": 0.42,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          8.62,
+          9.04
+        ]
+      ],
+      "processing": "Short snow scrape from the source recording with a shaped decay. Mono, 180\u20136,800 Hz filtering, level matched within category."
+    },
+    {
+      "id": "landing-01",
+      "title": "Soft contact",
+      "category": "landing",
+      "filename": "landing/soft-contact.wav",
+      "duration": 0.57,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          60.65,
+          61.22
+        ]
+      ],
+      "processing": "Reconstructed landing with a synthesized thump under recorded snow texture. Mono, 130\u20137,200 Hz filtering, level matched within category."
+    },
+    {
+      "id": "landing-02",
+      "title": "Flat contact",
+      "category": "landing",
+      "filename": "landing/flat-contact.wav",
+      "duration": 0.7,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          111.22,
+          111.92
+        ]
+      ],
+      "processing": "Reconstructed landing with a synthesized thump under recorded snow texture. Mono, 105\u20138,000 Hz filtering, level matched within category."
+    },
+    {
+      "id": "landing-03",
+      "title": "Heavy contact",
+      "category": "landing",
+      "filename": "landing/heavy-contact.wav",
+      "duration": 0.8,
+      "playback": "one-shot",
+      "sourceId": "alpine-ski-pov",
+      "sourceRanges": [
+        [
+          151.57,
+          152.37
+        ]
+      ],
+      "processing": "Reconstructed landing with a synthesized thump under recorded snow texture. Mono, 95\u20138,400 Hz filtering, level matched within category."
+    }
+  ]
+}

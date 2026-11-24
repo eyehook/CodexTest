@@ -13,7 +13,9 @@ listening review are in [the asset notes](../../assets/hike/audio/README.md).
   inside an existing activation gesture. Five stereo AudioBuffers are decoded
   sequentially once and reused. A failed load is optional/non-fatal and can retry
   on a later gesture. Ogg is preferred, with per-clip MP3 fallback.
-- Two persistent GainNode lanes connect to one master GainNode and destination.
+- Two persistent GainNode lanes connect through a lifecycle fade gain and a
+  volume gain to the destination. Mount Snow reuses this player and adjusts
+  the volume gain through `setVolume(value)`.
   There is no AudioListener, PannerNode, stereo collapse or camera/rig coupling.
 - Clips are selected randomly from the four alternatives to the previous choice.
   The source begins at zero gain, overlaps the outgoing source by **five seconds**,

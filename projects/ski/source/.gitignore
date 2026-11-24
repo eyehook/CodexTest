@@ -1,2 +1,11 @@
 *.tif
 *.tmp
+# Local recordings used to bake the audition and gameplay clips.
+*.[mM][pP]3
+*.[wW][aA][vV]
+*.[fF][lL][aA][cC]
+*.[oO][gG][gG]
+*.[aA][iI][fF]
+*.[aA][iI][fF][fF]
+*.[mM]4[aA]
+*.[oO][pP][uU][sS]

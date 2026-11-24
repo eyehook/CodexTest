@@ -61,10 +61,11 @@ export class SkiSteering {
 }
 
 export class SkiMotion {
-  constructor(height, width, depth) {
+  constructor(height, width, depth, onContactChange) {
     this.height = height;
     this.width = width;
     this.depth = depth;
+    this.onContactChange = onContactChange;
     this.tuck = 0;
     this.stop();
   }
@@ -182,6 +183,7 @@ export class SkiMotion {
         const behind = this.height(x - this.vx * travelTime, z - this.vz * travelTime);
         this.vy = (this.y - behind) / travelTime + TUCK_POP_SPEED;
         this.airborne = true;
+        this.onContactChange?.(true, this.vy);
       }
     }
     this.popPending = false;
@@ -213,6 +215,7 @@ export class SkiMotion {
         if (takeoff !== undefined) {
           this.vy = takeoff;
           this.airborne = true;
+          this.onContactChange?.(true, this.vy);
         }
       }
       this.x = nextX;
@@ -223,6 +226,7 @@ export class SkiMotion {
         this.vy -= GRAVITY * step;
         if (this.y > floor) continue;
         this.airborne = false;
+        this.onContactChange?.(false, -this.vy);
         this.vy = 0;
       }
       this.y = floor;

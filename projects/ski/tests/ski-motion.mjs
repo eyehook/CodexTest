@@ -93,7 +93,10 @@ test('ski deflection accumulates at 1–45 degrees per second and recenters at n
 
 test('a fast uphill approach takes air at a crest and lands with its horizontal momentum', () => {
   const height = z => 500 + Math.max(0, Math.min(3, (500 - z) * 0.35));
-  const ski = new SkiMotion((x, z) => height(z), 1000, 1000);
+  const contacts = [];
+  const ski = new SkiMotion((x, z) => height(z), 1000, 1000, (airborne, velocity) => {
+    contacts.push({airborne, velocity, verticalSpeed: ski.vy});
+  });
   ski.push(0, -1);
   ski.vz = -11.5;
   let x = 500;
@@ -123,6 +126,10 @@ test('a fast uphill approach takes air at a crest and lands with its horizontal 
   assert.equal(ski.airborne, false);
   assert.equal(ski.y, height(z));
   assert.ok(ski.active);
+  ski.stop();
+  assert.deepEqual(contacts.map(contact => contact.airborne), [true, false]);
+  assert.ok(contacts[1].velocity > 0);
+  assert.equal(contacts[1].velocity, -contacts[1].verticalSpeed);
 });
 
 test('slow crests and steady inclines keep the skier grounded', () => {

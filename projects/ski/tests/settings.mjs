@@ -6,14 +6,14 @@ import {loadSettings, saveSettings, SkiSettings} from '../settings.mjs';
 test('settings load defaults, clamp stored heights, and round-trip preferences', () => {
   const entries = new Map();
   const storage = {getItem: key => entries.get(key), setItem: (key, value) => entries.set(key, value)};
-  assert.deepEqual(loadSettings(storage), {trees: true, shadows: false, trails: true, heightOffset: 0});
-  saveSettings({trees: false, shadows: true, trails: false, heightOffset: 1.25}, storage);
-  assert.deepEqual(loadSettings(storage), {trees: false, shadows: true, trails: false, heightOffset: 1.25});
-  saveSettings({trees: 'false', heightOffset: 8}, storage);
-  assert.deepEqual(loadSettings(storage), {trees: true, shadows: false, trails: true, heightOffset: 2});
+  assert.deepEqual(loadSettings(storage), {trees: true, shadows: false, trails: true, heightOffset: 0, skiVolume: 0.35, windVolume: 0.5, ambientVolume: 0.35});
+  saveSettings({trees: false, shadows: true, trails: false, heightOffset: 1.25, skiVolume: 0.35, windVolume: 0.8, ambientVolume: 0.6}, storage);
+  assert.deepEqual(loadSettings(storage), {trees: false, shadows: true, trails: false, heightOffset: 1.25, skiVolume: 0.35, windVolume: 0.8, ambientVolume: 0.6});
+  saveSettings({trees: 'false', heightOffset: 8, skiVolume: -1, windVolume: 9, ambientVolume: 5}, storage);
+  assert.deepEqual(loadSettings(storage), {trees: true, shadows: false, trails: true, heightOffset: 2, skiVolume: 0, windVolume: 1, ambientVolume: 1});
 });
 
-test('B opens and commits the VR settings, including checkbox and slider ray edits', t => {
+test('B opens and commits the VR settings, including left tabs, checkbox and slider ray edits', t => {
   const entries = new Map();
   const backup = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   Object.defineProperty(globalThis, 'localStorage', {configurable: true,
@@ -57,17 +57,27 @@ test('B opens and commits the VR settings, including checkbox and slider ray edi
   assert.equal(settings.panel.section, 'Graphics');
   update();
   assert.equal(settings.visible, true);
-  click(200, 303);
+  click(250, 223);
+  assert.equal(settings.draft.trees, true);
+  click(450, 223);
   assert.equal(settings.draft.trees, false);
-  click(230, 441);
+  click(450, 361);
   assert.equal(settings.draft.shadows, true);
-  click(230, 579);
+  click(450, 499);
   assert.equal(settings.draft.trails, false);
-  click(720, 160);
+  click(120, 244);
   assert.equal(settings.panel.section, 'VR');
-  click(900, 303);
+  click(912, 223);
   assert.equal(settings.draft.heightOffset, 1.9);
-  assert.deepEqual(saved, {trees: true, shadows: false, trails: true, heightOffset: 0});
+  assert.deepEqual(saved, {trees: true, shadows: false, trails: true, heightOffset: 0, skiVolume: 0.35, windVolume: 0.5, ambientVolume: 0.35});
+  click(120, 310);
+  assert.equal(settings.panel.section, 'Audio');
+  click(461, 223);
+  click(783, 361);
+  click(622, 499);
+  assert.equal(settings.draft.skiVolume, 0.25);
+  assert.equal(settings.draft.windVolume, 0.75);
+  assert.equal(settings.draft.ambientVolume, 0.5);
   assert.equal(entries.size, 0);
 
   buttons[5].pressed = false;
@@ -75,7 +85,7 @@ test('B opens and commits the VR settings, including checkbox and slider ray edi
   buttons[5].pressed = true;
   update();
   assert.equal(settings.visible, false);
-  assert.deepEqual(loadSettings(), {trees: false, shadows: true, trails: false, heightOffset: 1.9});
+  assert.deepEqual(loadSettings(), {trees: false, shadows: true, trails: false, heightOffset: 1.9, skiVolume: 0.25, windVolume: 0.75, ambientVolume: 0.5});
 
   viewer.orientation.setFromEuler(new THREE.Euler(-0.55, 0.7, 0.31, 'YXZ'));
   buttons[5].pressed = false;

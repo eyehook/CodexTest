@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import {ForestAmbience,FOREST_CLIPS,equalPowerCurves,nextForestClip,bindForestAudio} from '../forest-audio.mjs';
 class Param {
  constructor(){this.value=0;this.events=[];}
+ setTargetAtTime(value,time){this.value=value;this.events.push({type:'target',value,time});}
  setValueAtTime(value,time){this.events.push({type:'set',value,time});return this;}
  linearRampToValueAtTime(value,time){this.events.push({type:'ramp',value,time});return this;}
  setValueCurveAtTime(curve,time,duration){this.events.push({type:'curve',curve,time,duration});return this;}
@@ -30,16 +31,20 @@ test('equal-power curves preserve overlap power, and random selection has no imm
 });
 test('gesture resumes immediately, decodes once, and activity edges defer all scheduling',async()=>{
  const f=fixture(),a=f.audio;a.setActive(true);assert.equal(f.nodes.length,0);await a.unlock();await Promise.resolve();
- assert.equal(f.order[0],'resume');assert.equal(f.loads.length,5);assert.equal(f.gains.length,3);assert.ok(a.playing);assert.equal(f.nodes.length,4);
+ assert.equal(f.gains[1].gain.value,.35);
+ a.setVolume(.15);
+ assert.equal(f.gains[1].gain.value,.15);
+ assert.equal(f.gains[0].gain.events.at(-1).value,1);
+ assert.equal(f.order[0],'resume');assert.equal(f.loads.length,5);assert.equal(f.gains.length,4);assert.ok(a.playing);assert.equal(f.nodes.length,4);
  const scheduled=a.stats.scheduled;for(let i=0;i<1000;i++)a.setActive(true);assert.equal(a.stats.scheduled,scheduled);
- await a.unlock();assert.equal(f.loads.length,5);assert.equal(f.gains.length,3);a.dispose();assert.equal(f.context.state,'closed');assert.equal(f.timers.size,0);
+ await a.unlock();assert.equal(f.loads.length,5);assert.equal(f.gains.length,4);a.dispose();assert.equal(f.context.state,'closed');assert.equal(f.timers.size,0);
 });
 test('two-hour scheduling alternates reusable lanes, overlaps exactly five seconds, and bounds live nodes',async()=>{
  const f=fixture(),a=f.audio;a.setActive(true);await a.unlock();await Promise.resolve();
  const timeline=[];let maxLive=0;
  for(let i=0;i<1440;i++){for(const r of a.sources)if(!timeline.includes(r))timeline.push(r);maxLive=Math.max(maxLive,a.sources.size);f.advance(5);}
  timeline.sort((a,b)=>a.start-b.start);
- assert.ok(timeline.length>450);assert.ok(maxLive<=6);assert.equal(f.gains.length,3);assert.equal(f.loads.length,5);assert.equal(a.stats.lateRecoveries,0);
+ assert.ok(timeline.length>450);assert.ok(maxLive<=6);assert.equal(f.gains.length,4);assert.equal(f.loads.length,5);assert.equal(a.stats.lateRecoveries,0);
  for(let i=1;i<timeline.length;i++){const prev=timeline[i-1],r=timeline[i];assert.notEqual(r.index,prev.index);assert.notEqual(r.lane,prev.lane);assert.ok(Math.abs(prev.end-r.start-5)<1e-8);}
  for(let t=10;t<7200;t+=.5)assert.ok(timeline.filter(r=>r.start<=t&&r.end>t).length<=2);
  a.dispose();assert.ok(f.nodes.every(n=>n.disconnected));

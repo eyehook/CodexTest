@@ -33,7 +33,8 @@ export class ForestAmbience {
   if(this.disposed)return false;
   try{
    if(!this.context){
-    this.context=this.createContext();this.master=this.context.createGain();this.master.gain.value=0;this.master.connect(this.context.destination);
+    this.context=this.createContext();this.master=this.context.createGain();this.master.gain.value=0;this.output=this.context.createGain();this.output.gain.value=this.volume;
+    this.master.connect(this.output);this.output.connect(this.context.destination);
     this.lanes=Array.from({length:2},()=>{const gain=this.context.createGain();gain.gain.value=0;gain.connect(this.master);return gain;});
     this.context.onstatechange=()=>this.requestSync();
    }
@@ -63,6 +64,11 @@ export class ForestAmbience {
   }
   this.buffers=buffers;this.error=null;
  }
+ setVolume(value){
+  if(value===this.volume)return;
+  this.volume=value;
+  this.output?.gain.setTargetAtTime(value,this.context.currentTime,.025);
+ }
  // The render loop can report an activity EDGE only; automation/node creation
  // runs in the deferred callback or the independent five-second scheduler.
  setActive(value){value=!!value;if(this.disposed||value===this.active)return;this.active=value;this.requestSync();}
@@ -87,8 +93,8 @@ export class ForestAmbience {
    // Preserve an in-flight stop fade during rapid restart; otherwise retiring
    // sources would be cut off at full master gain when their stop time arrives.
    this.master.gain.setValueAtTime(0,this.retireUntil);
-   this.master.gain.linearRampToValueAtTime(this.volume,this.nextStart);
-  }else {hold(this.master.gain,now);this.master.gain.linearRampToValueAtTime(this.volume,now+.2);}
+   this.master.gain.linearRampToValueAtTime(1,this.nextStart);
+  }else {hold(this.master.gain,now);this.master.gain.linearRampToValueAtTime(1,now+.2);}
   this.schedule();
  }
  schedule(){
@@ -129,7 +135,7 @@ export class ForestAmbience {
   if(this.timer)this.clearTimer(this.timer);if(this.suspendTimer)this.clearTimer(this.suspendTimer);
   for(const {source} of this.sources){source.onended=null;try{source.stop();}catch{}source.disconnect();source.buffer=null;}
   this.sources.clear();this.buffers=null;this.loading=null;
-  for(const lane of this.lanes??[])lane.disconnect();this.master?.disconnect();
+  for(const lane of this.lanes??[])lane.disconnect();this.master?.disconnect();this.output?.disconnect();
   if(this.context){this.context.onstatechange=null;Promise.resolve(this.context.close()).catch(()=>{});}
  }
 }

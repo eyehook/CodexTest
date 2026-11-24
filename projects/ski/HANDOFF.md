@@ -6,7 +6,7 @@ instanced pine trees, and ground-following skiing.
 
 ## Start here
 
-- Current version **v0.1.59**. Start with [app.mjs](app.mjs) for the runtime,
+- Current version **v0.1.69**. Start with [app.mjs](app.mjs) for the runtime,
   [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
   [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
 - The repository contains the generated browser assets. GIS tools and the
@@ -35,13 +35,16 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
 - Quest settings: press **B** on the right controller to open or save and
   close. The landscape is hidden against black. The panel stays upright to
   the floor and faces your horizontal heading at opening. Point and pull
-  the trigger to choose a tab or change a setting. **Graphics → Trees**
+  the trigger to choose a tab on the left or change a setting. **Graphics → Trees**
   toggles individual pine models. With Trees off, the green canopy tint
   is visible at every distance. **Graphics →
   Shadows** enables local pine and ski shadows. **Graphics → Trails**
   toggles the blue piste overlay. **VR → Height
   Offset** raises the tracked view and hands by 0–2 m in 0.05 m steps for
-  seated play. Preferences load on startup and apply when the menu closes.
+  seated play. **Audio → Ski Volume** sets the ski mix level. **Audio → Wind
+  Volume** sets the procedural wind level. **Audio → Ambient Volume** sets the
+  pine forest bed. Ski and Ambient default to 35%, Wind defaults to 50%, and
+  all three adjust in 5% steps. Preferences load on startup and apply when the menu closes.
 - Quest lift map: press **Y** on the left controller to open or close the
   panel. It follows the tracked left hand and faces the viewer.
   Aim with the right controller and pull the trigger to choose a resort area
@@ -59,10 +62,69 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
   arrows steer, E pole-pushes, and Shift brakes. A full stop automatically
   resumes walking in both modes.
 
+## Ski audio
+
+[SkiAudio](ski-audio.mjs) plays a centered mix on desktop and Quest at the saved Ski Volume,
+which defaults to 35%. Movement keys unlock desktop audio, and Enter VR unlocks
+it for Quest. It loads three loops and twelve one-shots from the audition
+manifest. Gentle and fast glide crossfade from 5 to 14 m/s. The Hard edge
+loop follows the stronger of steering input and sideways slip, with gain
+scaled by snow contact and speed. Hard carving lowers glide by up to 30%.
+Brake spray plays once per press above 2 m/s on
+snow and briefly ducks the glide. The three one-shot variations for each
+event rotate in order. A grounded pole push (A on Quest, E on desktop)
+plays a short recorded snow scrape with a softened attack at 1.125× gain before Ski Volume. Physics contact
+callbacks trigger takeoff and
+landing, with landing level driven by downward speed before it resets.
+Glide and carving fade while airborne. Menus, lift teleports, tracking loss,
+and session end clear playback.
+
+[Procedural wind](wind-noise.mjs) generates one crossfaded pink-noise buffer
+locally on first movement above 1.5 m/s. A high-pass filter reduces rumble,
+and speed raises the level and opens a low-pass filter from 400 Hz to
+2.4 kHz through 24 m/s. It uses horizontal speed during skiing, including
+airtime, and actual locomotion displacement while walking. Turning in
+place and head tracking alone do not produce wind. The wind fades to
+silence at rest and uses its own Wind Volume setting.
+
+Ambient Volume controls the non-positional stereo pine forest bed from
+[The Hike](../hike/AUDIO.md). Mount Snow reuses its five crossfaded clips
+and player. The bed continues at rest and through visible menus after
+audio is unlocked. It pauses when hidden, on tracking loss, or when leaving
+VR. See the [forest asset notes](../../assets/hike/audio/README.md) for provenance.
+
+## Sound audition
+
+Open [Sound Audition](audio/index.html) from the Mount Snow header or at
+`/projects/ski/audio/`. The utility uses Web Audio to layer samples and
+adjust loop, volume and rate per voice. Decoded buffers are cached by filename.
+The [manifest](audio/manifest.json) holds source and category metadata. Sample
+entries use `id`, `title`, `category`, `filename` (relative to the manifest),
+`duration` (seconds), `playback` (`loop` or `one-shot`), `sourceId`,
+`sourceRanges` (pairs of seconds), and `processing`.
+
+The library contains 23 mono 24 kHz PCM WAVs from
+[007024_Alpine_ski_POV](https://pixabay.com/sound-effects/nature-007024-alpine-ski-pov-16659/)
+by Freesound Community under the
+[Pixabay Content License](https://pixabay.com/service/license-summary/).
+Keep the original MP3 with its download filename under `source/`. Git ignores
+source recordings in that directory. The processed WAVs in `audio/` ship with
+the project.
+Run `python3 projects/ski/bake-audio.py` with FFmpeg on PATH or supply
+`--ffmpeg` and `--source`. Cuts were selected using short-window level and
+high-frequency energy measurements. The baker filters and level matches the
+cuts, crossfades loop boundaries, and fades one-shot edges. Wind is filtered
+from mixed ski audio. Launches use shaped snow scrapes and landings add a
+synthesized thump. Dedicated wind and confirmed jump recordings would improve
+isolation and event fidelity. Browser checks covered concurrent glide and
+wind playback, rate adjustment, reset and global stop. Tonal fit and loop
+seams still need a listening pass.
+
 ## Settings
 
 [settings.mjs](settings.mjs) uses the shared control model and VR slider
-panel, with inline Trees, Shadows and Trails checkboxes and the Height Offset slider.
+panel, with left-side tabs, inline Trees, Shadows and Trails checkboxes, and Height
+Offset, Ski Volume, Wind Volume and Ambient Volume sliders.
 Defaults are Trees and Trails on, Shadows off and 0 m height offset. The browser saves
 on B close and when leaving XR with the settings open. While the menu is visible,
 walking, skiing and the lift map are suspended. The VR offset lives on a

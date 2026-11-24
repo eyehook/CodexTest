@@ -1,19 +1,21 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {ButtonEdges, buttonValue, readMovementAxes} from '../../shared/xr/input.mjs';
 import {createPineShadows} from './pine-shadows.mjs?v=0.1.39';
+import {ForestAmbience, bindForestAudio} from '../hike/forest-audio.mjs?v=2';
 import {Atmosphere, ATMOSPHERE} from '../hike/atmosphere.mjs?v=1';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {loadHeightmap} from './heightmap.mjs?v=0.1.25';
-import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.59';
+import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.60';
 import {createBuildings} from './buildings.mjs?v=0.1.47';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
 import {createLiftModels} from './lift-models.mjs?v=0.1.46';
-import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.43';
+import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.61';
+import {SkiAudio} from './ski-audio.mjs?v=0.1.69';
 import {createSkis} from './skis.mjs?v=0.1.58';
-import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.59';
-import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.45';
-import {APP_VERSION} from './version.mjs?v=0.1.59';
+import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.60';
+import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.69';
+import {APP_VERSION} from './version.mjs?v=0.1.69';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -76,7 +78,19 @@ async function start() {
   const settings = new SkiSettings(heightRig, preferences);
   const black = new THREE.Color(0x000000);
   const movement = new Locomotion(rig, {moveSpeed: 10, turnSpeed: TURN_SPEED});
-  const ski = new SkiMotion(map.height, terrain.width, terrain.depth);
+  const audio = new SkiAudio();
+  const ambience = new ForestAmbience({volume: preferences.ambientVolume});
+  let audioRequested = false;
+
+  function unlockAudio() {
+    audioRequested = true;
+    audio.unlock();
+    void ambience.unlock();
+  }
+  const ski = new SkiMotion(map.height, terrain.width, terrain.depth, (airborne, strength) => {
+    if (airborne) audio.event('launch', 0.55);
+    else audio.event('landing', 0.25 + 0.75 * Math.min(1, Math.max(0, strength) / 7));
+  });
   const steering = new SkiSteering();
   const skis = createSkis(rig, map.height, material.uniforms);
   const axes = {x: 0, z: 0, turn: 0};
@@ -122,23 +136,40 @@ async function start() {
       const heading = rig.rotation.y + ski.angle;
       const forwardX = -Math.sin(heading);
       const forwardZ = -Math.cos(heading);
-      if (pole) ski.polePush(forwardX, forwardZ);
-      else ski.push(forwardX, forwardZ);
+      if (pole) {
+        if (!ski.airborne) {
+          ski.polePush(forwardX, forwardZ);
+          audio.event('pole-push', 1.125);
+        }
+      } else {
+        ski.push(forwardX, forwardZ);
+      }
     }
     ski.updateTuck(dt, tuck);
+    audio.brake(ski, brake);
     if (!ski.active) {
+      headOffset.copy(view.position).applyQuaternion(rig.quaternion);
+      const startX = THREE.MathUtils.clamp(rig.position.x + headOffset.x, 0, terrain.width);
+      const startZ = THREE.MathUtils.clamp(rig.position.z + headOffset.z, 0, terrain.depth);
       movement.move(dt, x, z, turn, view);
+      headOffset.copy(view.position).applyQuaternion(rig.quaternion);
+      const endX = THREE.MathUtils.clamp(rig.position.x + headOffset.x, 0, terrain.width);
+      const endZ = THREE.MathUtils.clamp(rig.position.z + headOffset.z, 0, terrain.depth);
+      const walkingSpeed = dt > 0 ? Math.hypot(endX - startX, endZ - startZ) / dt : 0;
+      audio.update(ski, 0, walkingSpeed);
       return;
     }
     headOffset.copy(view.position).applyQuaternion(rig.quaternion);
     ski.advance(dt, rig.position.x + headOffset.x, rig.position.z + headOffset.z,
       steer, brake, rig.rotation.y);
+    audio.update(ski, steer);
     rig.rotation.y = ski.rigYaw;
     placeHead(view, ski.x, ski.z);
   }
 
   function stopSki() {
     ski.stop();
+    audio.reset();
     steering.reset();
   }
 
@@ -152,6 +183,9 @@ async function start() {
   }
 
   function applySettings() {
+    audio.setVolume(preferences.skiVolume);
+    audio.setWindVolume(preferences.windVolume);
+    ambience.setVolume(preferences.ambientVolume);
     trees.group.visible = preferences.trees;
     material.uniforms.showTreeModels.value = preferences.trees;
     material.uniforms.showTrails.value = preferences.trails;
@@ -179,14 +213,25 @@ async function start() {
   ground(desktopView);
   addEventListener('resize', resize);
   addEventListener('blur', () => keys.clear());
-  document.addEventListener('visibilitychange', () => keys.clear());
+  document.addEventListener('visibilitychange', () => {
+    keys.clear();
+    if (document.hidden) ambience.stop();
+  });
   addEventListener('keydown', event => {
     if (event.altKey || event.ctrlKey || event.metaKey || !movementKeys.has(event.code)) return;
     event.preventDefault();
     keys.add(event.code);
+    if (!event.repeat) unlockAudio();
+  });
+  addEventListener('pagehide', event => {
+    audio.reset();
+    if (event.persisted) ambience.stop();
+    else ambience.dispose();
   });
   addEventListener('keyup', event => keys.delete(event.code));
   renderer.xr.addEventListener('sessionend', () => {
+    audioRequested = false;
+    ambience.stop();
     highlightNearestBase(Infinity, Infinity);
     liftMenu.hide();
     settings.close();
@@ -202,6 +247,7 @@ async function start() {
     previousTime = time;
     const session = renderer.xr.getSession();
     xr.update(session, frame, renderer.xr.getReferenceSpace(), document.hidden);
+    ambience.setActive(audioRequested && xr.active);
     if (!xr.active) {
       highlightNearestBase(Infinity, Infinity);
       liftMenu.hide();
@@ -287,11 +333,13 @@ async function start() {
   if (await navigator.xr?.isSessionSupported('immersive-vr').catch(() => false)) {
     enter.hidden = false;
     enter.addEventListener('click', async () => {
+      unlockAudio();
       let session;
       enter.disabled = true;
       try {
         session = await navigator.xr.requestSession('immersive-vr', {requiredFeatures: ['local-floor'], optionalFeatures: ['hand-tracking']});
         await renderer.xr.setSession(session);
+        bindForestAudio(session, ambience);
         status.hidden = true;
         session.addEventListener('end', () => { enter.disabled = false; }, {once: true});
       } catch (error) {
