@@ -1,18 +1,14 @@
 # Mount Snow — terrain viewer
 
 Buildless Three.js r180 terrain viewer for desktop and Quest, with mapped
-downhill pistes in pale blue, likely tree canopy in green, simple lift models,
+downhill pistes in pale blue, likely tree canopy in green, simple lift and building models,
 instanced pine trees, and ground-following skiing.
 
 ## Start here
 
-- Current version **v0.1.45**. Start with [app.mjs](app.mjs) for the runtime,
+- Current version **v0.1.48**. Start with [app.mjs](app.mjs) for the runtime,
   [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
   [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
-- The newest rendering change is the **2048² PCFSoft pine-shadow filter**.
-  Chrome verified both shadow settings. Quest appearance and frame time
-  remain open. If skiing still snags, compare the same route with Shadows
-  on and off before changing the filter, tree range or tile budget.
 - The repository contains the generated browser assets. GIS tools and the
   native lidar crops are needed only to rebuild data.
 
@@ -142,7 +138,7 @@ represents distant forest after the individual trees fade out.
 ## Sky and atmospheric perspective
 
 Mount Snow uses [The Hike's atmosphere module](../hike/atmosphere.mjs) for its
-horizon-to-zenith sky and distance haze on terrain, trees and lifts.
+horizon-to-zenith sky and distance haze on terrain, trees, lifts and buildings.
 The full-screen triangle uses each render eye's inverse projection.
 Mount Snow uses the same sky palette and 90–950 m atmospheric blend,
 with a height scale adjusted for the DEM's absolute elevations and a
@@ -175,8 +171,8 @@ Rasterio, NumPy and Shapely and run the scripts under `projects/ski/`:
 3. `bake-piste-smoothing.py` then `bake-shadows.py` produce the piste
    adjustments and aligned sunlight assets. Rerun both after rebuilding
    the base grid or piste mask.
-4. `bake-canopy.py` and `bake-lifts.py` rebuild their respective assets from
-   the source inputs described below.
+4. `bake-canopy.py`, `bake-lifts.py` and `bake-buildings.py` rebuild their
+   respective assets from the source inputs described below.
 
 The cached native crops correspond to the current footprint. Use a fresh
 crop when changing the footprint.
@@ -248,10 +244,12 @@ cables and small chairs, carpets have teal strips, and Voyager has a low
 rope line. Orange blocks mark both ends of every route. The closest lower terminal
 within 15 m horizontally of the player's head position turns yellow in
 desktop and Quest. The highlight is suspended while a Quest menu is open.
-All positions are
-based on mapped centerlines and terrain heights. Support spacing, cable
-clearance, and chair locations are approximate. Each lift uses one culled
-instanced batch.
+Chairlift cables span the terminals and mapped pylons. The bake matches
+shared OpenStreetMap coordinates from the structure extract to interior
+lift-route vertices. All 185 mapped pylons match chairlift routes in the
+current data. Voyager has a rope span between its two terminal posts.
+Support heights, cable clearance and chair locations are approximate.
+Each lift uses one culled instanced batch.
 
 Lift geometry is © OpenStreetMap contributors under the
 [Open Database License](https://www.openstreetmap.org/copyright).
@@ -263,6 +261,18 @@ as the upper terminal. Each arrival is approximately 8 m from it, with at
 least 2 m of clearance from mapped building footprints. These are estimated
 unloading locations. The teleport keeps your facing and places your tracked
 head over the destination in X/Z, with the rig floor set by the local DEM.
+
+## Buildings
+
+Run `python -B projects/ski/bake-buildings.py` to fit a minimum-area rotated
+rectangle to each of the 99 mapped building footprints in the retained
+OpenStreetMap structure extract. The [baked boxes](data/mount-snow-buildings.json)
+store ground-plane center, dimensions and yaw in terrain coordinates.
+[buildings.mjs](buildings.mjs) renders one instanced batch, with flat roofs
+5 m above each footprint center, raised when needed to clear sampled corners
+by at least 1 m. Foundations extend to the lowest sampled corner or center.
+Buildings are visual only. Irregular outlines, roof shapes and heights are
+approximate.
 
 ## Canopy data
 
@@ -296,9 +306,9 @@ color. A jittered 6 m grid gives each eligible cell a 50% spawn chance. The
 jittered position must have at least 25% lidar canopy coverage in its 2 m
 cell. Tree height is 1.5 times the lidar-derived height with ±15% variation.
 Crown radius ranges from 15% to 36% of the unscaled height. A candidate is
-skipped when its crown would overlap a mapped piste cell, including
-mapped glades. The distant
-canopy tint still reflects the lidar survey.
+skipped when its crown would overlap a mapped piste cell (including glades)
+or a rendered building footprint. The distant canopy tint still reflects
+the lidar survey.
 The distance blend uses the same horizontal viewer position and fade range
 for the trees and terrain canopy mask.
 
@@ -334,15 +344,19 @@ even when Trees is off.
 
 - Run `node --test projects/ski/tests/*.mjs` for the focused Ski suite and
   the complete root suite before pushing. Ski tests cover terrain seams
-  and buffer reuse, deterministic tree placement and piste clearance,
-  shadow refresh and render-state restoration, settings, lift destinations,
-  steering, braking, pole pushes, tuck height, and takeoff and landing.
+  and buffer reuse, deterministic tree placement and clearance from pistes
+  and buildings, shadow refresh and render-state restoration, settings, lift
+  destinations and mapped pylon placement, steering, braking, pole pushes,
+  tuck height, and takeoff and landing.
 - Desktop Chrome rendered the real terrain, trees, ski and pine shadows,
   and the sky. It exercised walking and skiing. The 2048² PCFSoft pass was
-  checked with Shadows on and off.
+  checked with Shadows on and off. Chrome also loaded the mapped-pylon and
+  building models and exercised turning and walking.
 - A desktop CPU replay reduced the worst terrain tile update on one route
   from 17.0 ms to 5.1 ms after incremental tile updates. That measured
   CPU tile work before rendering.
 - On Quest, verify stereo sky and terrain seams, seated tuck and pop feel,
-  menu legibility, lift arrivals and the **A** shortcut at highlighted bases. Compare Shadows off and on on the
-  same run if there are hitches. Sustained headset frame time is unmeasured.
+  menu legibility, lift arrivals and the **A** shortcut at highlighted bases.
+  Check building placement, tree clearance, and cable clearance between the
+  mapped pylons. If there are hitches, compare the same run with Shadows
+  off and on. Sustained headset frame time is unmeasured.

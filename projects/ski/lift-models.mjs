@@ -3,7 +3,7 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 const PROFILES = {
   Chairlift: {spacing: 45, height: 9, routeWidth: 0.28, support: 0.65, terminal: 4, color: 0x334155},
   Carpet: {spacing: 4, height: 0.5, routeWidth: 1.4, support: 0, terminal: 2, color: 0x246b73},
-  'Rope tow': {spacing: 8, height: 1.5, routeWidth: 0.16, support: 0.24, terminal: 2, color: 0x85512b},
+  'Rope tow': {height: 1.5, routeWidth: 0.16, support: 0.24, terminal: 2, color: 0x85512b},
 };
 
 function sampleRoute(route, map, spacing) {
@@ -72,7 +72,12 @@ export function createLiftModels(scene, map, groups) {
   for (const lift of Object.values(groups).flat()) {
     const profile = PROFILES[lift.type];
     const routeColor = new THREE.Color(profile.color);
-    const samples = sampleRoute(lift.route, map, profile.spacing);
+    const samples = profile.support
+      ? [0, ...lift.pylonIndices, lift.route.length - 1].map(index => {
+        const [x, z] = lift.route[index];
+        return new THREE.Vector3(x, map.height(x, z), z);
+      })
+      : sampleRoute(lift.route, map, profile.spacing);
     matrices.length = 0;
     colors.length = 0;
 
@@ -92,11 +97,15 @@ export function createLiftModels(scene, map, groups) {
       if (i === 0) continue;
       span(samples[i - 1], point, profile, routeColor);
       if (lift.type === 'Chairlift') {
-        center.copy(samples[i - 1]).lerp(point, 0.5);
-        center.y += profile.height - 0.85;
-        box(center, 0.16, 1.7, 0.16, steel);
-        center.y -= 0.9;
-        box(center, 1.3, 0.35, 0.65, routeColor);
+        const previous = samples[i - 1];
+        const count = Math.ceil(Math.hypot(point.x - previous.x, point.z - previous.z) / profile.spacing);
+        for (let chair = 0; chair < count; chair++) {
+          center.copy(previous).lerp(point, (chair + 0.5) / count);
+          center.y += profile.height - 0.85;
+          box(center, 0.16, 1.7, 0.16, steel);
+          center.y -= 0.9;
+          box(center, 1.3, 0.35, 0.65, routeColor);
+        }
       }
     }
 

@@ -1,4 +1,4 @@
-"""Retain mapped lifts and bake their routes and uphill unloading destinations."""
+"""Retain mapped lifts and bake their routes, pylons and uphill unloading destinations."""
 import argparse
 import gzip
 import json
@@ -60,16 +60,23 @@ def bake():
     structures = json.loads((ROOT / "source" / "mount-snow-structures.geojson").read_text())
     buildings = unary_union([make_valid(shape(transform_geom("EPSG:4326", crs, f["geometry"])))
                              for f in structures["features"] if f["properties"]["kind"] == "building"])
+    pylon_coords = {tuple(f["geometry"]["coordinates"]) for f in structures["features"]
+                    if f["properties"]["kind"] == "pylon"}
     groups = {area: [] for area in GROUPS}
     lifts = json.loads(SOURCE.read_text())["features"]
     for lift in lifts:
         tags = lift["properties"]
         name, number = re.fullmatch(r"(.+) #(\d+)", tags["name"]).groups()
         area = next(area for area, numbers in GROUPS.items() if int(number) in numbers)
-        xs, ys = transform("EPSG:4326", crs, *zip(*lift["geometry"]["coordinates"]))
+        coordinates = lift["geometry"]["coordinates"]
+        xs, ys = transform("EPSG:4326", crs, *zip(*coordinates))
         points = [(x - east, north - y) for x, y in zip(xs, ys)]
         if height(*points[0]) > height(*points[-1]):
             points.reverse()
+            coordinates = coordinates[::-1]
+        # Shared OSM nodes have identical coordinates in both retained extracts.
+        pylon_indices = [i for i in range(1, len(coordinates) - 1)
+                         if tuple(coordinates[i]) in pylon_coords]
         top_x, top_z = points[-1]
         prev_x, prev_z = points[-2]
         heading = math.atan2(top_z - prev_z, top_x - prev_x)
@@ -87,6 +94,7 @@ def bake():
                              "upper": {"x": round(top_x, 2), "z": round(top_z, 2),
                                        "elevationMeters": height(top_x, top_z)},
                              "lowerElevationMeters": height(*points[0]),
+                             "pylonIndices": pylon_indices,
                              "route": [[round(px, 2), round(pz, 2)] for px, pz in points]})
     if len(lifts) != 19 or len({lift["id"] for lift in lifts}) != 19:
         raise ValueError("Expected 19 distinct mapped lifts")

@@ -5,14 +5,15 @@ import {Atmosphere, ATMOSPHERE} from '../hike/atmosphere.mjs?v=1';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {loadHeightmap} from './heightmap.mjs?v=0.1.25';
-import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.45';
+import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.48';
+import {createBuildings} from './buildings.mjs?v=0.1.47';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
-import {createLiftModels} from './lift-models.mjs?v=0.1.44';
+import {createLiftModels} from './lift-models.mjs?v=0.1.46';
 import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.43';
 import {createSkis} from './skis.mjs?v=0.1.38';
-import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.39';
+import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.48';
 import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.45';
-import {APP_VERSION} from './version.mjs?v=0.1.45';
+import {APP_VERSION} from './version.mjs?v=0.1.48';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -26,11 +27,15 @@ const EYE_HEIGHT = 1.7;
 async function start() {
   const preferences = loadSettings();
   const pistesUrl = new URL('./data/mount-snow-pistes.json?v=1', import.meta.url);
-  const liftUrl = new URL('./data/mount-snow-lifts.json?v=0.1.6', import.meta.url);
-  const [map, response, lifts] = await Promise.all([loadHeightmap(), fetch(pistesUrl), fetch(liftUrl)]);
+  const liftUrl = new URL('./data/mount-snow-lifts.json?v=0.1.46', import.meta.url);
+  const buildingsUrl = new URL('./data/mount-snow-buildings.json?v=0.1.47', import.meta.url);
+  const [map, response, lifts, buildings] = await Promise.all([
+    loadHeightmap(), fetch(pistesUrl), fetch(liftUrl), fetch(buildingsUrl),
+  ]);
   if (!response.ok) throw new Error(`Could not load trail metadata (HTTP ${response.status})`);
   if (!lifts.ok) throw new Error(`Could not load lift destinations (HTTP ${lifts.status})`);
-  const [pistes, liftGroups] = await Promise.all([response.json(), lifts.json()]);
+  if (!buildings.ok) throw new Error(`Could not load building footprints (HTTP ${buildings.status})`);
+  const [pistes, liftGroups, footprints] = await Promise.all([response.json(), lifts.json(), buildings.json()]);
   const {material, canopy} = await createTerrainMaterial(map.metadata, pistes, pistesUrl);
   await loadTreeHeights(canopy);
   const renderer = new THREE.WebGLRenderer({antialias: true});
@@ -56,9 +61,11 @@ async function start() {
   const liftMenu = new LiftMenu(heightRig, liftGroups);
   const terrain = createTerrain(landscape, map, material);
   const {model: liftsModel, highlightNearestBase} = createLiftModels(landscape, map, liftGroups);
-  const trees = createTrees(landscape, map, canopy, material.uniforms.canopyViewer);
+  const buildingsModel = createBuildings(landscape, map, footprints);
+  const trees = createTrees(landscape, map, canopy, material.uniforms.canopyViewer, footprints);
   atmosphere.apply(material);
   for (const lift of liftsModel.children) atmosphere.apply(lift.material);
+  atmosphere.apply(buildingsModel.material);
   atmosphere.apply(trees.material);
   const shadows = createPineShadows(scene, renderer, material, map.metadata);
   addEventListener('pagehide', event => {

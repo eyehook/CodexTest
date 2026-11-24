@@ -14,13 +14,32 @@ test('all mapped lift types render distinct ground-aligned routes with finite tr
   assert.equal(scene.children[0], model);
   const matrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
+  const scale = new THREE.Vector3();
+  const pylonWidth = {Chairlift: 0.65, 'Rope tow': 0.24};
+  let renderedPylons = 0;
   for (const [i, lift] of lifts.entries()) {
     const mesh = model.children[i];
     assert.equal(mesh.name, lift.name);
     assert.ok(mesh.isInstancedMesh && mesh.count >= 3 && Number.isFinite(mesh.boundingSphere.radius));
+    const supports = [];
     for (let box = 0; box < mesh.count; box++) {
       mesh.getMatrixAt(box, matrix);
       assert.ok(matrix.elements.every(Number.isFinite));
+      scale.setFromMatrixScale(matrix);
+      if (Math.abs(scale.x - pylonWidth[lift.type]) < 1e-6) {
+        supports.push(new THREE.Vector3().setFromMatrixPosition(matrix));
+      }
+    }
+    if (lift.type !== 'Carpet') {
+      const indices = [0, ...lift.pylonIndices, lift.route.length - 1];
+      const centerHeight = lift.type === 'Chairlift' ? 4 : 0.25;
+      assert.equal(supports.length, indices.length, lift.name);
+      for (const [i, index] of indices.entries()) {
+        const [x, z] = lift.route[index];
+        assert.ok(supports[i].distanceTo(new THREE.Vector3(x, height(x, z) + centerHeight, z)) < 0.001,
+          lift.name);
+      }
+      renderedPylons += supports.length - 2;
     }
     const [x, z] = lift.route[0];
     mesh.getMatrixAt(0, matrix);
@@ -28,6 +47,7 @@ test('all mapped lift types render distinct ground-aligned routes with finite tr
     assert.ok(position.distanceTo(new THREE.Vector3(x, height(x, z) + 0.8, z)) < 0.001);
     assert.deepEqual(lift.route.at(-1), [lift.upper.x, lift.upper.z]);
   }
+  assert.equal(renderedPylons, 185);
 });
 
 test('the closest base within fifteen meters highlights and returns its unloading destination', () => {

@@ -56,6 +56,16 @@ export function treeAt(column, row, canopy, width, depth) {
   return {x, z, height, radius, tint: random(column, row, 5), yaw: random(column, row, 6) * Math.PI * 2};
 }
 
+function overlapsBuilding(tree, building) {
+  const dx = tree.x - building.x;
+  const dz = tree.z - building.z;
+  const localX = dx * building.cos - dz * building.sin;
+  const localZ = dx * building.sin + dz * building.cos;
+  const edgeX = Math.max(0, Math.abs(localX) - building.width / 2);
+  const edgeZ = Math.max(0, Math.abs(localZ) - building.depth / 2);
+  return edgeX * edgeX + edgeZ * edgeZ <= tree.radius * tree.radius;
+}
+
 export async function loadTreeHeights(canopy) {
   const url = new URL(canopy.metadata.heightAsset, canopy.url);
   url.search = canopy.url.search;
@@ -95,9 +105,15 @@ function treeGeometry() {
   return geometry;
 }
 
-export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vector2()}) {
+export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vector2()}, footprints = []) {
   const width = map.metadata.columns - 1;
   const depth = map.metadata.rows - 1;
+  const buildings = footprints.map(building => ({
+    ...building,
+    cos: Math.cos(building.yaw),
+    sin: Math.sin(building.yaw),
+    bound: Math.hypot(building.width, building.depth) / 2,
+  }));
   const geometry = treeGeometry();
   const material = new THREE.MeshBasicMaterial({vertexColors: true});
   material.onBeforeCompile = shader => {
@@ -130,13 +146,24 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
   let previousZ = Infinity;
 
   function addChunk(cx, cz) {
-    const records = [];
+    let records = [];
+    let maxRadius = 0;
     for (let iz = cz * CELLS_PER_CHUNK; iz < (cz + 1) * CELLS_PER_CHUNK; iz++) {
       for (let ix = cx * CELLS_PER_CHUNK; ix < (cx + 1) * CELLS_PER_CHUNK; ix++) {
         const tree = treeAt(ix, iz, canopy, width, depth);
-        if (tree) records.push(tree);
+        if (tree) {
+          records.push(tree);
+          maxRadius = Math.max(maxRadius, tree.radius);
+        }
       }
     }
+    if (!records.length) return null;
+    const nearby = buildings.filter(building => {
+      const dx = Math.max(cx * CHUNK - building.x, building.x - (cx + 1) * CHUNK, 0);
+      const dz = Math.max(cz * CHUNK - building.z, building.z - (cz + 1) * CHUNK, 0);
+      return dx * dx + dz * dz <= (building.bound + maxRadius) ** 2;
+    });
+    if (nearby.length) records = records.filter(tree => !nearby.some(building => overlapsBuilding(tree, building)));
     if (!records.length) return null;
     const mesh = new THREE.InstancedMesh(geometry, material, records.length);
     for (const [i, tree] of records.entries()) {

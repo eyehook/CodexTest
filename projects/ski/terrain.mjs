@@ -1,6 +1,6 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {createSkiShadowUniforms} from './skis.mjs?v=0.1.38';
-import {FADE_START, FAR} from './trees.mjs?v=0.1.39';
+import {FADE_START, FAR} from './trees.mjs?v=0.1.48';
 
 const TILE_SIZE = 256;
 const SPACING = [2, 4, 8, 16, 32];

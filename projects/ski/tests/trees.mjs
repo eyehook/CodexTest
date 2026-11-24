@@ -66,3 +66,32 @@ test('trees stay off mapped pistes and their crowns clear adjacent piste cells',
   mask[row * columns + column] = 255;
   assert.equal(treeAt(i + 3, 4, data, 1000, 1000), null);
 });
+
+test('streamed trees clear rotated building footprints, including overhanging crowns', () => {
+  const data = canopy();
+  const map = {metadata: {columns: 1001, rows: 1001}, height: () => 500};
+  const candidates = Array.from({length: 15}, (_, i) => treeAt(i, 4, data, 1000, 1000)).filter(Boolean);
+  const [inside, overhang] = candidates;
+  const clear = candidates.at(-1);
+  const yaw = Math.PI / 4;
+  const offset = 1 + overhang.radius / 2;
+  const footprints = [
+    {x: inside.x, z: inside.z, width: 2, depth: 2, yaw},
+    {x: overhang.x + offset * Math.cos(yaw), z: overhang.z - offset * Math.sin(yaw),
+      width: 2, depth: 2, yaw},
+  ];
+
+  const trees = createTrees(new THREE.Scene(), map, data, undefined, footprints);
+  trees.update(20, 20);
+  const matrix = new THREE.Matrix4();
+  const firstChunk = trees.group.children[0];
+  const roots = Array.from({length: firstChunk.count}, (_, i) => {
+    firstChunk.getMatrixAt(i, matrix);
+    return new THREE.Vector3().setFromMatrixPosition(matrix);
+  });
+  const hasTree = tree => roots.some(root =>
+    Math.abs(root.x - tree.x) < 0.001 && Math.abs(root.z - tree.z) < 0.001);
+  assert.equal(hasTree(inside), false);
+  assert.equal(hasTree(overhang), false);
+  assert.equal(hasTree(clear), true);
+});
