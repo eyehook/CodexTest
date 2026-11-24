@@ -11,6 +11,11 @@ SUN_ALTITUDE = 15
 
 meta = json.loads((DATA / "mount-snow-1m.json").read_text())
 grid = np.frombuffer(gzip.decompress((DATA / meta["asset"]).read_bytes()), dtype="<u2")
+if asset := meta.get("pisteAdjustmentAsset"):
+    patches = np.frombuffer(gzip.decompress((DATA / asset).read_bytes()),
+                            dtype=[("index", "<u4"), ("delta", "i1")])
+    grid = grid.copy()
+    grid[patches["index"]] = grid[patches["index"]].astype("int32") + patches["delta"]
 height = grid.reshape(meta["rows"], meta["columns"])[::STEP, ::STEP].astype(np.float32)
 height *= meta["elevationScaleMeters"]
 

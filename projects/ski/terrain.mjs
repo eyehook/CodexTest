@@ -1,4 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {FADE_START, FAR} from './trees.mjs?v=0.1.12';
 
 const TILE_SIZE = 256;
 const SPACING = [2, 4, 8, 16, 32];
@@ -72,13 +73,15 @@ export async function createTerrainMaterial(
   const canopy = await response.json();
   const coverageUrl = new URL(canopy.asset, canopyUrl);
   coverageUrl.search = canopyUrl.search;
+  const shadowUrl = new URL('./data/mount-snow-sun.u8.gz', import.meta.url);
+  shadowUrl.search = new URL(import.meta.url).search;
   const [shadows, trails, trees] = await Promise.all([
-    loadMask(new URL('./data/mount-snow-sun.u8.gz', import.meta.url), width, height),
+    loadMask(shadowUrl, width, height),
     loadMask(new URL(pistes.asset, pistesUrl), pistes.columns, pistes.rows),
     loadMask(coverageUrl, canopy.columns, canopy.rows),
   ]);
 
-  return new THREE.ShaderMaterial({
+  const material = new THREE.ShaderMaterial({
     uniforms: {
       sun: {value: SUN},
       shadows: {value: shadows},
@@ -90,6 +93,7 @@ export async function createTerrainMaterial(
       canopySize: {value: new THREE.Vector2(canopy.columns, canopy.rows)},
       canopySpacing: {value: canopy.spacingMeters},
       canopyGreen: {value: new THREE.Color(0x579657)},
+      canopyViewer: {value: new THREE.Vector2()},
       shadowSize: {value: new THREE.Vector2(width, height)},
       shadowSpacing: {value: SHADOW_SPACING},
       minHeight: {value: minimumElevationMeters},
@@ -114,7 +118,7 @@ export async function createTerrainMaterial(
     fragmentShader: `
       uniform vec3 sun, low, middle, high, haze, trailBlue, canopyGreen;
       uniform sampler2D shadows, trails, trees;
-      uniform vec2 shadowSize, trailSize, canopySize;
+      uniform vec2 shadowSize, trailSize, canopySize, canopyViewer;
       uniform float shadowSpacing, trailSpacing, canopySpacing, minHeight, maxHeight;
       varying vec3 terrainPoint;
       varying vec3 terrainNormal;
@@ -126,7 +130,9 @@ export async function createTerrainMaterial(
         float trail = texture2D(trails, (terrainPoint.xz / trailSpacing + 0.5) / trailSize).r;
         snow = mix(snow, trailBlue, trail);
         float canopy = texture2D(trees, (terrainPoint.xz / canopySpacing + 0.5) / canopySize).r;
-        snow = mix(snow, canopyGreen, smoothstep(0.03, 0.68, canopy));
+        float canopyFade = smoothstep(${FADE_START.toFixed(1)}, ${FAR.toFixed(1)},
+          length(terrainPoint.xz - canopyViewer));
+        snow = mix(snow, canopyGreen, smoothstep(0.03, 0.68, canopy) * canopyFade);
         vec3 slope = normalize(terrainNormal);
         float cosine = max(dot(slope, sun), 0.0);
         float visibility = texture2D(shadows, (terrainPoint.xz / shadowSpacing + 0.5) / shadowSize).r;
@@ -137,6 +143,16 @@ export async function createTerrainMaterial(
       }
     `,
   });
+  return {
+    material,
+    canopy: {
+      metadata: canopy,
+      url: canopyUrl,
+      coverage: trees.image.data,
+      pistes: {columns: pistes.columns, rows: pistes.rows, spacingMeters: pistes.spacingMeters,
+        mask: trails.image.data},
+    },
+  };
 }
 
 export function createTerrain(scene, map, material) {

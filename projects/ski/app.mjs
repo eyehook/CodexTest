@@ -2,12 +2,13 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {ButtonEdges, buttonValue, deadzone, readMovementAxes} from '../../shared/xr/input.mjs';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {loadHeightmap} from './heightmap.mjs';
-import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.2';
+import {loadHeightmap} from './heightmap.mjs?v=0.1.13';
+import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.13';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
 import {createLiftModels} from './lift-models.mjs?v=0.1.6';
-import {SkiMotion} from './ski-motion.mjs?v=0.1.8';
-import {APP_VERSION} from './version.mjs?v=0.1.8';
+import {SkiMotion} from './ski-motion.mjs?v=0.1.15';
+import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.12';
+import {APP_VERSION} from './version.mjs?v=0.1.15';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -25,7 +26,8 @@ async function start() {
   if (!response.ok) throw new Error(`Could not load trail metadata (HTTP ${response.status})`);
   if (!lifts.ok) throw new Error(`Could not load lift destinations (HTTP ${lifts.status})`);
   const [pistes, liftGroups] = await Promise.all([response.json(), lifts.json()]);
-  const material = await createTerrainMaterial(map.metadata, pistes, pistesUrl);
+  const {material, canopy} = await createTerrainMaterial(map.metadata, pistes, pistesUrl);
+  await loadTreeHeights(canopy);
   const renderer = new THREE.WebGLRenderer({antialias: true});
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.xr.enabled = true;
@@ -40,6 +42,7 @@ async function start() {
   const liftMenu = new LiftMenu(rig, liftGroups);
   const terrain = createTerrain(scene, map, material);
   createLiftModels(scene, map, liftGroups);
+  const trees = createTrees(scene, map, canopy, material.uniforms.canopyViewer);
   const movement = new Locomotion(rig, {moveSpeed: 10, turnSpeed: TURN_SPEED});
   const ski = new SkiMotion(map.height, terrain.width, terrain.depth);
   const skiForward = new THREE.Vector3();
@@ -63,8 +66,10 @@ async function start() {
     headOffset.copy(view.position).applyQuaternion(rig.quaternion);
     const x = THREE.MathUtils.clamp(rig.position.x + headOffset.x, 0, terrain.width);
     const z = THREE.MathUtils.clamp(rig.position.z + headOffset.z, 0, terrain.depth);
-    rig.position.set(x - headOffset.x, map.height(x, z), z - headOffset.z);
+    const floor = map.height(x, z);
+    rig.position.set(x - headOffset.x, ski.airborne ? Math.max(floor, ski.y) : floor, z - headOffset.z);
     terrain.update(x, z);
+    trees.update(x, z);
   }
 
   function placeHead(view, x, z) {

@@ -2,7 +2,7 @@
 
 Buildless Three.js r180 terrain viewer for desktop and Quest, with mapped
 downhill pistes in pale blue, likely tree canopy in green, simple lift models,
-and ground-following skiing.
+instanced pine trees, and ground-following skiing.
 
 ## Versioning
 
@@ -53,6 +53,15 @@ no ski-mode binding. Head tracking remains independent of rig yaw.
 The map, lift teleports, and tracking loss stop the current run. Skiing
 also ends at the terrain edge or when speed reaches the standing threshold.
 
+The skier leaves the snow when terrain curvature at the current speed
+would require the surface to pull the skier downward, and a ballistic step
+clears the next surface sample. Takeoff uses the surface grade over the
+previous 1.5 m and has no fixed speed threshold. The drag model assumes a
+165 lb skier. Mass cancels out of the gravity and contact equations. In the
+air, gravity acts vertically and horizontal momentum carries through.
+Steering, braking and boosts resume on snow contact. The XR rig follows
+the airborne height without adding camera pitch or roll.
+
 ## Terrain rendering
 
 [terrain.mjs](terrain.mjs) uses 256 m frustum-culled tiles, with 2, 4, 8, 16
@@ -69,8 +78,9 @@ it after preparing the DEM, run `python projects/ski/bake-shadows.py` in the
 same Python environment. Distance haze softens the far terrain. The viewer
 uses a single terrain material. The trail mask blends pale blue (`#B8DDEB`)
 into the snow before lighting, so trails inherit slope shading and distance haze
-across all LODs. Canopy coverage blends green over the surface so tree
-candidates remain visible where the canopy and mapped pistes overlap.
+across all LODs. Near the viewer, forest ground uses the snow palette.
+From 180 m to 200 m, the shader blends in the green canopy mask, which
+represents distant forest after the individual trees fade out.
 
 ## Source and coverage
 
@@ -107,6 +117,8 @@ coordinates are `easting = firstSampleEasting + x`,
 Queries outside the grid clamp to its edge. The data is a 1 m grid resampled
 from the native DEM and rounded to the nearest centimeter for encoding.
 Terrain vertices use the same absolute elevations as ground sampling.
+The loader applies a sparse centimetre adjustment to the runtime grid
+after loading, so the renderer and skier see the same groomed surface.
 
 ## Piste data
 
@@ -130,6 +142,21 @@ Piste data and mask © OpenStreetMap contributors, licensed under the
 [Open Database License](https://www.openstreetmap.org/copyright).
 [Mount Snow's trail maps](https://www.mountsnow.com/the-mountain/about-the-mountain/trail-maps.aspx)
 are the resort coverage reference.
+
+## Piste smoothing
+
+The mapped piste interiors use a Gaussian-smoothed version of the 1 m
+elevation grid (3 m sigma), with a 5 m inward edge taper and a maximum
+vertical adjustment of 75 cm. Blue areas follow the existing piste mask,
+including mapped glades. The outer boundary samples stay at their original
+elevations. The original lidar crop and base heightmap are retained.
+
+After preparing the DEM and piste assets, run
+`python projects/ski/bake-piste-smoothing.py`, then
+`python projects/ski/bake-shadows.py`. The first script records the sparse
+adjustment asset in the elevation manifest. The second uses the same
+adjusted elevations to bake ridge shadows. The browser applies the
+adjustments once during loading.
 
 ## Lift destinations
 
@@ -180,6 +207,26 @@ option. Structure data © OpenStreetMap contributors under the
 Tall unmapped structures can still register as canopy candidates. Piste
 corridors, including glades, are left available for visual comparison.
 
+## Trees
+
+[trees.mjs](trees.mjs) uses one low-poly model with three foliage tiers and a
+trunk. Grid coordinates seed the position, height, crown radius, yaw and
+color. A jittered 6 m grid gives each eligible cell a 50% spawn chance. The
+jittered position must have at least 25% lidar canopy coverage in its 2 m
+cell. Tree height is 1.5 times the lidar-derived height with ±15% variation.
+Crown radius uses the unscaled height. A candidate is skipped when its crown
+would overlap a mapped piste cell, including mapped glades. The distant
+canopy tint still reflects the lidar survey.
+The distance blend uses the same horizontal viewer position and fade range
+for the trees and terrain canopy mask.
+
+Trees are instanced in frustum-culled 96 m chunks. Chunks near the viewer
+stay resident and rebuild deterministically when revisited. A world-stable
+dither fades trees from 180 m to 200 m horizontally, with opaque depth writes.
+No tree collision or dynamic tree shadows. A fully eligible 200 m radius
+would average roughly 1,745 trees before frustum culling. Actual Quest frame
+time and the visual fade still need headset testing.
+
 ## Validation
 
 The native crop has no missing cells. The browser grid has 5,324 columns and
@@ -204,4 +251,5 @@ validation.
 
 Focused ski checks cover gravity on uphill/downhill grades, boost, braking,
 steering, stopping at the terrain boundary, 72 Hz versus 120 Hz integration,
-and course following during cross-slope drift and across the yaw wrap.
+course following during cross-slope drift and across the yaw wrap, and
+crest takeoff and landing with steady-incline and low-speed controls.

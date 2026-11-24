@@ -6,12 +6,36 @@ async function getAsset(url) {
   return response;
 }
 
+async function loadGrid(url) {
+  const response = await getAsset(url);
+  const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).arrayBuffer();
+}
+
+export function applyPisteAdjustments(data, adjustments) {
+  const samples = new DataView(data);
+  const patches = new DataView(adjustments);
+  const recordBytes = 5;
+  if (patches.byteLength % recordBytes !== 0) throw new Error('Invalid piste adjustment asset');
+  for (let i = 0; i < patches.byteLength; i += recordBytes) {
+    const offset = patches.getUint32(i, true) * 2;
+    const next = samples.getUint16(offset, true) + patches.getInt8(i + 4);
+    if (next < 0 || next > 65535) throw new Error('Piste adjustment exceeds the elevation grid range');
+    samples.setUint16(offset, next, true);
+  }
+}
+
 export async function loadHeightmap(url = metadataUrl) {
   const manifestUrl = new URL(url, import.meta.url);
+  manifestUrl.search ||= new URL(import.meta.url).search;
   const metadata = await (await getAsset(manifestUrl)).json();
-  const response = await getAsset(new URL(metadata.asset, manifestUrl));
-  const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
-  const data = await new Response(stream).arrayBuffer();
+  const patchUrl = metadata.pisteAdjustmentAsset && new URL(metadata.pisteAdjustmentAsset, manifestUrl);
+  if (patchUrl) patchUrl.search = manifestUrl.search;
+  const [data, adjustments] = await Promise.all([
+    loadGrid(new URL(metadata.asset, manifestUrl)),
+    patchUrl ? loadGrid(patchUrl) : null,
+  ]);
+  if (adjustments) applyPisteAdjustments(data, adjustments);
   return createHeightmap(metadata, data);
 }
 
