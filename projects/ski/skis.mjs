@@ -1,0 +1,61 @@
+import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+
+const LENGTH = 1.62;
+const SEPARATION = 0.28;
+const THICKNESS = 0.035;
+
+export function createSkis(rig, height) {
+  const pair = new THREE.Group();
+  pair.name = 'Player skis';
+  pair.visible = false;
+  rig.add(pair);
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.055, -LENGTH / 2);
+  shape.lineTo(0.055, -LENGTH / 2);
+  shape.lineTo(0.049, 0.43);
+  shape.quadraticCurveTo(0.08, LENGTH / 2, 0, LENGTH / 2);
+  shape.quadraticCurveTo(-0.08, LENGTH / 2, -0.049, 0.43);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {depth: THICKNESS, bevelEnabled: false, curveSegments: 4});
+  geometry.rotateX(-Math.PI / 2);
+  const top = new THREE.MeshBasicMaterial({color: 0xd85831});
+  const side = new THREE.MeshBasicMaterial({color: 0x202a32});
+  const stripe = new THREE.MeshBasicMaterial({color: 0xf9e5c2});
+  const markerGeometry = new THREE.BoxGeometry(0.072, 0.004, 0.18);
+  const skis = [-1, 1].map(sign => {
+    const ski = new THREE.Mesh(geometry, [top, side]);
+    ski.position.x = sign * SEPARATION / 2;
+    const band = new THREE.Mesh(markerGeometry, stripe);
+    band.position.set(0, THICKNESS + 0.002, -0.4);
+    ski.add(band);
+    pair.add(ski);
+    return ski;
+  });
+  const point = new THREE.Vector3();
+
+  return {
+    update(view, motion, visible) {
+      pair.visible = visible && motion.active;
+      if (!pair.visible) return;
+      pair.position.set(view.position.x, 0, view.position.z);
+      pair.rotation.y = motion.angle ?? 0;
+      const yaw = rig.rotation.y + pair.rotation.y;
+      const fx = -Math.sin(yaw) * LENGTH / 2;
+      const fz = -Math.cos(yaw) * LENGTH / 2;
+      for (const ski of skis) {
+        if (motion.airborne) {
+          ski.position.y = 0.025;
+          ski.rotation.x = 0;
+          continue;
+        }
+        point.set(ski.position.x, 0, 0);
+        pair.localToWorld(point);
+        const nose = height(point.x + fx, point.z + fz);
+        const tail = height(point.x - fx, point.z - fz);
+        ski.position.y = Math.max(height(point.x, point.z), (nose + tail) / 2) - rig.position.y + 0.025;
+        ski.rotation.x = Math.atan2(nose - tail, LENGTH);
+      }
+    },
+    pair,
+  };
+}

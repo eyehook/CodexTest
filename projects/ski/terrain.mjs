@@ -94,6 +94,7 @@ export async function createTerrainMaterial(
       canopySpacing: {value: canopy.spacingMeters},
       canopyGreen: {value: new THREE.Color(0x579657)},
       canopyViewer: {value: new THREE.Vector2()},
+      showTreeModels: {value: true},
       shadowSize: {value: new THREE.Vector2(width, height)},
       shadowSpacing: {value: SHADOW_SPACING},
       minHeight: {value: minimumElevationMeters},
@@ -118,6 +119,7 @@ export async function createTerrainMaterial(
     fragmentShader: `
       uniform vec3 sun, low, middle, high, haze, trailBlue, canopyGreen;
       uniform sampler2D shadows, trails, trees;
+      uniform bool showTreeModels;
       uniform vec2 shadowSize, trailSize, canopySize, canopyViewer;
       uniform float shadowSpacing, trailSpacing, canopySpacing, minHeight, maxHeight;
       varying vec3 terrainPoint;
@@ -130,8 +132,8 @@ export async function createTerrainMaterial(
         float trail = texture2D(trails, (terrainPoint.xz / trailSpacing + 0.5) / trailSize).r;
         snow = mix(snow, trailBlue, trail);
         float canopy = texture2D(trees, (terrainPoint.xz / canopySpacing + 0.5) / canopySize).r;
-        float canopyFade = smoothstep(${FADE_START.toFixed(1)}, ${FAR.toFixed(1)},
-          length(terrainPoint.xz - canopyViewer));
+        float canopyFade = showTreeModels ? smoothstep(${FADE_START.toFixed(1)}, ${FAR.toFixed(1)},
+          length(terrainPoint.xz - canopyViewer)) : 1.0;
         snow = mix(snow, canopyGreen, smoothstep(0.03, 0.68, canopy) * canopyFade);
         vec3 slope = normalize(terrainNormal);
         float cosine = max(dot(slope, sun), 0.0);
@@ -156,7 +158,6 @@ export async function createTerrainMaterial(
 }
 
 export function createTerrain(scene, map, material) {
-  scene.background = new THREE.Color(SKY);
   const width = map.metadata.columns - 1;
   const depth = map.metadata.rows - 1;
   const columns = Math.ceil(width / TILE_SIZE);
@@ -238,5 +239,5 @@ export function createTerrain(scene, map, material) {
     }
   }
 
-  return {width, depth, update};
+  return {width, depth, update, sky: new THREE.Color(SKY)};
 }

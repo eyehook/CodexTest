@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {SkiMotion} from '../ski-motion.mjs';
+import {advanceSkiAngle, SkiMotion, SkiSteering} from '../ski-motion.mjs';
 
 const speed = ski => Math.hypot(ski.vx, ski.vz);
 
-function travel(ski, seconds, {x = 500, z = 500, hz = 90, steering = 0, brake = 0} = {}) {
+function travel(ski, seconds, {x = 500, z = 500, hz = 90, steering = 0, brake = 0, tuck = 0} = {}) {
   let yaw = 0;
   for (let i = 0; i < seconds * hz; i++) {
-    ski.advance(1 / hz, x, z, steering, brake);
+    ski.updateTuck(1 / hz, tuck);
+    ski.advance(1 / hz, x, z, steering, brake, yaw);
     ({x, z} = ski);
-    yaw = ski.followYaw(yaw, 1 / hz);
+    yaw = ski.rigYaw;
   }
   return {x, z, yaw};
 }
@@ -27,13 +28,13 @@ test('gravity accelerates a skier downhill and slows the same push uphill', () =
   assert.equal(speed(uphill), 0);
 });
 
-test('a second push boosts the current course and full braking stops on steep terrain', () => {
+test('a second push adds no speed and full braking stops on steep terrain', () => {
   const ski = new SkiMotion((x, z) => 500 + z, 1000, 1000);
   ski.push(0, -1);
   const initialSpeed = speed(ski);
   ski.push(1, 0);
   assert.equal(ski.vx, 0);
-  assert.equal(speed(ski), initialSpeed + 3);
+  assert.equal(speed(ski), initialSpeed);
   travel(ski, 2, {brake: 1});
   assert.equal(ski.active, false);
   assert.equal(speed(ski), 0);
@@ -43,7 +44,7 @@ test('steering changes course in both directions without adding speed on flat gr
   for (const steering of [-1, 1]) {
     const ski = new SkiMotion(() => 500, 1000, 1000);
     ski.push(0, -1);
-    const result = travel(ski, 0.5, {steering});
+    const result = travel(ski, 1, {steering});
     assert.ok((result.x - 500) * steering > 0.5);
     assert.ok(result.yaw * steering < 0);
     assert.ok(speed(ski) < 5.5);
@@ -68,34 +69,33 @@ test('the map boundary stops skiing and integration is consistent across frame r
 });
 
 
-test('rig follows downhill drift without steering and leaves a small heading dead zone', () => {
+test('cross-slope gravity causes drift without turning the neutral rig', () => {
   const ski = new SkiMotion(x => 500 - x * 0.35, 1000, 1000);
   ski.push(0, -1);
-  assert.equal(ski.followYaw(0.05, 1 / 90), 0.05);
-  const {yaw} = travel(ski, 2);
-  const course = Math.atan2(-ski.vx, -ski.vz);
-  assert.ok(yaw < -0.3);
-  assert.ok(Math.abs(yaw - course) < 0.18);
-  assert.ok(Math.abs(yaw - course) > 0.07);
+  const result = travel(ski, 2);
+  assert.ok(result.x > 500);
+  assert.ok(ski.vx > 0);
+  assert.equal(result.yaw, 0);
 });
 
-test('rig follows the shortest route across the yaw wrap and stops turning when stationary', () => {
-  const ski = new SkiMotion(() => 500, 1000, 1000);
-  const course = -Math.PI + 0.2;
-  ski.push(-Math.sin(course), -Math.cos(course));
-  const yaw = Math.PI - 0.2;
-  const next = ski.followYaw(yaw, 1 / 90);
-  assert.ok(next > yaw && next - yaw < 0.02);
-  ski.stop();
-  assert.equal(ski.followYaw(next, 1 / 90), next);
+test('ski deflection accumulates at 1–45 degrees per second and recenters at neutral', () => {
+  const radians = degrees => degrees * Math.PI / 180;
+  const halfSecond = advanceSkiAngle(0, -1, 0.5);
+  assert.equal(halfSecond, radians(22.5));
+  assert.equal(advanceSkiAngle(halfSecond, -1, 0.5), radians(45));
+  assert.equal(advanceSkiAngle(halfSecond, -1, 1), radians(45));
+  assert.equal(advanceSkiAngle(0, 1, 0.5), -radians(22.5));
+  assert.ok(Math.abs(advanceSkiAngle(0, 1e-8, 1) + radians(1)) < 1e-8);
+  assert.equal(advanceSkiAngle(halfSecond, 1, 0.5), 0);
+  assert.equal(advanceSkiAngle(halfSecond, 0, 0.25), radians(11.25));
+  assert.equal(advanceSkiAngle(halfSecond, 0, 1), 0);
 });
 
 test('a fast uphill approach takes air at a crest and lands with its horizontal momentum', () => {
   const height = z => 500 + Math.max(0, Math.min(3, (500 - z) * 0.35));
   const ski = new SkiMotion((x, z) => height(z), 1000, 1000);
   ski.push(0, -1);
-  ski.push(0, -1);
-  ski.push(0, -1);
+  ski.vz = -11.5;
   let x = 500;
   let z = 497;
   let airtime = 0;
@@ -109,13 +109,17 @@ test('a fast uphill approach takes air at a crest and lands with its horizontal 
     if (ski.airborne) {
       airtime += 1 / 120;
       maxClearance = Math.max(maxClearance, ski.y - height(z));
-      if (alreadyAirborne) assert.equal(speed(ski), before);
+      if (alreadyAirborne) {
+        assert.equal(speed(ski), before);
+        assert.equal(ski.vx, 0);
+        assert.equal(x, 500);
+        assert.ok(ski.angle < 0 && ski.angle >= -Math.PI / 4);
+      }
     }
     assert.ok(ski.y >= height(z));
   }
   assert.ok(airtime > 0.35 && airtime < 1.25);
   assert.ok(maxClearance > 0.3 && maxClearance < 2);
-  assert.equal(x, 500);
   assert.equal(ski.airborne, false);
   assert.equal(ski.y, height(z));
   assert.ok(ski.active);
@@ -126,8 +130,7 @@ test('slow crests and steady inclines keep the skier grounded', () => {
   const steady = new SkiMotion((x, z) => 500 + (500 - z) * 0.35, 1000, 1000);
   slow.push(0, -1);
   steady.push(0, -1);
-  steady.push(0, -1);
-  steady.push(0, -1);
+  steady.vz = -11.5;
   let slowZ = 492;
   let steadyZ = 497;
   for (let i = 0; i < 100; i++) {
@@ -151,8 +154,54 @@ test('contact depends on curvature and speed, including takeoff below 8 m/s', ()
 
   const gentle = new SkiMotion((_x, z) => 500 + Math.min(0, z - 500) * 0.04, 1000, 1000);
   gentle.push(0, -1);
-  gentle.push(0, -1);
+  gentle.vz = -8.5;
   gentle.advance(1 / 120, 500, 500, 0, 0);
   assert.ok(speed(gentle) > 8);
   assert.equal(gentle.airborne, false);
+});
+
+test('either stick owns steering past 5% until it returns to neutral', () => {
+  const steering = new SkiSteering();
+  assert.equal(steering.read(0.05, -0.05), 0);
+  assert.ok(steering.read(0, -0.06) < 0);
+  assert.ok(steering.read(1, -0.1) < 0);
+  assert.ok(steering.read(0.2, 0.05) > 0);
+  assert.ok(steering.read(0.06, -1) > 0);
+  assert.equal(steering.read(0, 0), 0);
+  assert.equal(steering.read(1, -1), 1);
+  steering.reset();
+  assert.equal(steering.read(0.2, -1), -1);
+  assert.equal(steering.read(1, undefined), 1);
+});
+
+test('the rig starts following the skis immediately without snapping to their angle', () => {
+  const ski = new SkiMotion(() => 500, 1000, 1000);
+  ski.push(0, -1);
+  ski.advance(1 / 90, 500, 500, 1, 0, 0);
+  assert.ok(ski.angle < 0 && ski.angle >= -Math.PI / 4);
+  assert.ok(Math.abs(ski.angle + Math.PI / 360) < 1e-12);
+  assert.ok(ski.rigYaw < 0 && ski.rigYaw > ski.angle);
+  assert.ok(ski.vx > 0);
+});
+
+test('tucking eases view height relative to seated offset and reduces drag without a push', () => {
+  const height = (_x, z) => 500 + z * 0.35;
+  const upright = new SkiMotion(height, 1000, 1000);
+  const tucked = new SkiMotion(height, 1000, 1000);
+  const flat = new SkiMotion(() => 500, 1000, 1000);
+  for (const ski of [upright, tucked, flat]) ski.push(0, -1);
+
+  tucked.updateTuck(1 / 90, 1);
+  assert.ok(tucked.viewOffset(1.2) < 1.2 && tucked.viewOffset(1.2) > 1.15);
+  assert.equal(speed(tucked), 5.5);
+  travel(tucked, 6, {tuck: 1});
+  travel(upright, 6);
+  travel(flat, 6, {tuck: 1});
+  assert.ok(speed(tucked) > speed(upright) + 1);
+  assert.ok(speed(flat) < 5.5);
+  assert.equal(tucked.viewOffset(1.2), 1.2 - 0.45);
+  tucked.updateTuck(1 / 90, 0);
+  assert.ok(tucked.viewOffset(1.2) > 1.2 - 0.45 && tucked.viewOffset(1.2) < 1.2);
+  travel(tucked, 2);
+  assert.equal(tucked.viewOffset(1.2), 1.2);
 });

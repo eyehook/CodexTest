@@ -156,11 +156,11 @@ native dropdown binding remains project-owned.
 
 | Module | Interface | Consumers |
 | --- | --- | --- |
-| `ui/controls.mjs` | `ControlModel` | Surface, Swarm, Weather, Scene Test |
+| `ui/controls.mjs` | `ControlModel` | Surface, Swarm, Weather, Scene Test, Mount Snow |
 | `ui/desktop.mjs` | `DesktopControls` | Surface, Swarm, Weather |
 | `ui/desktop.css` | Native layout, focus/disabled styling and numeric interaction styling | Surface, Swarm, Weather |
 | `ui/vr-panel.mjs` | `VRControlPanel` | Surface, Swarm |
-| `ui/vr-slider-panel.mjs` | `VRSliderPanel` | Weather |
+| `ui/vr-slider-panel.mjs` | `VRSliderPanel` | Weather, Air Club, Mount Snow |
 | `ui/slider.mjs` | `sliderValue` pointer mapping | Shared VR slider panel, Scene Test, Secret Garden |
 | `ui/choice-bar.mjs` | `ChoiceBar` segmented selectors/tabs | Shared VR slider panel, Scene Test |
 | `ui/theme.mjs` | `DEFAULT_THEME`, `createTheme(overrides)` | Shared VR panel; optional project palettes |

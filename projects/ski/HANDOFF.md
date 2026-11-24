@@ -24,6 +24,13 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
 - Quest: left stick to walk or strafe, right stick to turn. The ground rig
   follows the DEM beneath the tracked head, with eye height from local-floor
   headset tracking.
+- Quest settings: press **B** on the right controller to open or save and
+  close. The landscape is hidden against black. The panel stays upright to
+  the floor and faces your horizontal heading at opening. Point and pull the trigger
+  to choose a tab or change a setting. **Graphics → Trees** switches among
+  individual pine models and the green terrain canopy tint. **VR → Height
+  Offset** raises the tracked view and hands by 0–2 m in 0.05 m steps for
+  seated play. Preferences load on startup and apply when the menu closes.
 - Quest lift map: press **Y** on the left controller to open or close the
   panel. It follows the tracked left hand and faces the viewer.
   Aim with the right controller and pull the trigger to choose a resort area
@@ -32,26 +39,47 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
   controller positions. Locomotion pauses while the panel is open.
 - Full stick or keyboard input walks at 10 m/s and turns at 90°/s. Travel is
   clamped to the dataset extent.
-- Quest ski mode: press the right trigger to push off in the direction
-  you're looking. Steer with left-stick left/right and squeeze the left
-  trigger to brake. Release and press the right trigger again to boost.
-- Desktop ski mode: Space pushes off or boosts, A/D or left/right
+- Quest ski mode: press the right trigger to push off along the skis. Steer left/right with either thumbstick and squeeze the left
+  trigger to brake. Hold the right trigger to tuck, and release to stand.
+- Desktop ski mode: Space pushes off, hold Space to tuck, A/D or left/right
   arrows steer, and Shift brakes. A full stop automatically resumes walking
   in both modes.
 
+## Settings
+
+[settings.mjs](settings.mjs) uses the shared control model and VR slider
+panel, with an inline Trees checkbox and the Height Offset slider. Defaults are
+Trees on and 0 m height offset. The local browser store is updated on B
+close and when leaving XR with the settings open. While the menu is visible,
+walking, skiing and the lift map are suspended. The VR offset lives on a
+child rig containing the camera, hands and menus, so terrain contact and
+teleport elevations stay in terrain coordinates. When trees are off, the
+renderer skips tree batch updates and uses the canopy tint at all distances.
+
 ## Ski motion
 
-[The ski simulation](ski-motion.mjs) projects gravity onto the local slope
-sampled from the DEM. Momentum carries across the slope, steering changes
-course with a speed-dependent turn rate, and sliding resistance plus
-quadratic air drag slow the skier. The launch is 5.5 m/s and each fresh
-boost adds 3 m/s along the current course. Brake pressure controls
-deceleration. The rig follows the ground and smoothly turns toward actual
-travel direction, including downhill drift. A 5° yaw dead zone limits small
-corrections, and course following only runs above 1 m/s. The right stick has
-no ski-mode binding. Head tracking remains independent of rig yaw.
-The map, lift teleports, and tracking loss stop the current run. Skiing
-also ends at the terrain edge or when speed reaches the standing threshold.
+[The ski simulation](ski-motion.mjs) projects gravity onto the local slope.
+Either stick rotates the skis at 1–45°/s, based on how far it is deflected
+past the dead zone. Ski angle is limited to 45° from the rig.
+Snow contact resists sideways motion across the skis, so actual travel
+depends on momentum, slope and edge grip. The rig slowly turns toward
+the skis at up to 40°/s. Neutral input brings the skis back to center at
+45°/s, then the rig holds its heading. Airborne steering turns the skis and
+rig while horizontal flight momentum carries through. Head tracking remains
+independent of rig yaw.
+
+Ski steering has a 5% stick dead zone. The first stick outside it owns
+steering until it returns to neutral. If both engage on the same frame,
+the stronger input wins, with left taking an exact tie. The visible skis
+follow the tracked horizontal footprint and pitch to match the snow.
+The player can look down to see them while skiing.
+
+The launch is 5.5 m/s, and sliding resistance and air drag slow the skier.
+Holding the right trigger while skiing lowers the view smoothly by up to
+0.45 m relative to the seated height offset and reduces aerodynamic drag to
+48% at full tuck. Brake pressure controls deceleration. The map, lift
+teleports, and tracking loss stop the run. Skiing also ends at the terrain
+edge or when speed reaches the standing threshold.
 
 The skier leaves the snow when terrain curvature at the current speed
 would require the surface to pull the skier downward, and a ballistic step
@@ -59,7 +87,7 @@ clears the next surface sample. Takeoff uses the surface grade over the
 previous 1.5 m and has no fixed speed threshold. The drag model assumes a
 165 lb skier. Mass cancels out of the gravity and contact equations. In the
 air, gravity acts vertically and horizontal momentum carries through.
-Steering, braking and boosts resume on snow contact. The XR rig follows
+Steering, braking and drag from the tuck apply on snow contact. The XR rig follows
 the airborne height without adding camera pitch or roll.
 
 ## Terrain rendering
@@ -249,7 +277,7 @@ pinch selection, and ray targeting under a rotated player rig. The destination c
 panel legibility, stereo seams and sustained frame rate still need headset
 validation.
 
-Focused ski checks cover gravity on uphill/downhill grades, boost, braking,
+Focused ski checks cover gravity on uphill/downhill grades, tuck and drag, braking,
 steering, stopping at the terrain boundary, 72 Hz versus 120 Hz integration,
-course following during cross-slope drift and across the yaw wrap, and
-crest takeoff and landing with steady-incline and low-speed controls.
+ski angle, cross-slope drift, gradual rig yaw, and crest takeoff and landing
+with steady-incline and low-speed controls.
