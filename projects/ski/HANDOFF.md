@@ -6,7 +6,7 @@ instanced pine trees, and ground-following skiing.
 
 ## Start here
 
-- Current version **v0.1.69**. Start with [app.mjs](app.mjs) for the runtime,
+- Current version **v0.1.73**. Start with [app.mjs](app.mjs) for the runtime,
   [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
   [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
 - The repository contains the generated browser assets. GIS tools and the
@@ -131,6 +131,29 @@ walking, skiing and the lift map are suspended. The VR offset lives on a
 child rig containing the camera, hands and menus, so terrain contact and
 teleport elevations stay in terrain coordinates. When trees are off, the
 renderer skips tree batch updates and uses the canopy tint at all distances.
+
+## Debug profiling
+
+Open **Settings → Debug** to see two-second gameplay averages and session
+worsts. Collection starts after five seconds of active gameplay in each mode.
+The warm-up and collection pause in Settings, the lift map, and while hidden
+or untracked. Desktop and XR start separate samples when
+switching modes. FPS uses raw frame intervals and tracks the lowest full
+two-second average. The longest interval also appears separately. **Reset** clears the averages
+and worsts while the menu is open. Closing the menu resumes collection
+without repeating a completed warm-up.
+
+CPU frame time includes the main render call and any pine-shadow refresh.
+The render timings measure CPU time spent in those calls, including driver
+waits. The tree, terrain, and pine-shadow rows average frames where those
+systems did work. Draws and triangles count the main pass. Chunk and tile
+counts describe the corresponding streaming calls. An empty value means
+there were no matching samples in the window. There is no GPU timer or capture
+export in this version.
+
+For Quest comparisons, run the same route with Shadows off and on first,
+then compare Trees off and on with Shadows off. Use terrain rows to check
+hitches after lift arrivals and during descent.
 
 ## Ski motion
 
@@ -420,9 +443,18 @@ even when Trees is off.
   and the sky. It exercised walking and skiing. The 2048² PCFSoft pass was
   checked with Shadows on and off. Chrome also loaded the mapped-pylon and
   building models and exercised turning and walking.
-- A desktop CPU replay reduced the worst terrain tile update on one route
-  from 17.0 ms to 5.1 ms after incremental tile updates. That measured
-  CPU tile work before rendering.
+- Terrain mesh rows read the piste-adjusted 1 m DEM at integer coordinates,
+  using clamped central differences for lighting normals. Physics retains its
+  fractional height interpolation and slope-angle calculation.
+- Desktop Node replay for v0.1.72 → v0.1.73: initialize at the Bluebird
+  Express lower station, teleport to its arrival, hold for 200 updates, then
+  follow its mapped lift polyline in reverse at 0.25 m per update. Repeat
+  the arrival and descent with the same terrain cache. Across three fresh
+  terrain instances, p95 CPU time for updates that changed tiles went from
+  1.41–1.72 to 0.32–0.37 ms on the first pass and 1.26–1.65 to 0.26–0.29 ms
+  on the repeat. Initialization and rendering are excluded. Quest timing
+  for this sampler is pending; compare the same lift and descent with
+  identical graphics settings after the profiler warm-up.
 - On Quest, verify stereo sky and terrain seams, seated tuck and pop feel,
   menu legibility, lift arrivals and the **A** shortcut at highlighted bases.
   Check building placement, tree clearance, and cable clearance between the

@@ -263,7 +263,6 @@ export function createTerrain(scene, map, material) {
   const topologies = new Map();
   const vertexCache = new Map();
   let cachedBytes = 0;
-  const normal = {};
   let lastX = Infinity;
   let lastZ = Infinity;
   const pending = [];
@@ -282,19 +281,9 @@ export function createTerrain(scene, map, material) {
     const size = (cells + 1) ** 2 * 3;
     const points = new Float32Array(size);
     const normals = new Float32Array(size);
-    let cursor = 0;
     for (let j = 0; j <= cells; j++) {
       const z = Math.min(depth, row * TILE_SIZE + j * step);
-      for (let k = 0; k <= cells; k++) {
-        const x = Math.min(width, col * TILE_SIZE + k * step);
-        points[cursor] = x;
-        points[cursor + 1] = map.height(x, z);
-        points[cursor + 2] = z;
-        map.normal(x, z, normal);
-        normals[cursor++] = normal.x;
-        normals[cursor++] = normal.y;
-        normals[cursor++] = normal.z;
-      }
+      map.writeTerrainRow(points, normals, j * (cells + 1) * 3, col * TILE_SIZE, z, step, cells + 1);
     }
     return {points, normals, bytes: points.byteLength + normals.byteLength, bounds: null};
   }
@@ -377,7 +366,7 @@ export function createTerrain(scene, map, material) {
       }
       if (initial) {
         for (let i = 0; i < tiles.length; i++) stitch(i);
-        return;
+        return tiles.length;
       }
       pending.sort((a, b) => tiles[a].distance - tiles[b].distance);
     }
@@ -386,7 +375,8 @@ export function createTerrain(scene, map, material) {
     // Change one tile and its four borders together. Mixed intermediate LODs
     // remain watertight while the rest of the queue catches up.
     const deadline = performance.now() + TILE_UPDATE_BUDGET_MS;
-    for (let changed = 0; pendingIndex < pending.length && changed < TILES_PER_FRAME; changed++) {
+    let changed = 0;
+    for (; pendingIndex < pending.length && changed < TILES_PER_FRAME; changed++) {
       const i = pending[pendingIndex++];
       const tile = tiles[i];
       replaceVertices(tile, i, tile.nextStep);
@@ -395,8 +385,9 @@ export function createTerrain(scene, map, material) {
       if (tile.col + 1 < columns) stitch(i + 1);
       if (tile.row > 0) stitch(i - columns);
       if (tile.row + 1 < rows) stitch(i + columns);
-      if (performance.now() >= deadline) break;
+      if (performance.now() >= deadline) return changed + 1;
     }
+    return changed;
   }
 
   return {width, depth, update};

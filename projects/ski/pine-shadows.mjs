@@ -80,6 +80,7 @@ export function createPineShadows(scene, renderer, terrainMaterial, elevation) {
     }
     lastX = x;
     lastZ = z;
+    return true;
   }
 
   function dispose() {

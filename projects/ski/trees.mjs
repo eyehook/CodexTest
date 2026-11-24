@@ -199,6 +199,7 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
     previousX = sx;
     previousZ = sz;
     const needed = new Set();
+    let built = 0;
     for (let cz = Math.max(0, Math.floor((sz - PREFETCH) / CHUNK));
       cz <= Math.min(Math.floor(depth / CHUNK), Math.floor((sz + PREFETCH) / CHUNK)); cz++) {
       for (let cx = Math.max(0, Math.floor((sx - PREFETCH) / CHUNK));
@@ -209,8 +210,11 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
         const key = cz * (Math.floor(width / CHUNK) + 1) + cx;
         needed.add(key);
         const geometry = dx * dx + dz * dz > DETAIL_RANGE * DETAIL_RANGE ? simplified : detailed;
-        if (!chunks.has(key)) chunks.set(key, addChunk(cx, cz, geometry));
-        else {
+        if (!chunks.has(key)) {
+          const mesh = addChunk(cx, cz, geometry);
+          chunks.set(key, mesh);
+          if (mesh) built++;
+        } else {
           const mesh = chunks.get(key);
           if (mesh) mesh.geometry = geometry;
         }
@@ -224,6 +228,7 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
       }
       chunks.delete(key);
     }
+    return built;
   }
   return {update, group, material};
 }

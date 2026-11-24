@@ -282,7 +282,9 @@ Options include `title`, `subtitle`, `width` (0.9 m by default), `theme`,
 `defaultSection`, `toggleButton` (5), `triggerButton` (0), `getSource`, and
 `onOpen(mesh)` for project-owned world placement. `title` can be a getter.
 `group` metadata generates section tabs and paged controls. Set
-`sectionPlacement: 'left'` to stack the tabs at the left of the controls, as in Mount Snow. `selection` optionally
+`sectionPlacement: 'left'` to stack the tabs at the left of the controls, as in Mount Snow.
+A group of `readout` definitions renders as compact, non-interactive rows.
+A footer action can name its section with `group` to appear only there. `selection` optionally
 supplies a separate context selector with `{options, getValue, onSelect}`; its
 options are `{id, label, disabled?}`. Weather uses this for Snow/Rain, but it has
 no weather-specific implementation in the shared module.

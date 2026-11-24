@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as THREE from '../../../shared/vendor/three-r180/three.module.js';
+import {SkiProfiler} from '../profiling.mjs';
 import {loadSettings, saveSettings, SkiSettings} from '../settings.mjs';
 
 test('settings load defaults, clamp stored heights, and round-trip preferences', () => {
@@ -31,7 +32,14 @@ test('B opens and commits the VR settings, including left tabs, checkbox and sli
   parent.position.set(1400, 1040, 1750);
   parent.rotation.y = 1.37;
   const saved = loadSettings();
-  const settings = new SkiSettings(parent, saved);
+  const profiler = new SkiProfiler();
+  profiler.finishFrame(0);
+  profiler.finishFrame(5000);
+  for (let time = 5010; time <= 7000; time += 10) {
+    profiler.beginFrame();
+    profiler.finishFrame(time);
+  }
+  const settings = new SkiSettings(parent, saved, profiler);
   const viewer = {position: new THREE.Vector3(0.1, 1.5, -0.15), orientation: new THREE.Quaternion()};
   const aim = {position: new THREE.Vector3(), orientation: new THREE.Quaternion()};
   const buttons = Array.from({length: 6}, () => ({pressed: false}));
@@ -72,11 +80,21 @@ test('B opens and commits the VR settings, including left tabs, checkbox and sli
   assert.deepEqual(saved, {trees: true, shadows: false, trails: true, heightOffset: 0, skiVolume: 0.35, windVolume: 0.5, ambientVolume: 0.35});
   click(120, 310);
   assert.equal(settings.panel.section, 'Audio');
+  assert.equal(settings.panel.activeFooterAction, null);
   click(461, 223);
   click(783, 361);
   click(622, 499);
   assert.equal(settings.draft.skiVolume, 0.25);
   assert.equal(settings.draft.windVolume, 0.75);
+  assert.equal(settings.draft.ambientVolume, 0.5);
+  click(120, 374);
+  assert.equal(settings.panel.section, 'Debug');
+  assert.equal(settings.panel.visibleDefinitions[0].kind, 'readout');
+  assert.equal(profiler.formatFps(), '100.0 / 100.0');
+  click(750, settings.panel.canvas.height - 90);
+  assert.equal(profiler.formatFps(), '— / —');
+  assert.equal(profiler.ready, true);
+  click(622, 499);
   assert.equal(settings.draft.ambientVolume, 0.5);
   assert.equal(entries.size, 0);
 

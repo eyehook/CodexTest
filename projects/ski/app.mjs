@@ -1,21 +1,23 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {ButtonEdges, buttonValue, readMovementAxes} from '../../shared/xr/input.mjs';
-import {createPineShadows} from './pine-shadows.mjs?v=0.1.39';
+import {createPineShadows} from './pine-shadows.mjs?v=0.1.70';
 import {ForestAmbience, bindForestAudio} from '../hike/forest-audio.mjs?v=2';
 import {Atmosphere, ATMOSPHERE} from '../hike/atmosphere.mjs?v=1';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {loadHeightmap} from './heightmap.mjs?v=0.1.25';
-import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.60';
+import {loadHeightmap} from './heightmap.mjs?v=0.1.73';
+import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.73';
 import {createBuildings} from './buildings.mjs?v=0.1.47';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
 import {createLiftModels} from './lift-models.mjs?v=0.1.46';
 import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.61';
+import {SkiProfiler, CPU, RENDER, SHADOW, TREES, TERRAIN, CALLS, TRIANGLES,
+  TREE_BUILDS, TILE_BUILDS} from './profiling.mjs?v=0.1.72';
 import {SkiAudio} from './ski-audio.mjs?v=0.1.69';
 import {createSkis} from './skis.mjs?v=0.1.58';
-import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.60';
-import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.69';
-import {APP_VERSION} from './version.mjs?v=0.1.69';
+import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.70';
+import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.72';
+import {APP_VERSION} from './version.mjs?v=0.1.73';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -75,7 +77,8 @@ async function start() {
     atmosphere.dispose();
     shadows.dispose();
   });
-  const settings = new SkiSettings(heightRig, preferences);
+  const profiler = new SkiProfiler();
+  const settings = new SkiSettings(heightRig, preferences, profiler);
   const black = new THREE.Color(0x000000);
   const movement = new Locomotion(rig, {moveSpeed: 10, turnSpeed: TURN_SPEED});
   const audio = new SkiAudio();
@@ -110,14 +113,26 @@ async function start() {
   let desktopPoleDown = false;
   let rightController = null;
 
-  function ground(view) {
+  function ground(view, measure = false) {
     headOffset.copy(view.position).applyQuaternion(rig.quaternion);
     const x = THREE.MathUtils.clamp(rig.position.x + headOffset.x, 0, terrain.width);
     const z = THREE.MathUtils.clamp(rig.position.z + headOffset.z, 0, terrain.depth);
     const floor = map.height(x, z);
     rig.position.set(x - headOffset.x, ski.airborne ? Math.max(floor, ski.y) : floor, z - headOffset.z);
-    terrain.update(x, z);
-    if (preferences.trees) trees.update(x, z);
+    const terrainStart = measure ? performance.now() : 0;
+    const tiles = terrain.update(x, z);
+    if (measure && tiles > 0) {
+      profiler.values[TERRAIN] = performance.now() - terrainStart;
+      profiler.values[TILE_BUILDS] = tiles;
+    }
+    if (preferences.trees) {
+      const treeStart = measure ? performance.now() : 0;
+      const chunks = trees.update(x, z);
+      if (measure && chunks !== undefined) {
+        profiler.values[TREES] = performance.now() - treeStart;
+        profiler.values[TREE_BUILDS] = chunks;
+      }
+    }
   }
 
   function highlightLiftAtHead(view) {
@@ -215,7 +230,10 @@ async function start() {
   addEventListener('blur', () => keys.clear());
   document.addEventListener('visibilitychange', () => {
     keys.clear();
-    if (document.hidden) ambience.stop();
+    if (document.hidden) {
+      ambience.stop();
+      profiler.pause();
+    }
   });
   addEventListener('keydown', event => {
     if (event.altKey || event.ctrlKey || event.metaKey || !movementKeys.has(event.code)) return;
@@ -243,12 +261,16 @@ async function start() {
   });
 
   renderer.setAnimationLoop((time, frame) => {
+    let gameplay = !settings.visible && !liftMenu.visible;
+    const frameStart = gameplay && profiler.ready ? performance.now() : 0;
     const dt = Math.min((time - (previousTime ?? time)) / 1000, 0.05);
     previousTime = time;
     const session = renderer.xr.getSession();
     xr.update(session, frame, renderer.xr.getReferenceSpace(), document.hidden);
+    if (xr.changed) profiler.reset();
     ambience.setActive(audioRequested && xr.active);
     if (!xr.active) {
+      profiler.pause();
       highlightNearestBase(Infinity, Infinity);
       liftMenu.hide();
       settings.suspend();
@@ -256,6 +278,8 @@ async function start() {
       return;
     }
 
+    const ready = profiler.ready;
+    if (gameplay && ready) profiler.beginFrame();
     if (session) {
       const {position, orientation} = xr.pose.transform;
       trackedView.position.set(position.x, position.y, position.z);
@@ -300,7 +324,8 @@ async function start() {
         navigate(dt, trackedView, axes.x, axes.z, axes.turn, steer, push, pole, buttonValue(left), buttonValue(right));
         if (!ski.active) steering.reset();
       }
-      if (!settings.visible) ground(trackedView);
+      gameplay = gameplay && !settingsConsumedFrame && !liftMenu.visible && !lift;
+      if (!settings.visible) ground(trackedView, gameplay && ready);
       if (settingsConsumedFrame || liftMenu.visible) highlightNearestBase(Infinity, Infinity);
       else highlightLiftAtHead(trackedView);
     } else {
@@ -317,15 +342,29 @@ async function start() {
       const turn = axis('ArrowLeft', 'ArrowRight');
       navigate(dt, desktopView, side, axis('KeyW', 'KeyS'), turn, side || turn,
         push, pole, Number(keys.has('ShiftLeft') || keys.has('ShiftRight')), Number(pushDown));
-      ground(desktopView);
+      ground(desktopView, gameplay && ready);
       highlightLiftAtHead(desktopView);
     }
     const viewer = session ? trackedView : desktopView;
     heightRig.position.y = ski.viewOffset(session ? preferences.heightOffset : 0, viewer.position.y);
     skis.update(viewer, ski, !settings.visible, preferences.shadows, dt);
     const shadowViewer = material.uniforms.canopyViewer.value;
-    shadows.update(preferences.shadows && preferences.trees && !settings.visible, shadowViewer.x, shadowViewer.y);
+    const measure = gameplay && ready;
+    const shadowStart = measure ? performance.now() : 0;
+    const shadowRefreshed = shadows.update(preferences.shadows && preferences.trees && !settings.visible,
+      shadowViewer.x, shadowViewer.y);
+    const renderStart = measure ? performance.now() : 0;
     renderer.render(scene, camera);
+    if (measure) {
+      const end = performance.now();
+      if (shadowRefreshed) profiler.values[SHADOW] = renderStart - shadowStart;
+      profiler.values[CPU] = end - frameStart;
+      profiler.values[RENDER] = end - renderStart;
+      profiler.values[CALLS] = renderer.info.render.calls;
+      profiler.values[TRIANGLES] = renderer.info.render.triangles;
+    }
+    if (gameplay) profiler.finishFrame(time);
+    else profiler.pause();
   });
 
   status.hidden = true;

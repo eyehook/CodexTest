@@ -1,7 +1,8 @@
+import {METRICS} from './profiling.mjs?v=0.1.72';
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {ButtonEdges} from '../../shared/xr/input.mjs';
 import {ControlModel} from '../../shared/ui/controls.mjs';
-import {VRSliderPanel} from '../../shared/ui/vr-slider-panel.mjs?v=shared-ui-slider-2';
+import {VRSliderPanel} from '../../shared/ui/vr-slider-panel.mjs?v=shared-ui-slider-4';
 
 const STORAGE_KEY = 'mount-snow-settings';
 const B_BUTTON = 5;
@@ -73,7 +74,7 @@ class SettingsPanel extends VRSliderPanel {
 }
 
 export class SkiSettings {
-  constructor(parent, saved) {
+  constructor(parent, saved, profiler) {
     this.saved = saved;
     this.draft = {...saved};
     this.buttons = new ButtonEdges();
@@ -96,11 +97,25 @@ export class SkiSettings {
         get: () => this.draft[id], set: value => { this.draft[id] = value; },
         format: value => `${Math.round(value * 100)}%`,
       })),
+      {id: 'debugFps', kind: 'readout', label: 'FPS (2 s avg / worst)', group: 'Debug',
+        get: () => profiler?.formatFps() ?? '—'},
+      ...METRICS.map(({id, label}, index) => ({
+        id: `debug-${id}`, kind: 'readout', label, group: 'Debug',
+        get: () => profiler?.format(index) ?? '—',
+      })),
     ]);
     this.forward = new THREE.Vector3();
     this.panel = new SettingsPanel(parent, this.controllers, this.model, {
       title: 'Settings', subtitle: 'B saves and closes · Point and pull trigger',
       width: 0.9, toggleButton: -1, sectionPlacement: 'left',
+      footerAction: {
+        group: 'Debug',
+        label: 'Reset',
+        run: () => {
+          profiler.reset({restartWarmup: false});
+          this.panel.draw();
+        },
+      },
     });
   }
 

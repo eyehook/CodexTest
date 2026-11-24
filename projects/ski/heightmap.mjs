@@ -79,5 +79,27 @@ export function createHeightmap(metadata, data) {
     return out;
   }
 
-  return { metadata, height, normal };
+  // Terrain mesh coordinates are whole sample indices on the Mount Snow 1 m DEM.
+  function writeTerrainRow(points, normals, cursor, startX, z, step, count) {
+    const row = z * columns;
+    const north = Math.max(0, z - 1) * columns;
+    const south = Math.min(rows - 1, z + 1) * columns;
+    const dy = 2 * spacingMeters;
+    for (let i = 0; i < count; i++) {
+      const x = Math.min(columns - 1, startX + i * step);
+      const dx = elevationScaleMeters * (samples.getUint16(2 * (row + Math.max(0, x - 1)), true)
+        - samples.getUint16(2 * (row + Math.min(columns - 1, x + 1)), true));
+      const dz = elevationScaleMeters * (samples.getUint16(2 * (north + x), true)
+        - samples.getUint16(2 * (south + x), true));
+      const inverseLength = 1 / Math.sqrt(dx * dx + dy * dy + dz * dz);
+      points[cursor] = x;
+      points[cursor + 1] = elevationOffsetMeters + elevationScaleMeters * samples.getUint16(2 * (row + x), true);
+      points[cursor + 2] = z;
+      normals[cursor++] = dx * inverseLength;
+      normals[cursor++] = dy * inverseLength;
+      normals[cursor++] = dz * inverseLength;
+    }
+  }
+
+  return { metadata, height, normal, writeTerrainRow };
 }

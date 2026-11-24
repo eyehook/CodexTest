@@ -1,6 +1,7 @@
 import {VRControlPanel} from './vr-panel.mjs?v=shared-ui-slider-1';
 import {ChoiceBar} from './choice-bar.mjs?v=shared-ui-slider-2';
 import {sliderValue} from './slider.mjs?v=shared-ui-slider-1';
+const panelKinds = new Set(['number', 'toggle', 'readout']);
 const text=value=>String(typeof value==='function'?value():value??'');
 
 // Weather's drag interaction and paged layout, generalized around a ControlModel.
@@ -15,17 +16,21 @@ export class VRSliderPanel extends VRControlPanel {
   setModel(model) { this.section=null;super.setModel(model); }
   resizeLayout() { if(this.ready)this.resizeControls(); }
   resizeControls() {
-    this.sections=[...new Set(this.model.definitions.filter(d=>['number','toggle'].includes(d.kind)).map(d=>d.group??this.defaultSection))];
+    this.sections=[...new Set(this.model.definitions.filter(d=>d.vr!==false&&panelKinds.has(d.kind)).map(d=>d.group??this.defaultSection))];
     if(!this.sections.includes(this.section))this.section=this.sections[0];
-    this.visibleDefinitions=this.model.definitions.filter(d=>['number','toggle'].includes(d.kind)&&(d.group??this.defaultSection)===this.section);
+    this.visibleDefinitions=this.model.definitions.filter(d=>d.vr!==false&&panelKinds.has(d.kind)&&(d.group??this.defaultSection)===this.section);
     const hasTabs=this.sections.length>1;
     const sidebar=hasTabs&&this.sectionPlacement==='left';
     const selectionOffset=this.selection?.options.length?100:0;
     this.controlOffset=selectionOffset+(hasTabs&&!sidebar?80:0);
     this.contentLeft=sidebar?280:60;
+    const onlyReadouts=this.visibleDefinitions.length>0&&this.visibleDefinitions.every(d=>d.kind==='readout');
     const rowCount=sidebar?Math.max(this.sections.length,this.visibleDefinitions.length):this.visibleDefinitions.length;
-    this.saveHeight=this.footerAction?80:0;
-    this.resizeCanvas(276+this.saveHeight+this.controlOffset+rowCount*138);
+    this.readoutSection=onlyReadouts;
+    const footerGroup=this.footerAction?.group;
+    this.activeFooterAction=!footerGroup||footerGroup===this.section?this.footerAction:null;
+    this.saveHeight=this.activeFooterAction?80:0;
+    this.resizeCanvas(276+this.saveHeight+this.controlOffset+(onlyReadouts?Math.max(138, rowCount*42):rowCount*138));
     this.selectionBar=this.selection?new ChoiceBar({...this.selection}):null;
     this.sectionBar=this.sections.length>1?new ChoiceBar({options:this.sections.map(id=>({id,label:id})),getValue:()=>this.section,onSelect:id=>{this.section=id;this.resizeControls();},...(sidebar?{y:148+selectionOffset,width:180,height:this.sections.length*66,vertical:true}:{y:selectionOffset?220:140,height:50}),font:'27px sans-serif'}):null;
     this.generation++;this.dragRows.clear();this.seedTriggers=true;this.draw();
@@ -40,16 +45,17 @@ export class VRSliderPanel extends VRControlPanel {
     this.selectionBar?.draw(ctx,choices);this.sectionBar?.draw(ctx,choices);
     const trackStart=this.contentLeft+20,trackWidth=944-trackStart;
     this.visibleDefinitions.forEach((d,index)=>{
-      const y=180+this.controlOffset+index*138,value=d.get(),disabled=this.model.disabled(d);
+      const y=180+this.controlOffset+index*(this.readoutSection?42:138),value=d.get(),disabled=this.model.disabled(d);
       ctx.font=c.labelFont;ctx.fillStyle=disabled?c.muted:c.text;ctx.textAlign='left';ctx.fillText(this.model.label(d,'vr'),this.contentLeft,y);
       ctx.textAlign='right';ctx.fillText(this.model.format(d),964,y);ctx.textAlign='left';
+      if(d.kind==='readout')return;
       if(d.kind==='toggle'){ctx.fillStyle=value?c.accent:c.sliderTrack;ctx.fillRect(trackStart,y+25,trackWidth,40);return;}
       ctx.fillStyle=c.sliderTrack;ctx.fillRect(trackStart,y+37,trackWidth,12);
       const x=trackStart+(value-d.min)/(d.max-d.min)*trackWidth;
       ctx.fillStyle=disabled?c.muted:c.accent;ctx.fillRect(trackStart,y+37,x-trackStart,12);
       ctx.beginPath();ctx.arc(x,y+43,17,0,Math.PI*2);ctx.fill();
     });
-    if(this.footerAction){const disabled=typeof this.footerAction.disabled==='function'?this.footerAction.disabled():this.footerAction.disabled;ctx.fillStyle=disabled?c.button:c.selection;ctx.fillRect(544,this.canvas.height-116,420,54);ctx.fillStyle=disabled?c.muted:c.text;ctx.font=c.buttonFont;ctx.fillText(text(this.footerAction.label),562,this.canvas.height-80);}
+    if(this.activeFooterAction){const disabled=typeof this.activeFooterAction.disabled==='function'?this.activeFooterAction.disabled():this.activeFooterAction.disabled;ctx.fillStyle=disabled?c.button:c.selection;ctx.fillRect(544,this.canvas.height-116,420,54);ctx.fillStyle=disabled?c.muted:c.text;ctx.font=c.buttonFont;ctx.fillText(text(this.activeFooterAction.label),562,this.canvas.height-80);}
     ctx.font=c.footerFont;ctx.fillStyle=c.accent;ctx.fillText(text(this.readout),60,this.canvas.height-30);
     this.texture.needsUpdate=true;
   }
@@ -83,11 +89,11 @@ export class VRSliderPanel extends VRControlPanel {
       if(!down){this.dragRows.delete(source);continue;}if(!hit)continue;
       const x=hit.uv.x*1024,y=(1-hit.uv.y)*this.canvas.height;
       if(!wasDown){
-        if(this.footerAction&&x>=544&&x<=964&&y>=this.canvas.height-116&&y<=this.canvas.height-62){if(!(typeof this.footerAction.disabled==='function'?this.footerAction.disabled():this.footerAction.disabled))this.footerAction.run();continue;}
+        if(this.activeFooterAction&&x>=544&&x<=964&&y>=this.canvas.height-116&&y<=this.canvas.height-62){if(!(typeof this.activeFooterAction.disabled==='function'?this.activeFooterAction.disabled():this.activeFooterAction.disabled))this.activeFooterAction.run();continue;}
         if(this.selectionBar?.activateAt(x,y))continue;
         if(this.sectionBar?.activateAt(x,y))continue;
         const row=Math.round((y-223-this.controlOffset)/138),d=this.visibleDefinitions[row];
-        if(d&&(this.sectionPlacement!=='left'||x>=this.contentLeft)&&Math.abs(y-(223+this.controlOffset+row*138))<36&&!this.model.disabled(d)){
+        if(d&&d.kind!=='readout'&&(this.sectionPlacement!=='left'||x>=this.contentLeft)&&Math.abs(y-(223+this.controlOffset+row*138))<36&&!this.model.disabled(d)){
           if(d.kind==='toggle'){this.model.activate(d.id,{source:'vr'});continue;}
           this.dragRows.set(source,d.id);
         }
