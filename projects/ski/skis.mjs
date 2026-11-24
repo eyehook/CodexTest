@@ -1,17 +1,28 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 
-const LENGTH = 1.62;
+const LENGTH = 1.7;
+const HALF_WIDTH = 0.055;
 const SEPARATION = 0.28;
 const THICKNESS = 0.035;
 
-export function createSkis(rig, height) {
+export function createSkiShadowUniforms() {
+  return {
+    skiShadowsEnabled: {value: false},
+    skiShadowCenters: {value: [new THREE.Vector3(), new THREE.Vector3()]},
+    skiShadowNormals: {value: [new THREE.Vector3(), new THREE.Vector3()]},
+    skiShadowRight: {value: new THREE.Vector3()},
+    skiShadowSize: {value: new THREE.Vector2(HALF_WIDTH, LENGTH / 2)},
+  };
+}
+
+export function createSkis(rig, height, shadows = createSkiShadowUniforms()) {
   const pair = new THREE.Group();
   pair.name = 'Player skis';
   pair.visible = false;
   rig.add(pair);
   const shape = new THREE.Shape();
-  shape.moveTo(-0.055, -LENGTH / 2);
-  shape.lineTo(0.055, -LENGTH / 2);
+  shape.moveTo(-HALF_WIDTH, -LENGTH / 2);
+  shape.lineTo(HALF_WIDTH, -LENGTH / 2);
   shape.lineTo(0.049, 0.43);
   shape.quadraticCurveTo(0.08, LENGTH / 2, 0, LENGTH / 2);
   shape.quadraticCurveTo(-0.08, LENGTH / 2, -0.049, 0.43);
@@ -32,28 +43,36 @@ export function createSkis(rig, height) {
     return ski;
   });
   const point = new THREE.Vector3();
+  const orientation = new THREE.Quaternion();
 
   return {
-    update(view, motion, visible) {
+    update(view, motion, visible, castShadows = false) {
       pair.visible = visible && motion.active;
+      shadows.skiShadowsEnabled.value = pair.visible && castShadows;
       if (!pair.visible) return;
       pair.position.set(view.position.x, 0, view.position.z);
       pair.rotation.y = motion.angle ?? 0;
       const yaw = rig.rotation.y + pair.rotation.y;
       const fx = -Math.sin(yaw) * LENGTH / 2;
       const fz = -Math.cos(yaw) * LENGTH / 2;
-      for (const ski of skis) {
+      if (castShadows) shadows.skiShadowRight.value.set(Math.cos(yaw), 0, -Math.sin(yaw));
+      for (const [i, ski] of skis.entries()) {
         if (motion.airborne) {
           ski.position.y = 0.025;
           ski.rotation.x = 0;
-          continue;
+        } else {
+          point.set(ski.position.x, 0, 0);
+          pair.localToWorld(point);
+          const nose = height(point.x + fx, point.z + fz);
+          const tail = height(point.x - fx, point.z - fz);
+          ski.position.y = Math.max(height(point.x, point.z), (nose + tail) / 2) - rig.position.y + 0.025;
+          ski.rotation.x = Math.atan2(nose - tail, LENGTH);
         }
-        point.set(ski.position.x, 0, 0);
-        pair.localToWorld(point);
-        const nose = height(point.x + fx, point.z + fz);
-        const tail = height(point.x - fx, point.z - fz);
-        ski.position.y = Math.max(height(point.x, point.z), (nose + tail) / 2) - rig.position.y + 0.025;
-        ski.rotation.x = Math.atan2(nose - tail, LENGTH);
+        if (castShadows) {
+          ski.getWorldPosition(shadows.skiShadowCenters.value[i]);
+          ski.getWorldQuaternion(orientation);
+          shadows.skiShadowNormals.value[i].set(0, 1, 0).applyQuaternion(orientation);
+        }
       }
     },
     pair,

@@ -192,16 +192,51 @@ test('tucking eases view height relative to seated offset and reduces drag witho
   for (const ski of [upright, tucked, flat]) ski.push(0, -1);
 
   tucked.updateTuck(1 / 90, 1);
-  assert.ok(tucked.viewOffset(1.2) < 1.2 && tucked.viewOffset(1.2) > 1.15);
+  assert.ok(tucked.viewOffset(1.2, 0.55) < 1.2 && tucked.viewOffset(1.2, 0.55) > 1.15);
   assert.equal(speed(tucked), 5.5);
   travel(tucked, 6, {tuck: 1});
   travel(upright, 6);
   travel(flat, 6, {tuck: 1});
   assert.ok(speed(tucked) > speed(upright) + 1);
   assert.ok(speed(flat) < 5.5);
-  assert.equal(tucked.viewOffset(1.2), 1.2 - 0.45);
+  assert.ok(Math.abs(tucked.viewOffset(1.2, 0.55) + 0.55 - 1) < 1e-12);
+  assert.ok(Math.abs(tucked.viewOffset(0, 1.7) + 1.7 - 1) < 1e-12);
   tucked.updateTuck(1 / 90, 0);
-  assert.ok(tucked.viewOffset(1.2) > 1.2 - 0.45 && tucked.viewOffset(1.2) < 1.2);
+  assert.ok(tucked.viewOffset(1.2, 0.55) > 1 - 0.55 && tucked.viewOffset(1.2, 0.55) < 1.2);
   travel(tucked, 2);
-  assert.equal(tucked.viewOffset(1.2), 1.2);
+  assert.equal(tucked.viewOffset(1.2, 0.55), 1.2);
+});
+
+test('a pole push adds 5 m/s from walking and at all grounded ski speeds', () => {
+  const ski = new SkiMotion(() => 500, 1000, 1000);
+  ski.polePush(0, -1);
+  assert.equal(ski.active, true);
+  assert.equal(ski.vz, -5);
+  for (const initial of [4, 8, 15, 20, 25, 45]) {
+    ski.vz = -initial;
+    ski.polePush(1, 0);
+    assert.equal(ski.vx, 0);
+    assert.ok(Math.abs(speed(ski) - (initial + 5)) < 1e-12);
+  }
+  ski.airborne = true;
+  ski.vz = -4;
+  ski.polePush(1, 0);
+  assert.equal(speed(ski), 4);
+});
+
+test('releasing a tuck adds immediate upward momentum on flat snow or a steady incline', () => {
+  const dt = 1 / 120;
+  for (const grade of [0, -0.22, 0.22]) {
+    const height = (_x, z) => 500 + (z - 500) * grade;
+    const ski = new SkiMotion(height, 1000, 1000);
+    ski.push(0, -1);
+    assert.equal(ski.popPending, false);
+    for (let i = 0; i < 120; i++) ski.updateTuck(dt, 1);
+    ski.updateTuck(dt, 0);
+    ski.advance(dt, 500, 500, 0, 0);
+    assert.equal(ski.airborne, true);
+    assert.ok(ski.y > height(ski.x, ski.z));
+    assert.ok(Math.abs(ski.vy - (-5.5 * grade + 2.5 - 9.81 * dt)) < 1e-9);
+    assert.equal(ski.popPending, false);
+  }
 });

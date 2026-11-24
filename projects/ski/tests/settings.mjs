@@ -6,11 +6,11 @@ import {loadSettings, saveSettings, SkiSettings} from '../settings.mjs';
 test('settings load defaults, clamp stored heights, and round-trip both preferences', () => {
   const entries = new Map();
   const storage = {getItem: key => entries.get(key), setItem: (key, value) => entries.set(key, value)};
-  assert.deepEqual(loadSettings(storage), {trees: true, heightOffset: 0});
-  saveSettings({trees: false, heightOffset: 1.25}, storage);
-  assert.deepEqual(loadSettings(storage), {trees: false, heightOffset: 1.25});
+  assert.deepEqual(loadSettings(storage), {trees: true, shadows: false, heightOffset: 0});
+  saveSettings({trees: false, shadows: true, heightOffset: 1.25}, storage);
+  assert.deepEqual(loadSettings(storage), {trees: false, shadows: true, heightOffset: 1.25});
   saveSettings({trees: 'false', heightOffset: 8}, storage);
-  assert.deepEqual(loadSettings(storage), {trees: true, heightOffset: 2});
+  assert.deepEqual(loadSettings(storage), {trees: true, shadows: false, heightOffset: 2});
 });
 
 test('B opens and commits the VR settings, including checkbox and slider ray edits', t => {
@@ -59,11 +59,13 @@ test('B opens and commits the VR settings, including checkbox and slider ray edi
   assert.equal(settings.visible, true);
   click(200, 303);
   assert.equal(settings.draft.trees, false);
+  click(230, 441);
+  assert.equal(settings.draft.shadows, true);
   click(720, 160);
   assert.equal(settings.panel.section, 'VR');
   click(900, 303);
   assert.equal(settings.draft.heightOffset, 1.9);
-  assert.deepEqual(saved, {trees: true, heightOffset: 0});
+  assert.deepEqual(saved, {trees: true, shadows: false, heightOffset: 0});
   assert.equal(entries.size, 0);
 
   buttons[5].pressed = false;
@@ -71,7 +73,7 @@ test('B opens and commits the VR settings, including checkbox and slider ray edi
   buttons[5].pressed = true;
   update();
   assert.equal(settings.visible, false);
-  assert.deepEqual(loadSettings(), {trees: false, heightOffset: 1.9});
+  assert.deepEqual(loadSettings(), {trees: false, shadows: true, heightOffset: 1.9});
 
   viewer.orientation.setFromEuler(new THREE.Euler(-0.55, 0.7, 0.31, 'YXZ'));
   buttons[5].pressed = false;

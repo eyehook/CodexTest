@@ -1,12 +1,18 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {FADE_START, FAR} from './trees.mjs?v=0.1.12';
+import {createSkiShadowUniforms} from './skis.mjs?v=0.1.38';
+import {FADE_START, FAR} from './trees.mjs?v=0.1.29';
 
 const TILE_SIZE = 256;
 const SPACING = [2, 4, 8, 16, 32];
 const SNAP = 16;
-const SHADOW_SPACING = 4;
-const SUN = new THREE.Vector3(-1, Math.SQRT2 * Math.tan(15 * Math.PI / 180), -1).normalize();
-const SKY = 0xaac6db;
+const LOD_HYSTERESIS = 24;
+const VERTEX_CACHE_LIMIT = 12 * 1024 * 1024;
+const TILE_UPDATE_BUDGET_MS = 2;
+const TILES_PER_FRAME = 2;
+
+function spacingAt(distance) {
+  return SPACING[distance < 120 ? 0 : distance < 300 ? 1 : distance < 680 ? 2 : distance < 1240 ? 3 : 4];
+}
 
 // Collapse intermediate edge vertices onto the adjacent coarse grid. The two
 // tiles then use exactly the same edge segments, including at LOD corners.
@@ -23,12 +29,26 @@ export function makeTileIndices(step, edges) {
     return z * stride + x;
   }
 
-  const indices = [];
+  const indices = new Uint16Array(cells * cells * 6);
+  let count = 0;
   function triangle(a, b, c) {
-    if (a !== b && b !== c && c !== a) indices.push(a, b, c);
+    if (a === b || b === c || c === a) return;
+    indices[count++] = a;
+    indices[count++] = b;
+    indices[count++] = c;
   }
   for (let z = 0; z < cells; z++) {
     for (let x = 0; x < cells; x++) {
+      if (x > 0 && x < cells - 1 && z > 0 && z < cells - 1) {
+        const a = z * stride + x;
+        indices[count++] = a;
+        indices[count++] = a + stride;
+        indices[count++] = a + 1;
+        indices[count++] = a + 1;
+        indices[count++] = a + stride;
+        indices[count++] = a + stride + 1;
+        continue;
+      }
       const a = vertex(x, z);
       const b = vertex(x + 1, z);
       const c = vertex(x, z + 1);
@@ -44,7 +64,7 @@ export function makeTileIndices(step, edges) {
       }
     }
   }
-  return new Uint16Array(indices);
+  return indices.subarray(0, count);
 }
 
 async function loadMask(url, width, height) {
@@ -64,17 +84,29 @@ async function loadMask(url, width, height) {
 export async function createTerrainMaterial(
   {columns, rows, minimumElevationMeters, maximumElevationMeters}, pistes, pistesUrl,
 ) {
-  const width = Math.ceil(columns / SHADOW_SPACING);
-  const height = Math.ceil(rows / SHADOW_SPACING);
+  const revision = new URL(import.meta.url).search;
   const canopyUrl = new URL('./data/mount-snow-canopy.json', import.meta.url);
-  canopyUrl.search = new URL(import.meta.url).search;
-  const response = await fetch(canopyUrl);
-  if (!response.ok) throw new Error(`Could not load canopy metadata (HTTP ${response.status})`);
-  const canopy = await response.json();
+  const sunlightUrl = new URL('./data/mount-snow-sun.json', import.meta.url);
+  // The existing canopy files are independent of the new lighting bake.
+  canopyUrl.search = '?v=0.1.29';
+  sunlightUrl.search = revision;
+  const [canopyResponse, sunlightResponse] = await Promise.all([fetch(canopyUrl), fetch(sunlightUrl)]);
+  if (!canopyResponse.ok) throw new Error(`Could not load canopy metadata (HTTP ${canopyResponse.status})`);
+  if (!sunlightResponse.ok) throw new Error(`Could not load sunlight metadata (HTTP ${sunlightResponse.status})`);
+  const [canopy, sunlight] = await Promise.all([canopyResponse.json(), sunlightResponse.json()]);
+  const width = Math.ceil(columns / sunlight.spacingMeters);
+  const height = Math.ceil(rows / sunlight.spacingMeters);
+  const azimuth = THREE.MathUtils.degToRad(sunlight.azimuthDegrees);
+  const elevation = THREE.MathUtils.degToRad(sunlight.elevationDegrees);
+  const sun = new THREE.Vector3(
+    Math.sin(azimuth) * Math.cos(elevation),
+    Math.sin(elevation),
+    -Math.cos(azimuth) * Math.cos(elevation),
+  );
   const coverageUrl = new URL(canopy.asset, canopyUrl);
   coverageUrl.search = canopyUrl.search;
-  const shadowUrl = new URL('./data/mount-snow-sun.u8.gz', import.meta.url);
-  shadowUrl.search = new URL(import.meta.url).search;
+  const shadowUrl = new URL(sunlight.asset, sunlightUrl);
+  shadowUrl.search = sunlightUrl.search;
   const [shadows, trails, trees] = await Promise.all([
     loadMask(shadowUrl, width, height),
     loadMask(new URL(pistes.asset, pistesUrl), pistes.columns, pistes.rows),
@@ -82,8 +114,11 @@ export async function createTerrainMaterial(
   ]);
 
   const material = new THREE.ShaderMaterial({
+    fog: true,
     uniforms: {
-      sun: {value: SUN},
+      ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
+      ...createSkiShadowUniforms(),
+      sun: {value: sun},
       shadows: {value: shadows},
       trails: {value: trails},
       trailSize: {value: new THREE.Vector2(pistes.columns, pistes.rows)},
@@ -95,36 +130,71 @@ export async function createTerrainMaterial(
       canopyGreen: {value: new THREE.Color(0x579657)},
       canopyViewer: {value: new THREE.Vector2()},
       showTreeModels: {value: true},
+      pineShadowsEnabled: {value: false},
+      pineDepth: {value: null},
+      pineProjection: {value: new THREE.Matrix4()},
+      pineTexel: {value: 0},
       shadowSize: {value: new THREE.Vector2(width, height)},
-      shadowSpacing: {value: SHADOW_SPACING},
+      shadowSpacing: {value: sunlight.spacingMeters},
       minHeight: {value: minimumElevationMeters},
       maxHeight: {value: maximumElevationMeters},
       low: {value: new THREE.Color(0x7694a6)},
       middle: {value: new THREE.Color(0xb6c7cf)},
       high: {value: new THREE.Color(0xf7fbff)},
-      haze: {value: new THREE.Color(SKY)},
     },
     vertexShader: `
       varying vec3 terrainPoint;
       varying vec3 terrainNormal;
-      varying float depth;
+      #include <fog_pars_vertex>
       void main() {
         terrainPoint = position;
         terrainNormal = normal;
-        vec4 view = modelViewMatrix * vec4(position, 1.0);
-        depth = length(view.xyz);
-        gl_Position = projectionMatrix * view;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
       }
     `,
     fragmentShader: `
-      uniform vec3 sun, low, middle, high, haze, trailBlue, canopyGreen;
+      uniform vec3 sun, low, middle, high, trailBlue, canopyGreen;
       uniform sampler2D shadows, trails, trees;
-      uniform bool showTreeModels;
+      uniform bool showTreeModels, pineShadowsEnabled, skiShadowsEnabled;
+      uniform vec3 skiShadowCenters[2], skiShadowNormals[2], skiShadowRight;
+      uniform vec2 skiShadowSize;
+      uniform sampler2D pineDepth;
+      uniform mat4 pineProjection;
+      uniform float pineTexel;
       uniform vec2 shadowSize, trailSize, canopySize, canopyViewer;
       uniform float shadowSpacing, trailSpacing, canopySpacing, minHeight, maxHeight;
       varying vec3 terrainPoint;
       varying vec3 terrainNormal;
-      varying float depth;
+      #include <fog_pars_fragment>
+      float pineVisibility(vec3 point) {
+        if (!pineShadowsEnabled) return 1.0;
+        float fade = 1.0 - smoothstep(180.0, 200.0, length(point.xz - canopyViewer));
+        if (fade <= 0.0) return 1.0;
+        vec3 projected = (pineProjection * vec4(point, 1.0)).xyz * 0.5 + 0.5;
+        if (any(lessThan(projected, vec3(0.0))) || any(greaterThan(projected, vec3(1.0)))) return 1.0;
+        float depth = projected.z - 0.00018;
+        vec2 offset = vec2(pineTexel * 0.65, 0.0);
+        float lit = step(depth, texture2D(pineDepth, projected.xy + offset).r)
+          + step(depth, texture2D(pineDepth, projected.xy - offset).r)
+          + step(depth, texture2D(pineDepth, projected.xy + offset.yx).r)
+          + step(depth, texture2D(pineDepth, projected.xy - offset.yx).r);
+        return mix(1.0, lit * 0.25, fade);
+      }
+      float skiOcclusion(vec3 point, vec3 center, vec3 normal) {
+        float facingSun = dot(normal, sun);
+        if (facingSun <= 0.06) return 0.0;
+        float distanceToSki = dot(center - point, normal) / facingSun;
+        if (distanceToSki < -0.02 || distanceToSki > 5.0) return 0.0;
+        vec3 rayHit = point + distanceToSki * sun - center;
+        vec2 local = vec2(dot(rayHit, skiShadowRight), dot(rayHit, cross(skiShadowRight, normal)));
+        local.y -= clamp(local.y, -skiShadowSize.y + skiShadowSize.x, skiShadowSize.y - skiShadowSize.x);
+        float edge = length(local) - skiShadowSize.x;
+        float feather = 0.025 + min(0.15, max(0.0, distanceToSki) * 0.085);
+        float strength = 0.78 * (1.0 - smoothstep(0.2, 5.0, distanceToSki));
+        return strength * (1.0 - smoothstep(-0.015, feather, edge));
+      }
       void main() {
         float elevation = clamp((terrainPoint.y - minHeight) / (maxHeight - minHeight), 0.0, 1.0);
         vec3 snow = mix(low, middle, smoothstep(0.0, 0.57, elevation));
@@ -138,10 +208,22 @@ export async function createTerrainMaterial(
         vec3 slope = normalize(terrainNormal);
         float cosine = max(dot(slope, sun), 0.0);
         float visibility = texture2D(shadows, (terrainPoint.xz / shadowSpacing + 0.5) / shadowSize).r;
+        if (cosine > 0.0 && visibility > 0.0) {
+          visibility *= pineVisibility(terrainPoint);
+          if (skiShadowsEnabled) {
+            vec2 delta = terrainPoint.xz - skiShadowCenters[0].xz;
+            if (dot(delta, delta) < 36.0) {
+              float leftShadow = skiOcclusion(terrainPoint, skiShadowCenters[0], skiShadowNormals[0]);
+              float rightShadow = skiOcclusion(terrainPoint, skiShadowCenters[1], skiShadowNormals[1]);
+              visibility *= 1.0 - max(leftShadow, rightShadow);
+            }
+          }
+        }
         vec3 ambient = vec3(0.36, 0.43, 0.53) * (0.69 + 0.31 * slope.y);
         vec3 lit = snow * (ambient + vec3(1.12, 1.00, 0.87) * cosine * visibility);
-        gl_FragColor = vec4(mix(lit, haze, smoothstep(250.0, 5000.0, depth) * 0.87), 1.0);
+        gl_FragColor = vec4(lit, 1.0);
         #include <colorspace_fragment>
+        #include <fog_fragment>
       }
     `,
   });
@@ -164,80 +246,143 @@ export function createTerrain(scene, map, material) {
   const rows = Math.ceil(depth / TILE_SIZE);
   const tiles = [];
   const topologies = new Map();
+  const vertexCache = new Map();
+  let cachedBytes = 0;
   const normal = {};
   let lastX = Infinity;
   let lastZ = Infinity;
+  const pending = [];
+  let pendingIndex = 0;
 
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < columns; col++) {
       const mesh = new THREE.Mesh(undefined, material);
-      tiles.push({col, row, mesh, step: 0, key: ''});
+      tiles.push({col, row, mesh, step: 0, key: '', vertices: null});
       scene.add(mesh);
     }
+  }
+
+  function sampleVertices(col, row, step) {
+    const cells = TILE_SIZE / step;
+    const size = (cells + 1) ** 2 * 3;
+    const points = new Float32Array(size);
+    const normals = new Float32Array(size);
+    let cursor = 0;
+    for (let j = 0; j <= cells; j++) {
+      const z = Math.min(depth, row * TILE_SIZE + j * step);
+      for (let k = 0; k <= cells; k++) {
+        const x = Math.min(width, col * TILE_SIZE + k * step);
+        points[cursor] = x;
+        points[cursor + 1] = map.height(x, z);
+        points[cursor + 2] = z;
+        map.normal(x, z, normal);
+        normals[cursor++] = normal.x;
+        normals[cursor++] = normal.y;
+        normals[cursor++] = normal.z;
+      }
+    }
+    return {points, normals, bytes: points.byteLength + normals.byteLength, bounds: null};
+  }
+
+  function replaceVertices(tile, index, step) {
+    const key = index * 32 + step - 1;
+    const cached = vertexCache.get(key);
+    if (cached) {
+      vertexCache.delete(key);
+      cachedBytes -= cached.bytes;
+    }
+    if (tile.vertices) {
+      vertexCache.set(index * 32 + tile.step - 1, tile.vertices);
+      cachedBytes += tile.vertices.bytes;
+      while (cachedBytes > VERTEX_CACHE_LIMIT) {
+        const oldest = vertexCache.keys().next().value;
+        cachedBytes -= vertexCache.get(oldest).bytes;
+        vertexCache.delete(oldest);
+      }
+    }
+    const vertices = cached ?? sampleVertices(tile.col, tile.row, step);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(vertices.points, 3));
+    geometry.setAttribute('normal', new THREE.BufferAttribute(vertices.normals, 3));
+    if (vertices.bounds) geometry.boundingSphere = vertices.bounds;
+    else {
+      geometry.computeBoundingSphere();
+      vertices.bounds = geometry.boundingSphere;
+    }
+    const capacity = (TILE_SIZE / step) ** 2 * 6;
+    geometry.setIndex(new THREE.BufferAttribute(new Uint16Array(capacity), 1).setUsage(THREE.DynamicDrawUsage));
+    tile.mesh.geometry.dispose();
+    tile.mesh.geometry = geometry;
+    tile.vertices = vertices;
+    tile.key = '';
+    tile.step = step;
+  }
+
+  function stitch(i) {
+    const {col, row, mesh, step} = tiles[i];
+    const edges = [
+      col > 0 ? tiles[i - 1].step : step,
+      col + 1 < columns ? tiles[i + 1].step : step,
+      row > 0 ? tiles[i - columns].step : step,
+      row + 1 < rows ? tiles[i + columns].step : step,
+    ].map(neighbor => Math.max(step, neighbor));
+    const key = [step, ...edges].join('/');
+    if (tiles[i].key === key) return;
+    if (!topologies.has(key)) topologies.set(key, makeTileIndices(step, edges));
+    const indices = topologies.get(key);
+    const index = mesh.geometry.index;
+    index.array.set(indices);
+    index.clearUpdateRanges();
+    index.addUpdateRange(0, indices.length);
+    index.needsUpdate = true;
+    mesh.geometry.setDrawRange(0, indices.length);
+    tiles[i].key = key;
   }
 
   function update(x, z) {
     const snapX = Math.floor(x / SNAP) * SNAP;
     const snapZ = Math.floor(z / SNAP) * SNAP;
-    if (lastX === snapX && lastZ === snapZ) return;
-    lastX = snapX;
-    lastZ = snapZ;
-
-    for (const tile of tiles) {
-      const dx = Math.max(tile.col * TILE_SIZE - snapX, snapX - (tile.col + 1) * TILE_SIZE, 0);
-      const dz = Math.max(tile.row * TILE_SIZE - snapZ, snapZ - (tile.row + 1) * TILE_SIZE, 0);
-      const distance = Math.hypot(dx, dz);
-      tile.nextStep = SPACING[distance < 120 ? 0 : distance < 300 ? 1 : distance < 680 ? 2 : distance < 1240 ? 3 : 4];
-    }
-
-    for (const tile of tiles) {
-      const {col, row, mesh, nextStep: step} = tile;
-      const i = row * columns + col;
-      const edges = [
-        col > 0 ? tiles[i - 1].nextStep : step,
-        col + 1 < columns ? tiles[i + 1].nextStep : step,
-        row > 0 ? tiles[i - columns].nextStep : step,
-        row + 1 < rows ? tiles[i + columns].nextStep : step,
-      ].map(neighbor => Math.max(step, neighbor));
-      const key = [step, ...edges].join('/');
-      if (tile.key === key) continue;
-      if (!topologies.has(key)) topologies.set(key, makeTileIndices(step, edges));
-
-      const geometry = new THREE.BufferGeometry();
-      if (tile.step === step) {
-        geometry.setAttribute('position', mesh.geometry.getAttribute('position'));
-        geometry.setAttribute('normal', mesh.geometry.getAttribute('normal'));
-        geometry.boundingSphere = mesh.geometry.boundingSphere;
-      } else {
-        const cells = TILE_SIZE / step;
-        const size = (cells + 1) ** 2 * 3;
-        const points = new Float32Array(size);
-        const normals = new Float32Array(size);
-        let cursor = 0;
-        for (let j = 0; j <= cells; j++) {
-          const z = Math.min(depth, row * TILE_SIZE + j * step);
-          for (let k = 0; k <= cells; k++) {
-            const x = Math.min(width, col * TILE_SIZE + k * step);
-            points[cursor] = x;
-            points[cursor + 1] = map.height(x, z);
-            points[cursor + 2] = z;
-            map.normal(x, z, normal);
-            normals[cursor++] = normal.x;
-            normals[cursor++] = normal.y;
-            normals[cursor++] = normal.z;
-          }
-        }
-        geometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
-        geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-        geometry.computeBoundingSphere();
+    if (lastX !== snapX || lastZ !== snapZ) {
+      const initial = lastX === Infinity;
+      lastX = snapX;
+      lastZ = snapZ;
+      pending.length = 0;
+      pendingIndex = 0;
+      for (const [i, tile] of tiles.entries()) {
+        const dx = Math.max(tile.col * TILE_SIZE - snapX, snapX - (tile.col + 1) * TILE_SIZE, 0);
+        const dz = Math.max(tile.row * TILE_SIZE - snapZ, snapZ - (tile.row + 1) * TILE_SIZE, 0);
+        const distance = Math.hypot(dx, dz);
+        const nominal = spacingAt(distance);
+        tile.nextStep = tile.step && nominal > tile.step
+          ? Math.max(tile.step, spacingAt(distance - LOD_HYSTERESIS))
+          : nominal;
+        tile.distance = distance;
+        if (initial) replaceVertices(tile, i, tile.nextStep);
+        else if (tile.step !== tile.nextStep) pending.push(i);
       }
-      geometry.setIndex(new THREE.BufferAttribute(topologies.get(key), 1));
-      mesh.geometry.dispose();
-      mesh.geometry = geometry;
-      tile.key = key;
-      tile.step = step;
+      if (initial) {
+        for (let i = 0; i < tiles.length; i++) stitch(i);
+        return;
+      }
+      pending.sort((a, b) => tiles[a].distance - tiles[b].distance);
+    }
+    if (pendingIndex === pending.length) return;
+
+    // Change one tile and its four borders together. Mixed intermediate LODs
+    // remain watertight while the rest of the queue catches up.
+    const deadline = performance.now() + TILE_UPDATE_BUDGET_MS;
+    for (let changed = 0; pendingIndex < pending.length && changed < TILES_PER_FRAME; changed++) {
+      const i = pending[pendingIndex++];
+      const tile = tiles[i];
+      replaceVertices(tile, i, tile.nextStep);
+      stitch(i);
+      if (tile.col > 0) stitch(i - 1);
+      if (tile.col + 1 < columns) stitch(i + 1);
+      if (tile.row > 0) stitch(i - columns);
+      if (tile.row + 1 < rows) stitch(i + columns);
+      if (performance.now() >= deadline) break;
     }
   }
 
-  return {width, depth, update, sky: new THREE.Color(SKY)};
+  return {width, depth, update};
 }

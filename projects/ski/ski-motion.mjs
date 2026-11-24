@@ -4,7 +4,9 @@ import {deadzone} from '../../shared/xr/input.mjs';
 // vertical gravity independently of horizontal momentum.
 const GRAVITY = 9.81;
 const PUSH_SPEED = 5.5;
-const TUCK_DROP = 0.45;
+const POLE_PUSH_SPEED = 5;
+const TUCK_HEAD_HEIGHT = 1;
+const TUCK_POP_SPEED = 2.5;
 const TUCK_RESPONSE = 6;
 const TUCK_DRAG_RATIO = 0.48;
 const SLIDE_RESISTANCE = 0.38;
@@ -74,6 +76,8 @@ export class SkiMotion {
     this.vy = 0;
     this.airborne = false;
     this.angle = 0;
+    this.tuckArmed = false;
+    this.popPending = false;
   }
 
   push(forwardX, forwardZ) {
@@ -83,14 +87,34 @@ export class SkiMotion {
     this.active = true;
   }
 
+  polePush(forwardX, forwardZ) {
+    if (this.airborne) return;
+    const speed = Math.hypot(this.vx, this.vz);
+    if (this.active && speed > 0) {
+      const scale = 1 + POLE_PUSH_SPEED / speed;
+      this.vx *= scale;
+      this.vz *= scale;
+    } else {
+      this.vx = forwardX * POLE_PUSH_SPEED;
+      this.vz = forwardZ * POLE_PUSH_SPEED;
+      this.active = true;
+    }
+  }
+
   updateTuck(dt, pressure) {
     const target = this.active ? pressure : 0;
     this.tuck += (target - this.tuck) * (1 - Math.exp(-TUCK_RESPONSE * Math.min(dt, 0.05)));
     if (Math.abs(this.tuck - target) < 0.001) this.tuck = target;
+    if (target >= 0.6 && this.tuck >= 0.6) this.tuckArmed = true;
+    if (target <= 0.15 && this.tuckArmed) {
+      this.popPending = this.active && !this.airborne;
+      this.tuckArmed = false;
+    }
   }
 
-  viewOffset(seatedHeight) {
-    return seatedHeight - TUCK_DROP * this.tuck;
+  viewOffset(seatedHeight, trackedHeadHeight) {
+    const tuckedOffset = TUCK_HEAD_HEIGHT - trackedHeadHeight;
+    return seatedHeight + (tuckedOffset - seatedHeight) * this.tuck;
   }
 
   takeoffVelocity(x, z, ground, nextGround, dt) {
@@ -146,7 +170,16 @@ export class SkiMotion {
     this.z = z;
     this.rigYaw = rigYaw;
     if (!this.active || !(dt > 0)) return;
-    if (!this.airborne) this.y = this.height(x, z);
+    if (!this.airborne) {
+      this.y = this.height(x, z);
+      if (this.popPending) {
+        const travelTime = CONTACT_SAMPLE_DISTANCE / Math.hypot(this.vx, this.vz);
+        const behind = this.height(x - this.vx * travelTime, z - this.vz * travelTime);
+        this.vy = (this.y - behind) / travelTime + TUCK_POP_SPEED;
+        this.airborne = true;
+      }
+    }
+    this.popPending = false;
     const elapsed = Math.min(dt, 0.05);
     const steps = Math.ceil(elapsed / STEP);
     const step = elapsed / steps;

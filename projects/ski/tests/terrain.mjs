@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {makeTileIndices} from '../terrain.mjs';
+import {Group, MeshBasicMaterial} from '../../../shared/vendor/three-r180/three.module.js';
+import {createTerrain, makeTileIndices} from '../terrain.mjs';
 
 test('mixed terrain LODs share edge segments and preserve triangle winding at corners', () => {
   for (const step of [2, 4, 8, 16, 32]) {
@@ -33,4 +34,34 @@ test('mixed terrain LODs share edge segments and preserve triangle winding at co
       }
     }
   }
+});
+
+test('queued terrain updates retain buffers for stitching and reuse sampled LODs on revisit', () => {
+  const root = new Group();
+  const map = {metadata: {columns: 1025, rows: 257}, height: (x, z) => 500 + 0.01 * x + 0.02 * z,
+    normal: (_x, _z, out) => Object.assign(out, {x: 0, y: 1, z: 0})};
+  const terrain = createTerrain(root, map, new MeshBasicMaterial());
+  const settle = x => { for (let i = 0; i < 10; i++) terrain.update(x, 120); };
+  settle(128);
+  const [first, second] = root.children;
+  const original = first.geometry;
+  const originalPositions = original.getAttribute('position').array;
+  const index = original.index;
+  const initialVersion = index.version;
+  const secondCoarse = second.geometry;
+
+  settle(144);
+  assert.notEqual(second.geometry, secondCoarse);
+  assert.equal(first.geometry, original);
+  assert.equal(first.geometry.index, index);
+  assert.ok(index.version > initialVersion);
+  const secondFine = second.geometry;
+  settle(128);
+  assert.equal(second.geometry, secondFine);
+  settle(96);
+  assert.notEqual(second.geometry, secondFine);
+  settle(900);
+  assert.notEqual(first.geometry, original);
+  settle(128);
+  assert.equal(first.geometry.getAttribute('position').array, originalPositions);
 });

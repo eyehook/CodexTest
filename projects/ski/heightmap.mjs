@@ -49,6 +49,9 @@ export function createHeightmap(metadata, data) {
   function height(x, z) {
     const column = Math.max(0, Math.min(columns - 1, x / spacingMeters));
     const row = Math.max(0, Math.min(rows - 1, z / spacingMeters));
+    if (Number.isInteger(column) && Number.isInteger(row)) {
+      return elevationOffsetMeters + elevationScaleMeters * samples.getUint16((row * columns + column) * 2, true);
+    }
     const left = Math.min(columns - 2, Math.floor(column));
     const top = Math.min(rows - 2, Math.floor(row));
     const u = column - left;

@@ -13,11 +13,12 @@ export function loadSettings(storage) {
     const value = JSON.parse((storage ?? globalThis.localStorage)?.getItem(STORAGE_KEY) ?? 'null');
     return {
       trees: typeof value?.trees === 'boolean' ? value.trees : true,
+      shadows: value?.shadows === true,
       heightOffset: Number.isFinite(value?.heightOffset)
         ? Math.max(0, Math.min(HEIGHT_MAX, value.heightOffset)) : 0,
     };
   } catch {
-    return {trees: true, heightOffset: 0};
+    return {trees: true, shadows: false, heightOffset: 0};
   }
 }
 
@@ -35,24 +36,26 @@ class SettingsPanel extends VRSliderPanel {
     if (!this.ready || this.section !== 'Graphics') return;
     // Use the shared slider panel's toggle hit row with a square checkbox.
     const {ctx, theme, controlOffset} = this;
-    const top = 205 + controlOffset;
-    ctx.fillStyle = theme.background;
-    ctx.fillRect(55, top - 62, 915, 108);
     ctx.save();
     ctx.textBaseline = 'middle';
     ctx.font = theme.labelFont;
-    ctx.fillStyle = theme.text;
-    ctx.fillText(this.model.label(this.model.definition('trees'), 'vr'), 60, top + 20);
     ctx.strokeStyle = theme.accent;
     ctx.lineWidth = 3;
-    const box = 180;
-    ctx.strokeRect(box, top, 40, 40);
-    if (this.model.value('trees')) {
-      ctx.beginPath();
-      ctx.moveTo(box + 8, top + 20);
-      ctx.lineTo(box + 17, top + 29);
-      ctx.lineTo(box + 33, top + 10);
-      ctx.stroke();
+    const box = 210;
+    for (const [row, definition] of this.visibleDefinitions.entries()) {
+      const top = 205 + controlOffset + row * 138;
+      ctx.fillStyle = theme.background;
+      ctx.fillRect(55, top - 62, 915, 108);
+      ctx.fillStyle = theme.text;
+      ctx.fillText(this.model.label(definition, 'vr'), 60, top + 20);
+      ctx.strokeRect(box, top, 40, 40);
+      if (definition.get()) {
+        ctx.beginPath();
+        ctx.moveTo(box + 8, top + 20);
+        ctx.lineTo(box + 17, top + 29);
+        ctx.lineTo(box + 33, top + 10);
+        ctx.stroke();
+      }
     }
     ctx.restore();
     this.texture.needsUpdate = true;
@@ -70,6 +73,8 @@ export class SkiSettings {
     this.model = new ControlModel([
       {id: 'trees', kind: 'toggle', label: 'Trees', group: 'Graphics',
         get: () => this.draft.trees, set: value => { this.draft.trees = value; }, format: () => ''},
+      {id: 'shadows', kind: 'toggle', label: 'Shadows', group: 'Graphics',
+        get: () => this.draft.shadows, set: value => { this.draft.shadows = value; }, format: () => ''},
       {id: 'heightOffset', kind: 'number', label: 'Height Offset', group: 'VR',
         min: 0, max: HEIGHT_MAX, step: HEIGHT_STEP, stepBase: 0,
         get: () => this.draft.heightOffset, set: value => { this.draft.heightOffset = value; },

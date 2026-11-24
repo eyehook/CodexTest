@@ -28,7 +28,8 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
   close. The landscape is hidden against black. The panel stays upright to
   the floor and faces your horizontal heading at opening. Point and pull the trigger
   to choose a tab or change a setting. **Graphics → Trees** switches among
-  individual pine models and the green terrain canopy tint. **VR → Height
+  individual pine models and the green terrain canopy tint. **Graphics →
+  Shadows** enables local pine and ski shadows. **VR → Height
   Offset** raises the tracked view and hands by 0–2 m in 0.05 m steps for
   seated play. Preferences load on startup and apply when the menu closes.
 - Quest lift map: press **Y** on the left controller to open or close the
@@ -41,15 +42,16 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
   clamped to the dataset extent.
 - Quest ski mode: press the right trigger to push off along the skis. Steer left/right with either thumbstick and squeeze the left
   trigger to brake. Hold the right trigger to tuck, and release to stand.
+  Press **A** to push with your poles, including from walk mode.
 - Desktop ski mode: Space pushes off, hold Space to tuck, A/D or left/right
-  arrows steer, and Shift brakes. A full stop automatically resumes walking
+  arrows steer, E pole-pushes, and Shift brakes. A full stop automatically resumes walking
   in both modes.
 
 ## Settings
 
 [settings.mjs](settings.mjs) uses the shared control model and VR slider
-panel, with an inline Trees checkbox and the Height Offset slider. Defaults are
-Trees on and 0 m height offset. The local browser store is updated on B
+panel, with inline Trees and Shadows checkboxes and the Height Offset slider.
+Defaults are Trees on, Shadows off and 0 m height offset. The local browser store is updated on B
 close and when leaving XR with the settings open. While the menu is visible,
 walking, skiing and the lift map are suspended. The VR offset lives on a
 child rig containing the camera, hands and menus, so terrain contact and
@@ -70,14 +72,18 @@ independent of rig yaw.
 
 Ski steering has a 5% stick dead zone. The first stick outside it owns
 steering until it returns to neutral. If both engage on the same frame,
-the stronger input wins, with left taking an exact tie. The visible skis
+the stronger input wins, with left taking an exact tie. The visible 1.70 m skis
 follow the tracked horizontal footprint and pitch to match the snow.
 The player can look down to see them while skiing.
 
-The launch is 5.5 m/s, and sliding resistance and air drag slow the skier.
-Holding the right trigger while skiing lowers the view smoothly by up to
-0.45 m relative to the seated height offset and reduces aerodynamic drag to
-48% at full tuck. Brake pressure controls deceleration. The map, lift
+The right-trigger launch is 5.5 m/s. A pole push from walk mode starts at
+5 m/s. While skiing on snow, each fresh press adds 5 m/s along the current
+course at any speed. Pole pushes have no effect
+in the air. Sliding resistance and air drag slow the skier.
+Holding the right trigger while skiing eases the head toward 1 m above
+the ski stance, including when a seated offset is set, and reduces
+aerodynamic drag to 48% at full tuck. Releasing an engaged tuck on snow
+immediately adds a 2.5 m/s upward impulse, including on flat terrain. Brake pressure controls deceleration. The map, lift
 teleports, and tracking loss stop the run. Skiing also ends at the terrain
 edge or when speed reaches the standing threshold.
 
@@ -95,20 +101,35 @@ the airborne height without adding camera pitch or roll.
 [terrain.mjs](terrain.mjs) uses 256 m frustum-culled tiles, with 2, 4, 8, 16
 and 32 m vertex spacing in distance bands. Like The Hike, it chooses detail
 by player position on a snapped grid and stitches geometry across detail
-boundaries. Tiles rebuild vertex data on spacing changes and reuse vertex
-samples when only the edge topology changes. Indices are cached by topology.
-The 1 m elevation grid remains available for ground queries.
+boundaries. Spacing changes are queued nearest-first, with at most two
+tiles processed per animation frame and a 2 ms soft CPU budget. A tile and
+its neighbors are re-stitched together, so intermediate LODs remain closed.
+Edge-only changes reuse geometry and upload the active index range. Tiles
+coarsen 24 m beyond their refinement thresholds to avoid oscillation.
+A 12 MiB cache holds inactive vertex data for revisits. After a teleport,
+near detail can refine over several frames. The same 1 m elevation grid
+remains available for ground queries.
 
 The shader grades elevation from blue-gray low terrain to bright snow at
 high elevations. DEM normals shade slopes, and a 4 m baked visibility texture
-adds ridge shadows from a fixed northwest sun at 15° elevation. To regenerate
+adds ridge shadows from a fixed winter-noon sun due south at 35° elevation. To regenerate
 it after preparing the DEM, run `python projects/ski/bake-shadows.py` in the
-same Python environment. Distance haze softens the far terrain. The viewer
-uses a single terrain material. The trail mask blends pale blue (`#B8DDEB`)
+same Python environment. The viewer uses a single terrain material. The trail mask blends pale blue (`#B8DDEB`)
 into the snow before lighting, so trails inherit slope shading and distance haze
 across all LODs. Near the viewer, forest ground uses the snow palette.
-From 180 m to 200 m, the shader blends in the green canopy mask, which
+From 380 m to 400 m, the shader blends in the green canopy mask, which
 represents distant forest after the individual trees fade out.
+
+## Sky and atmospheric perspective
+
+Mount Snow uses [The Hike's atmosphere module](../hike/atmosphere.mjs) for its
+horizon-to-zenith sky and distance haze on terrain, trees and lifts.
+The full-screen triangle uses each render eye's inverse projection.
+Mount Snow uses the same sky palette and 90–950 m atmospheric blend,
+with a height scale adjusted for the DEM's absolute elevations and a
+1,900–4,800 m final visibility fade suited to the larger terrain footprint.
+Settings hide the sky with the landscape. Hands, skis and menus are outside
+the atmosphere hook.
 
 ## Source and coverage
 
@@ -242,7 +263,8 @@ trunk. Grid coordinates seed the position, height, crown radius, yaw and
 color. A jittered 6 m grid gives each eligible cell a 50% spawn chance. The
 jittered position must have at least 25% lidar canopy coverage in its 2 m
 cell. Tree height is 1.5 times the lidar-derived height with ±15% variation.
-Crown radius uses the unscaled height. A candidate is skipped when its crown
+Crown radius ranges from 15% to 36% of the unscaled height. A candidate is
+skipped when its crown
 would overlap a mapped piste cell, including mapped glades. The distant
 canopy tint still reflects the lidar survey.
 The distance blend uses the same horizontal viewer position and fade range
@@ -250,10 +272,31 @@ for the trees and terrain canopy mask.
 
 Trees are instanced in frustum-culled 96 m chunks. Chunks near the viewer
 stay resident and rebuild deterministically when revisited. A world-stable
-dither fades trees from 180 m to 200 m horizontally, with opaque depth writes.
-No tree collision or dynamic tree shadows. A fully eligible 200 m radius
-would average roughly 1,745 trees before frustum culling. Actual Quest frame
+dither fades trees from 380 m to 400 m horizontally, with opaque depth writes.
+No tree collision. A fully eligible 400 m radius
+would average roughly 6,980 trees before frustum culling. Actual Quest frame
 time and the visual fade still need headset testing.
+
+## Pine-cast shadows
+
+[pine-shadows.mjs](pine-shadows.mjs) reuses the streamed pine batches in one
+orthographic depth map aligned with the same winter-noon sun as the terrain
+bake. The 1536² map is allocated on first use and refreshes after 8 m of
+horizontal movement. Both eyes share the result. Terrain's direct light
+receives pine shadows with four nearest-depth comparisons, fully through
+180 m and fading out at 200 m.
+The pass is skipped when either Shadows or Trees is off, or when settings
+hide the landscape. Baked ridge shadows are present in either mode.
+Quest frame time and refresh visibility still need headset testing.
+
+## Ski shadows
+
+The terrain shader projects a soft capsule for each ski along the same
+sun direction. Ski position and pitch update every frame. The footprint
+shifts, softens and fades with height during a jump. It shades the direct
+light near the skis using uniforms, with no extra draw calls, texture
+reads or shadow-map refreshes. Ski shadows follow the Shadows setting
+even when Trees is off.
 
 ## Validation
 

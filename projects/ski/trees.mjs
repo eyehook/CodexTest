@@ -1,4 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
+import {PINE_SHADOW_LAYER} from './pine-shadows.mjs?v=0.1.32';
 
 const GRID = 6;
 const CELLS_PER_CHUNK = 16;
@@ -6,8 +7,8 @@ const CHUNK = GRID * CELLS_PER_CHUNK;
 const MIN_COVERAGE = 64;
 const SPAWN_CHANCE = 0.5;
 const HEIGHT_SCALE = 1.5;
-export const FADE_START = 180;
-export const FAR = 200;
+export const FADE_START = 380;
+export const FAR = 400;
 const UPDATE_STEP = 12;
 const PREFETCH = FAR + Math.SQRT2 * UPDATE_STEP;
 
@@ -50,7 +51,7 @@ export function treeAt(column, row, canopy, width, depth) {
   const measured = canopy.heights.getUint16(2 * index, true) * canopy.metadata.heightScaleMeters;
   const baseHeight = measured * (0.85 + 0.3 * random(column, row, 3));
   const height = baseHeight * HEIGHT_SCALE;
-  const radius = baseHeight * (0.15 + 0.09 * random(column, row, 4));
+  const radius = baseHeight * (0.15 + 0.21 * random(column, row, 4));
   if (overlapsPiste(x, z, radius, canopy.pistes)) return null;
   return {x, z, height, radius, tint: random(column, row, 5), yaw: random(column, row, 6) * Math.PI * 2};
 }
@@ -146,6 +147,7 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
       mesh.setMatrixAt(i, matrix.matrix);
       mesh.setColorAt(i, color.copy(dark).lerp(light, tree.tint));
     }
+    mesh.layers.enable(PINE_SHADOW_LAYER);
     mesh.computeBoundingSphere();
     group.add(mesh);
     return mesh;
@@ -180,5 +182,5 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
       chunks.delete(key);
     }
   }
-  return {update, group};
+  return {update, group, material};
 }

@@ -29,6 +29,9 @@ test('the jittered canopy grid deterministically picks about 50% of eligible cel
   }
   assert.ok(trees.length > 720 && trees.length < 880);
   assert.ok(trees.every(tree => tree.height >= 15.3 && tree.height <= 20.7 && tree.radius > 0));
+  const radiusRatios = trees.map(tree => tree.radius * 1.5 / tree.height);
+  assert.ok(radiusRatios.every(ratio => ratio >= 0.15 && ratio <= 0.36));
+  assert.ok(Math.max(...radiusRatios) > 0.35);
   data.coverage.fill(0);
   for (let x = 0; x < 40; x++) assert.equal(treeAt(x, 0, data, 1000, 1000), null);
 });
