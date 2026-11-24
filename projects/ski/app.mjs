@@ -2,8 +2,8 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {loadHeightmap} from './heightmap.mjs';
-import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=pistes-1';
-import {APP_VERSION} from './version.mjs?v=0.1.0';
+import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.2';
+import {APP_VERSION} from './version.mjs?v=0.1.2';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;

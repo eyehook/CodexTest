@@ -1,7 +1,7 @@
 # Mount Snow — terrain viewer
 
 Buildless Three.js r180 terrain viewer for desktop and Quest, with mapped
-downhill pistes highlighted in pale blue for visual inspection.
+downhill pistes in pale blue and likely tree canopy in green for visual inspection.
 
 ## Versioning
 
@@ -42,7 +42,8 @@ it after preparing the DEM, run `python projects/ski/bake-shadows.py` in the
 same Python environment. Distance haze softens the far terrain. The viewer
 uses a single terrain material. The trail mask blends pale blue (`#B8DDEB`)
 into the snow before lighting, so trails inherit slope shading and distance haze
-across all LODs.
+across all LODs. Canopy coverage blends green over the surface so tree
+candidates remain visible where the canopy and mapped pistes overlap.
 
 ## Source and coverage
 
@@ -103,6 +104,30 @@ Piste data and mask © OpenStreetMap contributors, licensed under the
 [Mount Snow's trail maps](https://www.mountsnow.com/the-mountain/about-the-mountain/trail-maps.aspx)
 are the resort coverage reference.
 
+## Canopy data
+
+[VCGI's 35 cm first-return DSM](https://maps.vcgi.vermont.gov/arcgis/rest/services/EGC_services/IMG_VCGI_LIDARDSM_SP_NOCACHE_V1/ImageServer)
+and the bare-earth DEM come from the spring 2023 QL1 lidar survey. The native
+GeoTIFF crops are retained locally in `source/mount-snow-dsm-35cm.tif` and
+`source/mount-snow-35cm.tif`. They share the same extent, grid and datum, and
+both are Git-ignored.
+
+Run `python -B projects/ski/bake-canopy.py` in the same GIS environment as
+the piste baker. It downloads the native DSM crop when missing and subtracts
+the bare-earth elevation before testing for a difference strictly greater
+than 5 m. The [canopy manifest](data/mount-snow-canopy.json) describes two
+aligned 2 m grids. The uint8 asset stores the fraction of each cell above the
+threshold and drives the green overlay. The little-endian uint16 asset stores
+the mean height in centimeters of the qualifying pixels for future placement.
+
+Mapped building footprints and 3 m buffers around mapped lift pylons are
+excluded using the [retained structure extract](source/mount-snow-structures.geojson).
+Refresh it with the OSM XML from the piste workflow and the `--osm-map`
+option. Structure data © OpenStreetMap contributors under the
+[Open Database License](https://www.openstreetmap.org/copyright).
+Tall unmapped structures can still register as canopy candidates. Piste
+corridors, including glades, are left available for visual comparison.
+
 ## Validation
 
 The native crop has no missing cells. The browser grid has 5,324 columns and
@@ -117,5 +142,8 @@ terrain, and responded to walking and turning with no shader or page errors.
 The piste bake is byte-reproducible from the retained extract. The mask was
 checked against representative centerlines on all four faces, and desktop
 Chrome showed the blue overlay from the Big Dipper start.
+Canopy checks verified the strict threshold, coverage/height agreement and
+structure exclusions. Chrome displayed the green overlay and blue pistes
+together at the trailhead.
 Quest controls, comfort, stereo seams and sustained frame rate still need
 headset validation.

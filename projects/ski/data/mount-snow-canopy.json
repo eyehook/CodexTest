@@ -1,0 +1,15 @@
+{
+  "asset": "mount-snow-canopy-coverage.u8.gz",
+  "heightAsset": "mount-snow-canopy-height.u16.gz",
+  "columns": 2662,
+  "rows": 1958,
+  "spacingMeters": 2,
+  "firstSampleEasting": 464091,
+  "firstSampleNorthing": 53415,
+  "horizontalCrs": "EPSG:6589",
+  "thresholdMeters": 5,
+  "coverageScale": 0.00392156862745098,
+  "heightScaleMeters": 0.01,
+  "sourceDataset": "VCGI/USGS 3DEP Spring 2023 QL1 DSMFR minus DEMHF at 0.35 m",
+  "structureExclusions": "OpenStreetMap building footprints and 3 m mapped lift pylon buffers"
+}

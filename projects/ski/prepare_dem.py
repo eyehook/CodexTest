@@ -21,14 +21,14 @@ NODATA = -999999
 NATIVE_STEP = 0.35
 
 
-def tile_windows(bounds):
+def tile_windows(bounds, product="DEMHF"):
     west, south, east, north = bounds
     # The statewide 1,400 m tile grid has edges at (0, 0) plus tile multiples.
     for bottom in range(int(np.floor(south / 1400)) * 1400, int(np.ceil(north)), 1400):
         for left in range(int(np.floor(west / 1400)) * 1400, int(np.ceil(east)), 1400):
             center_n = (bottom + 700) // 100
             center_e = (left + 700) // 100
-            name = f"Elevation_DEMHF0p35M2023_N{center_n}E{center_e}.tif"
+            name = f"Elevation_{product}0p35M2023_N{center_n}E{center_e}.tif"
             top = bottom + 1400
             col = max(0, round((west - left) / NATIVE_STEP))
             row = max(0, round((top - north) / NATIVE_STEP))
@@ -37,10 +37,10 @@ def tile_windows(bounds):
             yield name, left, top, Window(col, row, end_col - col, end_row - row)
 
 
-def read_tile(task):
+def read_tile(task, base):
     name, left, top, window = task
     with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR", GDAL_HTTP_MAX_RETRY="3"):
-        with rasterio.open(BASE + name) as tile:
+        with rasterio.open(base + name) as tile:
             expected = from_origin(left, top, NATIVE_STEP, NATIVE_STEP)
             if tile.crs.to_epsg() != 6589 or not tile.transform.almost_equals(expected):
                 raise ValueError(f"Unexpected source georeferencing in {name}")
@@ -54,20 +54,26 @@ def acquire(bounds):
     top = np.ceil(north / NATIVE_STEP) * NATIVE_STEP
     width = int(np.ceil((east - left) / NATIVE_STEP))
     height = int(np.ceil((top - south) / NATIVE_STEP))
-    tasks = list(tile_windows((left, top - height * NATIVE_STEP, left + width * NATIVE_STEP, top)))
-    temporary = SOURCE.with_suffix(".tmp")
+    acquire_grid(SOURCE, from_origin(left, top, NATIVE_STEP, NATIVE_STEP), width, height, "DEMHF")
+
+
+def acquire_grid(path, grid, width, height, product):
+    left, top = grid.c, grid.f
+    bounds = rasterio.transform.array_bounds(height, width, grid)
+    tasks = list(tile_windows(bounds, product))
+    base = BASE.removesuffix("DEMHF/") + product + "/"
+    temporary = path.with_suffix(".tmp")
     try:
         with rasterio.open(
             temporary, "w", driver="GTiff", width=width, height=height,
             count=1, dtype="float32", crs=CRS, nodata=NODATA,
-            transform=from_origin(left, top, NATIVE_STEP, NATIVE_STEP),
-            tiled=True, compress="deflate", predictor=3,
+            transform=grid, tiled=True, compress="deflate", predictor=3,
         ) as output, ThreadPoolExecutor(max_workers=6) as pool:
-            for pixels, transform in pool.map(read_tile, tasks):
+            for pixels, transform in pool.map(read_tile, tasks, [base] * len(tasks)):
                 col = round((transform.c - left) / NATIVE_STEP)
                 row = round((top - transform.f) / NATIVE_STEP)
                 output.write(pixels, 1, window=Window(col, row, pixels.shape[1], pixels.shape[0]))
-        temporary.replace(SOURCE)
+        temporary.replace(path)
     finally:
         temporary.unlink(missing_ok=True)
 
