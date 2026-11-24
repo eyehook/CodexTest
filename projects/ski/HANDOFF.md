@@ -6,7 +6,7 @@ instanced pine trees, and ground-following skiing.
 
 ## Start here
 
-- Current version **v0.1.73**. Start with [app.mjs](app.mjs) for the runtime,
+- Current version **v0.1.76**. Start with [app.mjs](app.mjs) for the runtime,
   [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
   [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
 - The repository contains the generated browser assets. GIS tools and the
@@ -218,9 +218,12 @@ The shader grades elevation from blue-gray low terrain to bright snow at
 high elevations. DEM normals shade slopes, and a 4 m baked visibility texture
 adds ridge shadows from a fixed winter-noon sun due south at 35° elevation.
 The [sunlight manifest](data/mount-snow-sun.json) supplies the direction for
-the terrain, pine and ski shaders. The trail mask blends pale blue
-(`#B8DDEB`) into the snow before lighting, so trails inherit slope shading
-and distance haze across all LODs. Near the viewer, forest ground uses the snow palette.
+the terrain, pine and ski shaders. Terrain lighting uses cooler
+sky fill at 80% and direct sun at 115% of the v0.1.73 levels. The trail mask
+blends pale blue (`#B8DDEB`) into the snow before lighting, so trails inherit
+slope shading and distance haze across all LODs. A mipmapped procedural snow
+texture adds meter-scale patches and finer grain across terrain tiles and pistes.
+Near the viewer, forest ground uses the snow palette.
 From 750 m to 800 m, the shader blends in a muted gray-green canopy tint (`#465743`)
 matched to the pine palette as individual trees fade out.
 
@@ -415,7 +418,8 @@ time and the visual fade still need headset testing.
 [pine-shadows.mjs](pine-shadows.mjs) reuses the streamed pine batches in one
 orthographic depth map aligned with the same winter-noon sun as the terrain
 bake. The 2048² map is allocated on first use and refreshes after 8 m of
-horizontal movement. Both eyes share the result. Terrain's direct light
+horizontal movement. Both eyes share the result. Where pines block direct sunlight, the terrain's
+sky fill shifts toward blue. Terrain's direct light
 receives pine shadows using the same PCFSoft filter weights as The Hike,
 fully through 180 m and fading out at 200 m.
 The pass is skipped when either Shadows or Trees is off, or when settings

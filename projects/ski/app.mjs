@@ -6,7 +6,7 @@ import {Atmosphere, ATMOSPHERE} from '../hike/atmosphere.mjs?v=1';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {loadHeightmap} from './heightmap.mjs?v=0.1.73';
-import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.73';
+import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.76';
 import {createBuildings} from './buildings.mjs?v=0.1.47';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
 import {createLiftModels} from './lift-models.mjs?v=0.1.46';
@@ -17,7 +17,7 @@ import {SkiAudio} from './ski-audio.mjs?v=0.1.69';
 import {createSkis} from './skis.mjs?v=0.1.58';
 import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.70';
 import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.72';
-import {APP_VERSION} from './version.mjs?v=0.1.73';
+import {APP_VERSION} from './version.mjs?v=0.1.76';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;

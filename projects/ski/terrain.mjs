@@ -73,12 +73,45 @@ async function loadMask(url, width, height) {
   const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
   const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
   if (bytes.length !== width * height) throw new Error(`Invalid mask dimensions for ${url.pathname}`);
+  return makeSurfaceTexture(bytes, width, height);
+}
+
+function makeSurfaceTexture(bytes, width, height, wrap = THREE.ClampToEdgeWrapping) {
   const texture = new THREE.DataTexture(bytes, width, height, THREE.RedFormat);
+  texture.wrapS = texture.wrapT = wrap;
   texture.magFilter = THREE.LinearFilter;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.generateMipmaps = true;
   texture.needsUpdate = true;
   return texture;
+}
+
+function createSnowTexture() {
+  const size = 128;
+  const pixels = new Uint8Array(size * size);
+  let seed = 1973;
+  // Blend two periodic noise grids for broad snow patches and finer grain.
+  for (const [cells, weight] of [[16, 0.72], [64, 0.28]]) {
+    const grid = Float32Array.from({length: cells * cells}, () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    });
+    const step = size / cells;
+    for (let z = 0; z < size; z++) {
+      const row = Math.floor(z / step) * cells;
+      const nextRow = (row + cells) % grid.length;
+      const tz = THREE.MathUtils.smoothstep(z % step, 0, step);
+      for (let x = 0; x < size; x++) {
+        const column = Math.floor(x / step);
+        const nextColumn = (column + 1) % cells;
+        const tx = THREE.MathUtils.smoothstep(x % step, 0, step);
+        const top = THREE.MathUtils.lerp(grid[row + column], grid[row + nextColumn], tx);
+        const bottom = THREE.MathUtils.lerp(grid[nextRow + column], grid[nextRow + nextColumn], tx);
+        pixels[z * size + x] += Math.round(255 * weight * THREE.MathUtils.lerp(top, bottom, tz));
+      }
+    }
+  }
+  return makeSurfaceTexture(pixels, size, size, THREE.RepeatWrapping);
 }
 
 export async function createTerrainMaterial(
@@ -119,6 +152,7 @@ export async function createTerrainMaterial(
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       ...createSkiShadowUniforms(),
       sun: {value: sun},
+      snowDetail: {value: createSnowTexture()},
       shadows: {value: shadows},
       trails: {value: trails},
       trailSize: {value: new THREE.Vector2(pistes.columns, pistes.rows)},
@@ -157,7 +191,7 @@ export async function createTerrainMaterial(
     `,
     fragmentShader: `
       uniform vec3 sun, low, middle, high, trailBlue, canopyGreen;
-      uniform sampler2D shadows, trails, trees;
+      uniform sampler2D shadows, trails, trees, snowDetail;
       uniform bool showTrails, showTreeModels, pineShadowsEnabled, skiShadowsEnabled;
       uniform vec3 skiShadowCenters[2], skiShadowNormals[2], skiShadowRight;
       uniform vec2 skiShadowSize;
@@ -216,6 +250,8 @@ export async function createTerrainMaterial(
           float trail = texture2D(trails, (terrainPoint.xz / trailSpacing + 0.5) / trailSize).r;
           snow = mix(snow, trailBlue, trail);
         }
+        float detail = texture2D(snowDetail, terrainPoint.xz / 24.0).r;
+        snow *= mix(0.78, 1.0, detail);
         float canopy = texture2D(trees, (terrainPoint.xz / canopySpacing + 0.5) / canopySize).r;
         float canopyFade = showTreeModels ? smoothstep(${FADE_START.toFixed(1)}, ${FAR.toFixed(1)},
           length(terrainPoint.xz - canopyViewer)) : 1.0;
@@ -223,8 +259,11 @@ export async function createTerrainMaterial(
         vec3 slope = normalize(terrainNormal);
         float cosine = max(dot(slope, sun), 0.0);
         float visibility = texture2D(shadows, (terrainPoint.xz / shadowSpacing + 0.5) / shadowSize).r;
+        float pineShade = 0.0;
         if (cosine > 0.0 && visibility > 0.0) {
-          visibility *= pineVisibility(terrainPoint);
+          float pineSun = pineVisibility(terrainPoint);
+          pineShade = visibility * (1.0 - pineSun);
+          visibility *= pineSun;
           if (skiShadowsEnabled) {
             vec2 delta = terrainPoint.xz - skiShadowCenters[0].xz;
             if (dot(delta, delta) < 36.0) {
@@ -234,8 +273,9 @@ export async function createTerrainMaterial(
             }
           }
         }
-        vec3 ambient = vec3(0.36, 0.43, 0.53) * (0.69 + 0.31 * slope.y);
-        vec3 lit = snow * (ambient + vec3(1.12, 1.00, 0.87) * cosine * visibility);
+        vec3 ambient = vec3(0.36, 0.43, 0.53) * 0.80 * (0.69 + 0.31 * slope.y);
+        ambient *= mix(vec3(1.0), vec3(0.72, 0.88, 1.12), pineShade);
+        vec3 lit = snow * (ambient + vec3(1.12, 1.00, 0.87) * 1.15 * cosine * visibility);
         gl_FragColor = vec4(lit, 1.0);
         #include <colorspace_fragment>
         #include <fog_fragment>
