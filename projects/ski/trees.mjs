@@ -1,5 +1,5 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
-import {PINE_SHADOW_LAYER} from './pine-shadows.mjs?v=0.1.32';
+import {PINE_SHADOW_LAYER} from './pine-shadows.mjs?v=0.1.39';
 
 const GRID = 6;
 const CELLS_PER_CHUNK = 16;

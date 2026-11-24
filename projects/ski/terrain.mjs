@@ -1,6 +1,6 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {createSkiShadowUniforms} from './skis.mjs?v=0.1.38';
-import {FADE_START, FAR} from './trees.mjs?v=0.1.29';
+import {FADE_START, FAR} from './trees.mjs?v=0.1.39';
 
 const TILE_SIZE = 256;
 const SPACING = [2, 4, 8, 16, 32];
@@ -168,6 +168,14 @@ export async function createTerrainMaterial(
       varying vec3 terrainPoint;
       varying vec3 terrainNormal;
       #include <fog_pars_fragment>
+      float pineDepthRow(vec2 uv, float depth, vec4 weights) {
+        vec2 stepX = vec2(pineTexel, 0.0);
+        vec4 depths = vec4(texture2D(pineDepth, uv).r,
+          texture2D(pineDepth, uv + stepX).r,
+          texture2D(pineDepth, uv + 2.0 * stepX).r,
+          texture2D(pineDepth, uv + 3.0 * stepX).r);
+        return dot(step(vec4(depth), depths), weights);
+      }
       float pineVisibility(vec3 point) {
         if (!pineShadowsEnabled) return 1.0;
         float fade = 1.0 - smoothstep(180.0, 200.0, length(point.xz - canopyViewer));
@@ -175,12 +183,16 @@ export async function createTerrainMaterial(
         vec3 projected = (pineProjection * vec4(point, 1.0)).xyz * 0.5 + 0.5;
         if (any(lessThan(projected, vec3(0.0))) || any(greaterThan(projected, vec3(1.0)))) return 1.0;
         float depth = projected.z - 0.00018;
-        vec2 offset = vec2(pineTexel * 0.65, 0.0);
-        float lit = step(depth, texture2D(pineDepth, projected.xy + offset).r)
-          + step(depth, texture2D(pineDepth, projected.xy - offset).r)
-          + step(depth, texture2D(pineDepth, projected.xy + offset.yx).r)
-          + step(depth, texture2D(pineDepth, projected.xy - offset.yx).r);
-        return mix(1.0, lit * 0.25, fade);
+        // Three.js r180 PCFSoft weights, expressed separably for a scalar depth texture.
+        vec2 fraction = fract(projected.xy / pineTexel + 0.5);
+        vec2 origin = projected.xy - (fraction + 1.0) * pineTexel;
+        vec4 weights = vec4(1.0 - fraction.x, 1.0, 1.0, fraction.x);
+        vec2 stepY = vec2(0.0, pineTexel);
+        float lit = (1.0 - fraction.y) * pineDepthRow(origin, depth, weights)
+          + pineDepthRow(origin + stepY, depth, weights)
+          + pineDepthRow(origin + 2.0 * stepY, depth, weights)
+          + fraction.y * pineDepthRow(origin + 3.0 * stepY, depth, weights);
+        return mix(1.0, lit / 9.0, fade);
       }
       float skiOcclusion(vec3 point, vec3 center, vec3 normal) {
         float facingSun = dot(normal, sun);

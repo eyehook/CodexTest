@@ -1,7 +1,7 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 
 export const PINE_SHADOW_LAYER = 1;
-const MAP_SIZE = 1536;
+const MAP_SIZE = 2048;
 const REFRESH_DISTANCE = 8;
 const HALF_RANGE = 200 + REFRESH_DISTANCE + 5;
 

@@ -27,6 +27,8 @@ test('pine shadows refresh on movement and preserve the XR scene and render targ
       assert.equal(renderer.xr.enabled, false);
       assert.equal(camera.layers.mask, 1 << PINE_SHADOW_LAYER);
       assert.equal(activeTarget.depthTexture, uniforms.pineDepth.value);
+      assert.equal(activeTarget.width, 2048);
+      assert.equal(activeTarget.height, 2048);
       assert.equal(activeTarget.depthTexture.minFilter, THREE.NearestFilter);
       assert.equal(activeTarget.depthTexture.magFilter, THREE.NearestFilter);
     },

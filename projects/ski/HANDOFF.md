@@ -4,6 +4,18 @@ Buildless Three.js r180 terrain viewer for desktop and Quest, with mapped
 downhill pistes in pale blue, likely tree canopy in green, simple lift models,
 instanced pine trees, and ground-following skiing.
 
+## Start here
+
+- Current version **v0.1.40**. Start with [app.mjs](app.mjs) for the runtime,
+  [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
+  [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
+- The newest rendering change is the **2048² PCFSoft pine-shadow filter**.
+  Chrome verified both shadow settings. Quest appearance and frame time
+  remain open. If skiing still snags, compare the same route with Shadows
+  on and off before changing the filter, tree range or tile budget.
+- The repository contains the generated browser assets. GIS tools and the
+  native lidar crops are needed only to rebuild data.
+
 ## Versioning
 
 [version.mjs](version.mjs) defines the `major.minor.patch` version shown in the
@@ -26,9 +38,10 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
   headset tracking.
 - Quest settings: press **B** on the right controller to open or save and
   close. The landscape is hidden against black. The panel stays upright to
-  the floor and faces your horizontal heading at opening. Point and pull the trigger
-  to choose a tab or change a setting. **Graphics → Trees** switches among
-  individual pine models and the green terrain canopy tint. **Graphics →
+  the floor and faces your horizontal heading at opening. Point and pull
+  the trigger to choose a tab or change a setting. **Graphics → Trees**
+  toggles individual pine models. With Trees off, the green canopy tint
+  is visible at every distance. **Graphics →
   Shadows** enables local pine and ski shadows. **VR → Height
   Offset** raises the tracked view and hands by 0–2 m in 0.05 m steps for
   seated play. Preferences load on startup and apply when the menu closes.
@@ -40,19 +53,19 @@ trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
   controller positions. Locomotion pauses while the panel is open.
 - Full stick or keyboard input walks at 10 m/s and turns at 90°/s. Travel is
   clamped to the dataset extent.
-- Quest ski mode: press the right trigger to push off along the skis. Steer left/right with either thumbstick and squeeze the left
-  trigger to brake. Hold the right trigger to tuck, and release to stand.
+- Quest ski mode: press the right trigger to push off along the skis. Steer
+  with either thumbstick and squeeze the left trigger to brake. Hold the right trigger to tuck, and release to stand.
   Press **A** to push with your poles, including from walk mode.
 - Desktop ski mode: Space pushes off, hold Space to tuck, A/D or left/right
-  arrows steer, E pole-pushes, and Shift brakes. A full stop automatically resumes walking
-  in both modes.
+  arrows steer, E pole-pushes, and Shift brakes. A full stop automatically
+  resumes walking in both modes.
 
 ## Settings
 
 [settings.mjs](settings.mjs) uses the shared control model and VR slider
 panel, with inline Trees and Shadows checkboxes and the Height Offset slider.
-Defaults are Trees on, Shadows off and 0 m height offset. The local browser store is updated on B
-close and when leaving XR with the settings open. While the menu is visible,
+Defaults are Trees on, Shadows off and 0 m height offset. The browser saves
+on B close and when leaving XR with the settings open. While the menu is visible,
 walking, skiing and the lift map are suspended. The VR offset lives on a
 child rig containing the camera, hands and menus, so terrain contact and
 teleport elevations stay in terrain coordinates. When trees are off, the
@@ -78,13 +91,14 @@ The player can look down to see them while skiing.
 
 The right-trigger launch is 5.5 m/s. A pole push from walk mode starts at
 5 m/s. While skiing on snow, each fresh press adds 5 m/s along the current
-course at any speed. Pole pushes have no effect
-in the air. Sliding resistance and air drag slow the skier.
+course at any speed. Pole pushes have no effect in the air. Sliding
+resistance and air drag slow the skier.
 Holding the right trigger while skiing eases the head toward 1 m above
 the ski stance, including when a seated offset is set, and reduces
 aerodynamic drag to 48% at full tuck. Releasing an engaged tuck on snow
-immediately adds a 2.5 m/s upward impulse, including on flat terrain. Brake pressure controls deceleration. The map, lift
-teleports, and tracking loss stop the run. Skiing also ends at the terrain
+immediately adds a 2.5 m/s upward impulse, including on flat terrain. Brake
+pressure controls deceleration. The map, lift teleports, and tracking loss
+stop the run. Skiing also ends at the terrain
 edge or when speed reaches the standing threshold.
 
 The skier leaves the snow when terrain curvature at the current speed
@@ -112,11 +126,11 @@ remains available for ground queries.
 
 The shader grades elevation from blue-gray low terrain to bright snow at
 high elevations. DEM normals shade slopes, and a 4 m baked visibility texture
-adds ridge shadows from a fixed winter-noon sun due south at 35° elevation. To regenerate
-it after preparing the DEM, run `python projects/ski/bake-shadows.py` in the
-same Python environment. The viewer uses a single terrain material. The trail mask blends pale blue (`#B8DDEB`)
-into the snow before lighting, so trails inherit slope shading and distance haze
-across all LODs. Near the viewer, forest ground uses the snow palette.
+adds ridge shadows from a fixed winter-noon sun due south at 35° elevation.
+The [sunlight manifest](data/mount-snow-sun.json) supplies the direction for
+the terrain, pine and ski shaders. The trail mask blends pale blue
+(`#B8DDEB`) into the snow before lighting, so trails inherit slope shading
+and distance haze across all LODs. Near the viewer, forest ground uses the snow palette.
 From 380 m to 400 m, the shader blends in the green canopy mask, which
 represents distant forest after the individual trees fade out.
 
@@ -147,10 +161,20 @@ records the source tiles, grid origin, spacing, and elevation range.
 
 ## Build and consume
 
-Use a Python environment with Rasterio and NumPy, then run
-`python projects/ski/prepare_dem.py` from the checkout. The first run reads
-public GeoTIFF windows over HTTPS. Later runs reuse the native crop. Remove
-the cached crop before rebuilding with a different footprint.
+The browser preview is buildless. To regenerate data, use Python with
+Rasterio, NumPy and Shapely and run the scripts under `projects/ski/`:
+
+1. `prepare_dem.py` produces the base height grid. It reads public GeoTIFF
+   windows the first time and reuses the native crop on later runs.
+2. `bake-pistes.py` produces the piste mask and starting trailhead.
+3. `bake-piste-smoothing.py` then `bake-shadows.py` produce the piste
+   adjustments and aligned sunlight assets. Rerun both after rebuilding
+   the base grid or piste mask.
+4. `bake-canopy.py` and `bake-lifts.py` rebuild their respective assets from
+   the source inputs described below.
+
+The cached native crops correspond to the current footprint. Use a fresh
+crop when changing the footprint.
 
 [heightmap.mjs](heightmap.mjs) fetches and decompresses the grid in the browser.
 The returned object exposes `height(x, z)` for bilinear elevation sampling
@@ -246,7 +270,7 @@ the bare-earth elevation before testing for a difference strictly greater
 than 5 m. The [canopy manifest](data/mount-snow-canopy.json) describes two
 aligned 2 m grids. The uint8 asset stores the fraction of each cell above the
 threshold and drives the green overlay. The little-endian uint16 asset stores
-the mean height in centimeters of the qualifying pixels for future placement.
+the mean height in centimeters of the qualifying pixels for tree placement.
 
 Mapped building footprints and 3 m buffers around mapped lift pylons are
 excluded using the [retained structure extract](source/mount-snow-structures.geojson).
@@ -264,8 +288,8 @@ color. A jittered 6 m grid gives each eligible cell a 50% spawn chance. The
 jittered position must have at least 25% lidar canopy coverage in its 2 m
 cell. Tree height is 1.5 times the lidar-derived height with ±15% variation.
 Crown radius ranges from 15% to 36% of the unscaled height. A candidate is
-skipped when its crown
-would overlap a mapped piste cell, including mapped glades. The distant
+skipped when its crown would overlap a mapped piste cell, including
+mapped glades. The distant
 canopy tint still reflects the lidar survey.
 The distance blend uses the same horizontal viewer position and fade range
 for the trees and terrain canopy mask.
@@ -281,10 +305,10 @@ time and the visual fade still need headset testing.
 
 [pine-shadows.mjs](pine-shadows.mjs) reuses the streamed pine batches in one
 orthographic depth map aligned with the same winter-noon sun as the terrain
-bake. The 1536² map is allocated on first use and refreshes after 8 m of
+bake. The 2048² map is allocated on first use and refreshes after 8 m of
 horizontal movement. Both eyes share the result. Terrain's direct light
-receives pine shadows with four nearest-depth comparisons, fully through
-180 m and fading out at 200 m.
+receives pine shadows using the same PCFSoft filter weights as The Hike,
+fully through 180 m and fading out at 200 m.
 The pass is skipped when either Shadows or Trees is off, or when settings
 hide the landscape. Baked ridge shadows are present in either mode.
 Quest frame time and refresh visibility still need headset testing.
@@ -298,29 +322,19 @@ light near the skis using uniforms, with no extra draw calls, texture
 reads or shadow-map refreshes. Ski shadows follow the Shadows setting
 even when Trees is off.
 
-## Validation
+## Validation and next headset checks
 
-The native crop has no missing cells. The browser grid has 5,324 columns and
-3,916 rows and spans about 5.32 km east–west by 3.92 km north–south. The gzip
-asset is 36 MiB and decodes to about 40 MiB of unsigned 16-bit samples. The
-summit-area check returned 1,092.86 m on the runtime grid and 1,092.87 m in the
-native source. Node checks exercised the loader, interpolation, normals and
-The Hike's near and far elevation sampling. The tile regression
-(`node --test projects/ski/tests/*.mjs`) checks mixed-resolution edge vertices,
-coverage and winding. Desktop Chrome loaded the real grid, rendered the
-terrain, and responded to walking and turning with no shader or page errors.
-The piste bake is byte-reproducible from the retained extract. The mask was
-checked against representative centerlines on all four faces, and desktop
-Chrome showed the blue overlay from the Big Dipper start.
-Canopy checks verified the strict threshold, coverage/height agreement and
-structure exclusions. Chrome displayed the green overlay and blue pistes
-together at the trailhead.
-Simulated XR input checks cover Y button edges, left-hand anchoring, tracked markers, trigger and
-pinch selection, and ray targeting under a rotated player rig. The destination check covers all 19 lifts. Quest gesture comfort,
-panel legibility, stereo seams and sustained frame rate still need headset
-validation.
-
-Focused ski checks cover gravity on uphill/downhill grades, tuck and drag, braking,
-steering, stopping at the terrain boundary, 72 Hz versus 120 Hz integration,
-ski angle, cross-slope drift, gradual rig yaw, and crest takeoff and landing
-with steady-incline and low-speed controls.
+- Run `node --test projects/ski/tests/*.mjs` for the focused Ski suite and
+  the complete root suite before pushing. Ski tests cover terrain seams
+  and buffer reuse, deterministic tree placement and piste clearance,
+  shadow refresh and render-state restoration, settings, lift destinations,
+  steering, braking, pole pushes, tuck height, and takeoff and landing.
+- Desktop Chrome rendered the real terrain, trees, ski and pine shadows,
+  and the sky. It exercised walking and skiing. The 2048² PCFSoft pass was
+  checked with Shadows on and off.
+- A desktop CPU replay reduced the worst terrain tile update on one route
+  from 17.0 ms to 5.1 ms after incremental tile updates. That measured
+  CPU tile work before rendering.
+- On Quest, verify stereo sky and terrain seams, seated tuck and pop feel,
+  menu legibility and lift arrivals. Compare Shadows off and on on the
+  same run if there are hitches. Sustained headset frame time is unmeasured.

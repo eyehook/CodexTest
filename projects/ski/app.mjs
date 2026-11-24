@@ -1,18 +1,18 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {ButtonEdges, buttonValue, readMovementAxes} from '../../shared/xr/input.mjs';
-import {createPineShadows} from './pine-shadows.mjs?v=0.1.32';
+import {createPineShadows} from './pine-shadows.mjs?v=0.1.39';
 import {Atmosphere, ATMOSPHERE} from '../hike/atmosphere.mjs?v=1';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
 import {loadHeightmap} from './heightmap.mjs?v=0.1.25';
-import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.38';
+import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.39';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
 import {createLiftModels} from './lift-models.mjs?v=0.1.6';
 import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.37';
 import {createSkis} from './skis.mjs?v=0.1.38';
-import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.32';
+import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.39';
 import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.29';
-import {APP_VERSION} from './version.mjs?v=0.1.38';
+import {APP_VERSION} from './version.mjs?v=0.1.40';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
