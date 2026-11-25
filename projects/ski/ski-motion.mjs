@@ -81,10 +81,10 @@ export class SkiMotion {
     this.popPending = false;
   }
 
-  push(forwardX, forwardZ) {
+  push(forwardX, forwardZ, speed = PUSH_SPEED) {
     if (this.active) return;
-    this.vx = forwardX * PUSH_SPEED;
-    this.vz = forwardZ * PUSH_SPEED;
+    this.vx = forwardX * speed;
+    this.vz = forwardZ * speed;
     this.active = true;
   }
 

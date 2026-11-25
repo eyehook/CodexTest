@@ -2,6 +2,8 @@ import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 import {mergeGeometries} from '../../shared/vendor/three-r180/addons/BufferGeometryUtils.js';
 
 const RADIUS = 2.1;
+export const CHAIR_SPEED = 5;
+const UNLOAD_SPEED = 7.5;
 const SEAT_DROP = 2.4;
 const STATION_HEIGHT = SEAT_DROP + 0.55;
 
@@ -56,9 +58,10 @@ export function chairCircuit(samples) {
   return {outbound, inbound, path: [...outbound, ...turns[1], ...inbound.slice().reverse(), ...turns[0]]};
 }
 
-export function movingChairs(geometry, path, clock) {
+export function movingChairs(geometry, {path, outbound}, clock) {
   const lengths = path.map((p, i) => p.distanceTo(path[(i + 1) % path.length]));
   const length = lengths.reduce((a, b) => a + b, 0);
+  const summit = lengths.slice(0, outbound.length - 1).reduce((a, b) => a + b, 0);
   const count = Math.ceil(length / 0.25);
   const rows = Math.ceil(count / 256);
   const data = new Float32Array(256 * rows * 4);
@@ -79,7 +82,7 @@ export function movingChairs(geometry, path, clock) {
   const material = new THREE.MeshBasicMaterial({vertexColors: true});
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, {liftTime: clock, liftPoses: {value: poses},
-      liftLayout: {value: new THREE.Vector3(count, 3 / length, 1 / chairs)}});
+      liftLayout: {value: new THREE.Vector3(count, CHAIR_SPEED / length, 1 / chairs)}});
     shader.vertexShader = `
       uniform float liftTime;
       uniform sampler2D liftPoses;
@@ -99,5 +102,53 @@ export function movingChairs(geometry, path, clock) {
   mesh.name = 'Moving double chairs';
   mesh.boundingSphere = new THREE.Box3().setFromPoints(path).expandByScalar(3)
     .getBoundingSphere(new THREE.Sphere());
-  return mesh;
+  const sample = new THREE.Vector3();
+  function seatAt(distance, position) {
+    const index = distance / length * count;
+    const i = Math.floor(index);
+    const a = i * 4, b = ((i + 1) % count) * 4;
+    const fraction = index - i;
+    const yaw = data[a + 3] + fraction *
+      (THREE.MathUtils.euclideanModulo(data[b + 3] - data[a + 3] + Math.PI, 2 * Math.PI) - Math.PI);
+    position.fromArray(data, a).lerp(sample.fromArray(data, b), fraction);
+    position.x += 0.365 * Math.cos(yaw) + 0.04 * Math.sin(yaw);
+    position.z += 0.04 * Math.cos(yaw) - 0.365 * Math.sin(yaw);
+    position.y -= SEAT_DROP;
+    return yaw;
+  }
+
+  function board(x, y, z) {
+    const seat = new THREE.Vector3();
+    const head = new THREE.Vector3(x, y, z);
+    const boardedAt = clock.value;
+    let distance = null;
+    let nearest = Infinity;
+    for (let i = 0; i < chairs; i++) {
+      const phase = boardedAt * CHAIR_SPEED / length + i / chairs;
+      const candidate = (phase - Math.floor(phase)) * length;
+      if (candidate >= summit) continue;
+      seatAt(candidate, seat);
+      const separation = seat.distanceToSquared(head);
+      if (separation >= nearest) continue;
+      nearest = separation;
+      distance = candidate;
+    }
+    if (distance === null) return null;
+
+    const approach = outbound.at(-1).clone().sub(outbound.at(-2));
+    const exitYaw = Math.atan2(-approach.x, -approach.z);
+    return {
+      boardingYaw: seatAt(distance, seat) + Math.PI,
+      exitSpeed: UNLOAD_SPEED,
+      exitYaw,
+      update(position) {
+        const traveled = distance + (clock.value - boardedAt) * CHAIR_SPEED;
+        const arrived = traveled >= summit;
+        seatAt(Math.min(traveled, summit), position);
+        return arrived;
+      },
+    };
+  }
+
+  return {mesh, board};
 }

@@ -6,7 +6,7 @@ instanced pine trees, and ground-following skiing.
 
 ## Start here
 
-- Current version **v0.1.85**. Start with [app.mjs](app.mjs) for the runtime,
+- Current version **v0.2.0**. Start with [app.mjs](app.mjs) for the runtime,
   [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
   [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
 - The repository contains the generated browser assets. GIS tools and the
@@ -56,8 +56,15 @@ Quest Browser. Both modes start at the Bluebird Express teleport destination,
 - Quest ski mode: press the right trigger to push off along the skis. Steer
   with either thumbstick and squeeze the left trigger to brake. Hold the right trigger to tuck, and release to stand.
   Press **A** to push with your poles, including from walk mode. When a
-  lift base is highlighted in yellow, **A** takes you to that lift's upper
-  unloading point and stops an active ski run.
+  chairlift base is highlighted in yellow, **A** stops skiing and seats you
+  on the nearest uphill chair. Stick movement and turning are disabled during
+  the ride. You can still look around and move physically. Hold the right
+  trigger to run your lift at 30 m/s and release it to resume normal speed.
+  Press **A** again
+  to skip to the lift's usual teleport destination. At the summit, you
+  automatically unload onto snow with 7.5 m/s of forward ski momentum at either
+  lift speed.
+  At a carpet or rope tow base, **A** still teleports directly to the top.
 - Desktop ski mode: Space pushes off, hold Space to tuck, A/D or left/right
   arrows steer, E pole-pushes, and Shift brakes. A full stop automatically
   resumes walking in both modes.
@@ -332,7 +339,7 @@ contains 13 chairlifts, five carpets and the Voyager rope tow. The
 including Main Face Learning Area and Tubing Hill. Names and groupings are
 based on the [resort lift listings](https://www.mountsnow.com/explore-the-resort/about-the-mountain/hours-of-operation.aspx).
 Chairlifts have 9 m T-pylons, twin cable spans and round orange terminal wheels.
-Double chairs travel both directions at 3 m/s, about 45 m apart. They turn
+Double chairs travel both directions at 5 m/s, about 45 m apart. They turn
 around each wheel with the seat about 0.55 m above terminal-center ground height.
 The DEM has local grading at 11 terminals where seats intersected or nearly
 touched snow. The wheel apron eases into the approach grade and feathers into
@@ -343,7 +350,7 @@ each turn and up to 20 m along both lanes against physics and the 2 m terrain
 mesh, then writes the compressed grading asset and its manifest entry.
 Carpets have teal strips and Voyager has a low rope line with orange end markers. The closest lower terminal
 within 15 m horizontally of the player's head position turns yellow in
-desktop and Quest. The highlight is suspended while a Quest menu is open.
+desktop and Quest. The highlight is suspended during chair rides and while a Quest menu is open.
 Chairlift cables span the terminals and mapped pylons. The bake matches
 shared OpenStreetMap coordinates from the structure extract to interior
 lift-route vertices. All 185 mapped pylons match chairlift routes in the
@@ -351,8 +358,13 @@ current data. Voyager has a rope span between its two terminal posts.
 Support heights, cable clearance and chair locations are approximate.
 Static structures, wheels and moving chairs are instanced per lift for culling.
 All chairlifts share one double-seat geometry. The vertex shader samples a
-closed distance-indexed pose texture baked at startup. Animation updates one
-shared clock per frame and uploads no chair transforms.
+closed distance-indexed pose texture baked at startup. Animation updates a clock per chairlift and uploads no chair transforms.
+The ridden lift accumulates extra time while the right trigger is held,
+so its chairs retain their positions when the speed changes. The rider samples
+the same pose data at the selected chair's phase. Boarding points the rig
+forward along the chair and preserves the tracked head turn relative to the
+seat. The rig keeps that heading during transit and unloads where the uphill
+lane meets the terminal turn.
 
 Lift geometry is © OpenStreetMap contributors under the
 [Open Database License](https://www.openstreetmap.org/copyright).
@@ -459,7 +471,8 @@ even when Trees is off.
   the complete root suite before pushing. Ski tests cover terrain seams
   and buffer reuse, deterministic tree placement and clearance from pistes
   and buildings, shadow refresh and render-state restoration, settings, lift
-  destinations and mapped pylon placement, steering, braking, pole pushes,
+  destinations, mapped pylon placement, chair selection and summit timing,
+  steering, braking, pole pushes,
   tuck height, and takeoff and landing.
 - Desktop Chrome rendered the real terrain, trees, ski and pine shadows,
   and the sky. It exercised walking and skiing. The 2048² PCFSoft pass was
@@ -480,8 +493,9 @@ even when Trees is off.
 - Desktop Chrome verified the Bluebird Express starting view. All 19 baked
   arrivals were checked against rendered buildings, lift geometry and pine
   crowns.
+- The user confirmed the chairlift behavior before the v0.2.0 release.
 - On Quest, verify stereo sky and terrain seams, seated tuck and pop feel,
-  menu legibility, lift arrivals and the **A** shortcut at highlighted bases.
+  menu legibility and lift arrivals.
   Check building placement, tree clearance, and cable clearance between the
   mapped pylons. If there are hitches, compare the same run with Shadows
   off and on. Sustained headset frame time is unmeasured.

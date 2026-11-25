@@ -9,15 +9,15 @@ import {loadHeightmap} from './heightmap.mjs?v=0.1.85';
 import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.76';
 import {createBuildings} from './buildings.mjs?v=0.1.47';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
-import {createLiftModels} from './lift-models.mjs?v=0.1.84';
-import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.61';
+import {createLiftModels} from './lift-models.mjs?v=0.2.0';
+import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.86';
 import {SkiProfiler, CPU, RENDER, SHADOW, TREES, TERRAIN, CALLS, TRIANGLES,
   TREE_BUILDS, TILE_BUILDS} from './profiling.mjs?v=0.1.72';
 import {SkiAudio} from './ski-audio.mjs?v=0.1.69';
 import {createSkis} from './skis.mjs?v=0.1.58';
 import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.81';
 import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.72';
-import {APP_VERSION} from './version.mjs?v=0.1.85';
+import {APP_VERSION} from './version.mjs?v=0.2.0';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -64,7 +64,7 @@ async function start() {
   landscape.add(atmosphere.mesh);
   const liftMenu = new LiftMenu(heightRig, liftGroups);
   const terrain = createTerrain(landscape, map, material);
-  const {model: liftsModel, highlightNearestBase, updateChairs} = createLiftModels(landscape, map, liftGroups);
+  const {model: liftsModel, highlightNearestBase, boardChair, updateChairs} = createLiftModels(landscape, map, liftGroups);
   const buildingsModel = createBuildings(landscape, map, footprints);
   const liftDestinations = Object.values(liftGroups).flat();
   const startLift = liftDestinations.find(lift => lift.osmWay === 143874600); // Bluebird Express
@@ -119,13 +119,19 @@ async function start() {
   let desktopPushDown = false;
   let desktopPoleDown = false;
   let rightController = null;
+  let ride = null;
+  const chairSeat = new THREE.Vector3();
+  const riderOffset = new THREE.Vector3();
+  const seatHeight = 0.55;
 
   function ground(view, measure = false) {
     headOffset.copy(view.position).applyQuaternion(rig.quaternion);
     const x = THREE.MathUtils.clamp(rig.position.x + headOffset.x, 0, terrain.width);
     const z = THREE.MathUtils.clamp(rig.position.z + headOffset.z, 0, terrain.depth);
-    const floor = map.height(x, z);
-    rig.position.set(x - headOffset.x, ski.airborne ? Math.max(floor, ski.y) : floor, z - headOffset.z);
+    if (!ride) {
+      const floor = map.height(x, z);
+      rig.position.set(x - headOffset.x, ski.airborne ? Math.max(floor, ski.y) : floor, z - headOffset.z);
+    }
     const terrainStart = measure ? performance.now() : 0;
     const tiles = terrain.update(x, z);
     if (measure && tiles > 0) {
@@ -263,6 +269,7 @@ async function start() {
   });
   addEventListener('keyup', event => keys.delete(event.code));
   renderer.xr.addEventListener('sessionend', () => {
+    ride = null;
     audioRequested = false;
     ambience.stop();
     highlightNearestBase(Infinity, Infinity);
@@ -285,6 +292,7 @@ async function start() {
     if (xr.changed) profiler.reset();
     ambience.setActive(audioRequested && xr.active);
     if (!xr.active) {
+      updateChairs(time * 0.001);
       profiler.pause();
       highlightNearestBase(Infinity, Infinity);
       liftMenu.hide();
@@ -318,14 +326,45 @@ async function start() {
       const blocked = xr.resumed || settingsConsumedFrame || liftMenu.visible || !!lift;
       if (right !== rightController) skiButtons.reset();
       const seed = blocked || right !== rightController;
-      const push = right && skiButtons.sample(right, 0, seed).pressed;
+      const trigger = right && skiButtons.sample(right, 0, seed);
+      const push = trigger?.pressed;
+      updateChairs(time * 0.001, !blocked && trigger?.down ? ride?.lift : null);
       const aPressed = right && skiButtons.sample(right, 4, seed).pressed;
-      const destination = lift ?? (aPressed && !blocked ? highlightLiftAtHead(trackedView) : null);
+      const useLift = aPressed && !blocked;
+      const base = useLift && !ride ? highlightLiftAtHead(trackedView) : null;
+      const destination = lift ?? (useLift ? ride?.lift : null) ??
+        (base && base.type !== 'Chairlift' ? base : null);
       rightController = right;
       if (destination) {
+        ride = null;
         stopSki();
         ski.updateTuck(dt, 0);
         placeHead(trackedView, destination.x, destination.z, liftArrivalYaw(destination));
+      } else if (ride) {
+        const {chair} = ride;
+        const arrived = chair.update(chairSeat);
+        rig.position.copy(chairSeat).add(riderOffset);
+        if (arrived) {
+          ride = null;
+          headOffset.copy(trackedView.position).applyQuaternion(rig.quaternion).add(rig.position);
+          const {x, z} = headOffset;
+          rig.rotation.y = chair.exitYaw;
+          placeHead(trackedView, x, z);
+          ski.push(-Math.sin(chair.exitYaw), -Math.cos(chair.exitYaw), chair.exitSpeed);
+        }
+      } else if (base) {
+        const chair = boardChair(base, rig.position.x + headOffset.x,
+          rig.position.y + heightRig.position.y + headOffset.y, rig.position.z + headOffset.z);
+        if (chair) {
+          stopSki();
+          ski.tuck = 0;
+          ride = {lift: base, chair};
+          chair.update(chairSeat);
+          rig.rotation.y = chair.boardingYaw;
+          placeHead(trackedView, chairSeat.x, chairSeat.z);
+          rig.position.y = chairSeat.y - seatHeight;
+          riderOffset.subVectors(rig.position, chairSeat);
+        }
       } else if (blocked) {
         stopSki();
         ski.updateTuck(dt, 0);
@@ -338,9 +377,10 @@ async function start() {
       }
       gameplay = gameplay && !settingsConsumedFrame && !liftMenu.visible && !lift;
       if (!settings.visible) ground(trackedView, gameplay && ready);
-      if (settingsConsumedFrame || liftMenu.visible) highlightNearestBase(Infinity, Infinity);
+      if (ride || settingsConsumedFrame || liftMenu.visible) highlightNearestBase(Infinity, Infinity);
       else highlightLiftAtHead(trackedView);
     } else {
+      updateChairs(time * 0.001);
       desktopPitch = THREE.MathUtils.clamp(
         desktopPitch + dt * TURN_SPEED * axis('ArrowDown', 'ArrowUp'), -1.45, 1.45);
       camera.rotation.x = desktopPitch;
@@ -359,14 +399,13 @@ async function start() {
     }
     const viewer = session ? trackedView : desktopView;
     heightRig.position.y = ski.viewOffset(session ? preferences.heightOffset : 0, viewer.position.y);
-    skis.update(viewer, ski, !settings.visible, preferences.shadows, dt);
+    skis.update(viewer, ski, !settings.visible && !ride, preferences.shadows, dt);
     const shadowViewer = material.uniforms.canopyViewer.value;
     const measure = gameplay && ready;
     const shadowStart = measure ? performance.now() : 0;
     const shadowRefreshed = shadows.update(preferences.shadows && preferences.trees && !settings.visible,
       shadowViewer.x, shadowViewer.y);
     const renderStart = measure ? performance.now() : 0;
-    updateChairs(time * 0.001);
     renderer.render(scene, camera);
     if (measure) {
       const end = performance.now();

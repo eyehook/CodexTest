@@ -1,6 +1,8 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 
-import {chairCircuit, chairGeometry, movingChairs} from './chairlift.mjs?v=0.1.84';
+import {CHAIR_SPEED, chairCircuit, chairGeometry, movingChairs} from './chairlift.mjs?v=0.1.90';
+
+const BOOSTED_CHAIR_SPEED = 30;
 
 const PROFILES = {
   Chairlift: {spacing: 45, height: 9, routeWidth: 0.28, support: 0.65, terminal: 4, color: 0x334155},
@@ -30,7 +32,7 @@ export function createLiftModels(scene, map, groups) {
   const material = new THREE.MeshBasicMaterial();
   const chair = chairGeometry();
   const wheel = new THREE.CylinderGeometry(2.1, 2.1, 0.42, 32);
-  const clock = {value: 0};
+  let previousTime;
   const marker = new THREE.Object3D();
   const direction = new THREE.Vector3();
   const center = new THREE.Vector3();
@@ -42,6 +44,7 @@ export function createLiftModels(scene, map, groups) {
   const terminals = new THREE.Color(0xda8542);
   const highlightedTerminal = new THREE.Color(0xfff45c);
   const bases = [];
+  const chairlifts = new Map();
   let highlighted = null;
   const steel = new THREE.Color(0x626e78);
 
@@ -133,7 +136,12 @@ export function createLiftModels(scene, map, groups) {
       mesh.setColorAt(i, colors[i]);
     }
     mesh.computeBoundingSphere();
-    if (circuit) mesh.add(wheels, movingChairs(chair, circuit.path, clock));
+    if (circuit) {
+      const clock = {value: 0};
+      const chairs = movingChairs(chair, circuit, clock);
+      mesh.add(wheels, chairs.mesh);
+      chairlifts.set(lift, {board: chairs.board, clock, timeOffset: 0});
+    }
     model.add(mesh);
     const [x, z] = lift.route[0];
     bases.push({x, z, mesh: wheels || mesh, lift});
@@ -163,5 +171,16 @@ export function createLiftModels(scene, map, groups) {
     return nearest?.lift ?? null;
   }
 
-  return {model, highlightNearestBase, updateChairs(timeSeconds) { clock.value = timeSeconds; }};
+  return {
+    model, highlightNearestBase,
+    boardChair(lift, x, y, z) { return chairlifts.get(lift)?.board(x, y, z) ?? null; },
+    updateChairs(timeSeconds, acceleratedLift = null) {
+      const elapsed = timeSeconds - (previousTime ?? timeSeconds);
+      previousTime = timeSeconds;
+      for (const [lift, chairs] of chairlifts) {
+        if (lift === acceleratedLift) chairs.timeOffset += (BOOSTED_CHAIR_SPEED / CHAIR_SPEED - 1) * elapsed;
+        chairs.clock.value = timeSeconds + chairs.timeOffset;
+      }
+    },
+  };
 }
