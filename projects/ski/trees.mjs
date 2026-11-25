@@ -110,7 +110,7 @@ function treeGeometry(simplified = false) {
   return geometry;
 }
 
-export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vector2()}, footprints = []) {
+export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vector2()}, footprints = [], liftClearings = []) {
   const width = map.metadata.columns - 1;
   const depth = map.metadata.rows - 1;
   const buildings = footprints.map(building => ({
@@ -169,12 +169,19 @@ export function createTrees(scene, map, canopy, viewer = {value: new THREE.Vecto
       }
     }
     if (!records.length) return null;
-    const nearby = buildings.filter(building => {
-      const dx = Math.max(cx * CHUNK - building.x, building.x - (cx + 1) * CHUNK, 0);
-      const dz = Math.max(cz * CHUNK - building.z, building.z - (cz + 1) * CHUNK, 0);
-      return dx * dx + dz * dz <= (building.bound + maxRadius) ** 2;
-    });
-    if (nearby.length) records = records.filter(tree => !nearby.some(building => overlapsBuilding(tree, building)));
+    function nearChunk(x, z, radius) {
+      const dx = Math.max(cx * CHUNK - x, x - (cx + 1) * CHUNK, 0);
+      const dz = Math.max(cz * CHUNK - z, z - (cz + 1) * CHUNK, 0);
+      return dx * dx + dz * dz <= (radius + maxRadius) ** 2;
+    }
+    const nearby = buildings.filter(building => nearChunk(building.x, building.z, building.bound));
+    const nearbyClearings = liftClearings.filter(({x, z, radius}) => nearChunk(x, z, radius));
+    if (nearby.length || nearbyClearings.length) {
+      records = records.filter(tree =>
+        !nearby.some(building => overlapsBuilding(tree, building)) &&
+        !nearbyClearings.some(({x, z, radius}) =>
+          (tree.x - x) ** 2 + (tree.z - z) ** 2 <= (radius + tree.radius) ** 2));
+    }
     if (!records.length) return null;
     const mesh = new THREE.InstancedMesh(geometry, material, records.length);
     for (const [i, tree] of records.entries()) {

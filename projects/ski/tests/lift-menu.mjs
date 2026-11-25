@@ -6,13 +6,30 @@ import {LiftMenu} from '../lift-menu.mjs';
 
 const groups = JSON.parse(readFileSync(new URL('../data/mount-snow-lifts.json', import.meta.url)));
 
-test('all 19 mapped lifts have a ground arrival near the uphill endpoint', () => {
+test('all 19 arrivals are past their upper terminal and clear of rendered buildings', () => {
+  const buildings = JSON.parse(readFileSync(new URL('../data/mount-snow-buildings.json', import.meta.url)));
   const lifts = Object.values(groups).flat();
   assert.equal(lifts.length, 19);
   assert.equal(new Set(lifts.map(lift => lift.osmWay)).size, 19);
   for (const lift of lifts) {
     assert.ok(lift.upper.elevationMeters > lift.lowerElevationMeters);
-    assert.ok(Math.abs(Math.hypot(lift.x - lift.upper.x, lift.z - lift.upper.z) - 8) < 0.02);
+    const dx = lift.x - lift.upper.x;
+    const dz = lift.z - lift.upper.z;
+    const [prevX, prevZ] = lift.route.at(lift.pylonIndices.at(-1) ?? -2);
+    const routeX = lift.upper.x - prevX;
+    const routeZ = lift.upper.z - prevZ;
+    assert.ok(Math.abs(Math.hypot(dx, dz) - 10) < 0.02, lift.name);
+    assert.ok(dx * routeX + dz * routeZ > 0, lift.name);
+    assert.ok(Math.abs(dx * routeZ - dz * routeX) / Math.hypot(routeX, routeZ) < 0.03, lift.name);
+    for (const building of buildings) {
+      const x = lift.x - building.x;
+      const z = lift.z - building.z;
+      const cos = Math.cos(building.yaw);
+      const sin = Math.sin(building.yaw);
+      const edgeX = Math.max(0, Math.abs(x * cos - z * sin) - building.width / 2);
+      const edgeZ = Math.max(0, Math.abs(x * sin + z * cos) - building.depth / 2);
+      assert.ok(Math.hypot(edgeX, edgeZ) >= 2, lift.name);
+    }
     assert.ok(lift.x > 0 && lift.x < 5323 && lift.z > 0 && lift.z < 3915);
   }
 });

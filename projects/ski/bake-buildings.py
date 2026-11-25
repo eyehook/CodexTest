@@ -8,6 +8,17 @@ from shapely.geometry import shape
 
 from prepare_dem import DATA, ROOT
 
+# Keep the carpet route and the immediate surroundings of the upper terminals open.
+HIDDEN_BUILDINGS = {
+    "way/1090255651",  # Over the Covered Bridge carpet route
+    "way/1152587480", "way/1152822302",  # Bluebird Express
+    "way/1152587481",  # Grand Summit Express
+    "way/1574044522",  # Sunbrook Express
+    "way/1227668850",  # Grommet
+    "way/1227668845",  # Nitro Express
+    "way/439399295",  # Covered Bridge upper terminal
+}
+
 
 def bake():
     meta = json.loads((DATA / "mount-snow-1m.json").read_text())
@@ -16,7 +27,7 @@ def bake():
     structures = json.loads(source.read_text())
     buildings = []
     for feature in structures["features"]:
-        if feature["properties"]["kind"] != "building":
+        if feature["properties"]["kind"] != "building" or feature["id"] in HIDDEN_BUILDINGS:
             continue
         footprint = make_valid(shape(transform_geom("EPSG:4326", meta["horizontalCrs"], feature["geometry"])))
         rectangle = footprint.minimum_rotated_rectangle

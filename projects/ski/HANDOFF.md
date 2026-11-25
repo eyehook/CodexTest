@@ -6,7 +6,7 @@ instanced pine trees, and ground-following skiing.
 
 ## Start here
 
-- Current version **v0.1.76**. Start with [app.mjs](app.mjs) for the runtime,
+- Current version **v0.1.83**. Start with [app.mjs](app.mjs) for the runtime,
   [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
   [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
 - The repository contains the generated browser assets. GIS tools and the
@@ -24,8 +24,8 @@ runtime files. Reset patch to zero when deliberately bumping major or minor.
 
 Serve the repository root and open `/projects/ski/`. For Quest over USB, use
 the [local VR launcher](../../Start-VR.command) and open the same route in
-Quest Browser. Both modes start at the shared Big Dipper and Cloud Nine
-trailhead (1,094.65 m NAVD88), facing down Big Dipper into Sunbrook.
+Quest Browser. Both modes start at the Bluebird Express teleport destination,
+10 m past the upper terminal and facing back toward it.
 
 - Desktop: WASD to walk or strafe, left/right arrows to turn, up/down arrows
   to look. Eye height is 1.7 m.
@@ -349,16 +349,22 @@ Lift geometry is © OpenStreetMap contributors under the
 Run `python -B projects/ski/bake-lifts.py` to rebake from the retained geometry
 with the same GIS environment used for pistes. Pass `--osm-map` with the
 resort OSM XML to refresh the lift extract. The higher DEM endpoint is used
-as the upper terminal. Each arrival is approximately 8 m from it, with at
-least 2 m of clearance from mapped building footprints. These are estimated
-unloading locations. The teleport keeps your facing and places your tracked
-head over the destination in X/Z, with the rig floor set by the local DEM.
+as the upper terminal. Arrivals extend the line from the last mapped pylon
+through the upper terminal by 10 m. Lifts without pylons use the final
+route segment. The baker tries nearby offsets if the straight point lacks
+2 m of clearance from rendered buildings. All 19 current points use the
+straight extension and clear rendered lift geometry and nearby pine crowns.
+Teleport places your tracked head over the destination and turns your
+horizontal view back toward the upper terminal. The local DEM sets the
+rig floor.
 
 ## Buildings
 
 Run `python -B projects/ski/bake-buildings.py` to fit a minimum-area rotated
-rectangle to each of the 99 mapped building footprints in the retained
-OpenStreetMap structure extract. The [baked boxes](data/mount-snow-buildings.json)
+rectangle to 91 mapped footprints in the retained OpenStreetMap structure
+extract. The bake excludes the building over the Covered Bridge magic carpet
+and seven models whose edges were within 10 m of upper lift terminals.
+The [baked boxes](data/mount-snow-buildings.json)
 store ground-plane center, dimensions and yaw in terrain coordinates.
 [buildings.mjs](buildings.mjs) renders one instanced batch, with flat roofs
 5 m above each footprint center, raised when needed to clear sampled corners
@@ -400,9 +406,10 @@ color. A jittered 6 m grid gives each eligible cell a 50% spawn chance. The
 jittered position must have at least 25% lidar canopy coverage in its 2 m
 cell. Tree height is 1.5 times the lidar-derived height with ±15% variation.
 Crown radius ranges from 15% to 36% of the unscaled height. A candidate is
-skipped when its crown would overlap a mapped piste cell (including glades)
-or a rendered building footprint. The distant canopy tint still reflects
-the lidar survey.
+skipped when its crown would overlap a mapped piste cell (including glades),
+a rendered building footprint, or a lift clearing (3 m from lower terminals
+and 10 m from upper terminals). The distant canopy tint still reflects the
+lidar survey.
 The distance blend uses the same horizontal viewer position and fade range
 for the trees and terrain canopy mask.
 
@@ -459,6 +466,9 @@ even when Trees is off.
   on the repeat. Initialization and rendering are excluded. Quest timing
   for this sampler is pending; compare the same lift and descent with
   identical graphics settings after the profiler warm-up.
+- Desktop Chrome verified the Bluebird Express starting view. All 19 baked
+  arrivals were checked against rendered buildings, lift geometry and pine
+  crowns.
 - On Quest, verify stereo sky and terrain seams, seated tuck and pop feel,
   menu legibility, lift arrivals and the **A** shortcut at highlighted bases.
   Check building placement, tree clearance, and cable clearance between the

@@ -15,9 +15,9 @@ import {SkiProfiler, CPU, RENDER, SHADOW, TREES, TERRAIN, CALLS, TRIANGLES,
   TREE_BUILDS, TILE_BUILDS} from './profiling.mjs?v=0.1.72';
 import {SkiAudio} from './ski-audio.mjs?v=0.1.69';
 import {createSkis} from './skis.mjs?v=0.1.58';
-import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.70';
+import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.81';
 import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.72';
-import {APP_VERSION} from './version.mjs?v=0.1.76';
+import {APP_VERSION} from './version.mjs?v=0.1.83';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -31,8 +31,8 @@ const EYE_HEIGHT = 1.7;
 async function start() {
   const preferences = loadSettings();
   const pistesUrl = new URL('./data/mount-snow-pistes.json?v=1', import.meta.url);
-  const liftUrl = new URL('./data/mount-snow-lifts.json?v=0.1.46', import.meta.url);
-  const buildingsUrl = new URL('./data/mount-snow-buildings.json?v=0.1.47', import.meta.url);
+  const liftUrl = new URL('./data/mount-snow-lifts.json?v=0.1.82', import.meta.url);
+  const buildingsUrl = new URL('./data/mount-snow-buildings.json?v=0.1.80', import.meta.url);
   const [map, response, lifts, buildings] = await Promise.all([
     loadHeightmap(), fetch(pistesUrl), fetch(liftUrl), fetch(buildingsUrl),
   ]);
@@ -66,7 +66,14 @@ async function start() {
   const terrain = createTerrain(landscape, map, material);
   const {model: liftsModel, highlightNearestBase} = createLiftModels(landscape, map, liftGroups);
   const buildingsModel = createBuildings(landscape, map, footprints);
-  const trees = createTrees(landscape, map, canopy, material.uniforms.canopyViewer, footprints);
+  const liftDestinations = Object.values(liftGroups).flat();
+  const startLift = liftDestinations.find(lift => lift.osmWay === 143874600); // Bluebird Express
+  if (!startLift) throw new Error('Missing Bluebird Express starting destination');
+  const liftClearings = liftDestinations.flatMap(lift => {
+    const [x, z] = lift.route[0];
+    return [{x, z, radius: 3}, {x: lift.upper.x, z: lift.upper.z, radius: 10}];
+  });
+  const trees = createTrees(landscape, map, canopy, material.uniforms.canopyViewer, footprints, liftClearings);
   atmosphere.apply(material);
   for (const lift of liftsModel.children) atmosphere.apply(lift.material);
   atmosphere.apply(buildingsModel.material);
@@ -104,8 +111,8 @@ async function start() {
   const headOffset = new THREE.Vector3();
   const keys = new Set();
   const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyE', 'ShiftLeft', 'ShiftRight']);
-  const {x: startX, z: startZ, towardX, towardZ} = pistes.spawn;
-  const startYaw = Math.atan2(startX - towardX, startZ - towardZ);
+  const {x: startX, z: startZ} = startLift;
+  const startYaw = liftArrivalYaw(startLift);
   const axis = (negative, positive) => Number(keys.has(positive)) - Number(keys.has(negative));
   let previousTime;
   let desktopPitch = -0.13;
@@ -140,7 +147,15 @@ async function start() {
     return highlightNearestBase(rig.position.x + headOffset.x, rig.position.z + headOffset.z);
   }
 
-  function placeHead(view, x, z) {
+  function liftArrivalYaw({x, z, upper}) {
+    return Math.atan2(x - upper.x, z - upper.z);
+  }
+
+  function placeHead(view, x, z, facingYaw) {
+    if (facingYaw !== undefined) {
+      headOffset.set(0, 0, -1).applyQuaternion(view.orientation);
+      rig.rotation.y = facingYaw - Math.atan2(-headOffset.x, -headOffset.z);
+    }
     headOffset.copy(view.position).applyQuaternion(rig.quaternion);
     rig.position.x = x - headOffset.x;
     rig.position.z = z - headOffset.z;
@@ -285,11 +300,8 @@ async function start() {
       trackedView.position.set(position.x, position.y, position.z);
       trackedView.orientation.set(orientation.x, orientation.y, orientation.z, orientation.w);
       if (xr.firstTracked) {
-        headOffset.set(0, 0, -1).applyQuaternion(trackedView.orientation);
-        const heading = Math.atan2(-headOffset.x, -headOffset.z);
-        rig.rotation.y = startYaw - heading;
         resetSki();
-        placeHead(trackedView, startX, startZ);
+        placeHead(trackedView, startX, startZ, startYaw);
       }
       let left, right;
       for (const source of session.inputSources) {
@@ -313,7 +325,7 @@ async function start() {
       if (destination) {
         stopSki();
         ski.updateTuck(dt, 0);
-        placeHead(trackedView, destination.x, destination.z);
+        placeHead(trackedView, destination.x, destination.z, liftArrivalYaw(destination));
       } else if (blocked) {
         stopSki();
         ski.updateTuck(dt, 0);

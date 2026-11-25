@@ -8,9 +8,9 @@ import re
 import xml.etree.ElementTree as ET
 
 import numpy as np
-from rasterio.warp import transform, transform_geom
-from shapely import make_valid
-from shapely.geometry import Point, shape
+from rasterio.warp import transform
+from shapely.affinity import rotate, translate
+from shapely.geometry import Point, box
 from shapely.ops import unary_union
 
 ROOT = Path(__file__).resolve().parent
@@ -58,8 +58,13 @@ def bake():
         return float(dem[j, i]) * meta["elevationScaleMeters"] + meta["elevationOffsetMeters"]
 
     structures = json.loads((ROOT / "source" / "mount-snow-structures.geojson").read_text())
-    buildings = unary_union([make_valid(shape(transform_geom("EPSG:4326", crs, f["geometry"])))
-                             for f in structures["features"] if f["properties"]["kind"] == "building"])
+    # Use the building boxes rendered by the viewer.
+    boxes = json.loads((DATA / "mount-snow-buildings.json").read_text())
+    rendered_buildings = unary_union([
+        translate(rotate(box(-b["width"] / 2, -b["depth"] / 2, b["width"] / 2, b["depth"] / 2),
+                         -b["yaw"], use_radians=True), b["x"], b["z"])
+        for b in boxes
+    ])
     pylon_coords = {tuple(f["geometry"]["coordinates"]) for f in structures["features"]
                     if f["properties"]["kind"] == "pylon"}
     groups = {area: [] for area in GROUPS}
@@ -78,14 +83,20 @@ def bake():
         pylon_indices = [i for i in range(1, len(coordinates) - 1)
                          if tuple(coordinates[i]) in pylon_coords]
         top_x, top_z = points[-1]
-        prev_x, prev_z = points[-2]
+        prev_x, prev_z = points[pylon_indices[-1] if pylon_indices else -2]
         heading = math.atan2(top_z - prev_z, top_x - prev_x)
-        # Prefer stepping forward from the end of the line. Try adjacent ground
-        # when the projected exit would land in a mapped building.
-        for angle in (0, 45, -45, 90, -90, 135, -135, 180):
-            radians = heading + math.radians(angle)
-            x, z = top_x + 8 * math.cos(radians), top_z + 8 * math.sin(radians)
-            if buildings.distance(Point(east + x, north - z)) >= 2:
+        # Try straight ahead at 10 m, then offset within the forward half-plane.
+        # Increase distance only when the closer candidates lack clearance.
+        candidates = (
+            (top_x + distance * math.cos(heading + math.radians(angle)),
+             top_z + distance * math.sin(heading + math.radians(angle)))
+            for distance in range(10, 21)
+            for angle in (0, 15, -15, 30, -30, 45, -45, 60, -60, 75, -75)
+        )
+        for x, z in candidates:
+            x, z = round(x, 2), round(z, 2)
+            if (0 <= x <= meta["columns"] - 1 and 0 <= z <= meta["rows"] - 1
+                    and rendered_buildings.distance(Point(x, z)) >= 2):
                 break
         else:
             raise ValueError(f"No clear arrival near {name}")
