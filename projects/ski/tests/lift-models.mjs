@@ -32,19 +32,29 @@ test('all mapped lift types render distinct ground-aligned routes with finite tr
     }
     if (lift.type !== 'Carpet') {
       const indices = [0, ...lift.pylonIndices, lift.route.length - 1];
-      const centerHeight = lift.type === 'Chairlift' ? 4 : 0.25;
+
       assert.equal(supports.length, indices.length, lift.name);
       for (const [i, index] of indices.entries()) {
         const [x, z] = lift.route[index];
+        const terminal = i === 0 || i === indices.length - 1;
+        const centerHeight = lift.type === 'Chairlift' ? (terminal ? 0.975 : 4) : 0.25;
         assert.ok(supports[i].distanceTo(new THREE.Vector3(x, height(x, z) + centerHeight, z)) < 0.001,
           lift.name);
       }
       renderedPylons += supports.length - 2;
     }
     const [x, z] = lift.route[0];
-    mesh.getMatrixAt(0, matrix);
+    const chairlift = lift.type === 'Chairlift';
+    const terminalMesh = chairlift ? mesh.children[0] : mesh;
+    if (chairlift) {
+      const chairs = mesh.children[1];
+      assert.ok(chairs.isInstancedMesh && chairs.count >= 2);
+      assert.equal(chairs.geometry, model.children.find(m => m.children.length).children[1].geometry);
+      assert.equal(terminalMesh.geometry.type, 'CylinderGeometry');
+    }
+    terminalMesh.getMatrixAt(0, matrix);
     position.setFromMatrixPosition(matrix);
-    assert.ok(position.distanceTo(new THREE.Vector3(x, height(x, z) + 0.8, z)) < 0.001);
+    assert.ok(position.distanceTo(new THREE.Vector3(x, height(x, z) + (chairlift ? 2.95 : 0.8), z)) < 0.001);
     assert.deepEqual(lift.route.at(-1), [lift.upper.x, lift.upper.z]);
   }
   assert.equal(renderedPylons, 185);

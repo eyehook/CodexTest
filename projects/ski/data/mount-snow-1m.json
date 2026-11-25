@@ -43,5 +43,6 @@
     "Elevation_DEMHF0p35M2023_N539E4683.tif",
     "Elevation_DEMHF0p35M2023_N539E4697.tif"
   ],
-  "pisteAdjustmentAsset": "mount-snow-piste-adjustments.bin.gz"
+  "pisteAdjustmentAsset": "mount-snow-piste-adjustments.bin.gz",
+  "terminalGradingAsset": "mount-snow-terminal-grading.bin.gz"
 }

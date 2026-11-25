@@ -6,7 +6,7 @@ instanced pine trees, and ground-following skiing.
 
 ## Start here
 
-- Current version **v0.1.83**. Start with [app.mjs](app.mjs) for the runtime,
+- Current version **v0.1.85**. Start with [app.mjs](app.mjs) for the runtime,
   [ski-motion.mjs](ski-motion.mjs) for controls and physics, and
   [terrain.mjs](terrain.mjs) for terrain, lighting and tile updates.
 - The repository contains the generated browser assets. GIS tools and the
@@ -331,9 +331,17 @@ contains 13 chairlifts, five carpets and the Voyager rope tow. The
 [19 destinations](data/mount-snow-lifts.json) are grouped by resort area,
 including Main Face Learning Area and Tubing Hill. Names and groupings are
 based on the [resort lift listings](https://www.mountsnow.com/explore-the-resort/about-the-mountain/hours-of-operation.aspx).
-Lift routes are rendered with simple static geometry. Chairlifts have posts,
-cables and small chairs, carpets have teal strips, and Voyager has a low
-rope line. Orange blocks mark both ends of every route. The closest lower terminal
+Chairlifts have 9 m T-pylons, twin cable spans and round orange terminal wheels.
+Double chairs travel both directions at 3 m/s, about 45 m apart. They turn
+around each wheel with the seat about 0.55 m above terminal-center ground height.
+The DEM has local grading at 11 terminals where seats intersected or nearly
+touched snow. The wheel apron eases into the approach grade and feathers into
+the hillside over 10.5 m. Rendering and ski physics use the same edited grid.
+Run `node projects/ski/bake-terminal-grading.mjs` after changing lift routes,
+chair dimensions or piste smoothing. It audits seat-bottom clearance around
+each turn and up to 20 m along both lanes against physics and the 2 m terrain
+mesh, then writes the compressed grading asset and its manifest entry.
+Carpets have teal strips and Voyager has a low rope line with orange end markers. The closest lower terminal
 within 15 m horizontally of the player's head position turns yellow in
 desktop and Quest. The highlight is suspended while a Quest menu is open.
 Chairlift cables span the terminals and mapped pylons. The bake matches
@@ -341,7 +349,10 @@ shared OpenStreetMap coordinates from the structure extract to interior
 lift-route vertices. All 185 mapped pylons match chairlift routes in the
 current data. Voyager has a rope span between its two terminal posts.
 Support heights, cable clearance and chair locations are approximate.
-Each lift uses one culled instanced batch.
+Static structures, wheels and moving chairs are instanced per lift for culling.
+All chairlifts share one double-seat geometry. The vertex shader samples a
+closed distance-indexed pose texture baked at startup. Animation updates one
+shared clock per frame and uploads no chair transforms.
 
 Lift geometry is © OpenStreetMap contributors under the
 [Open Database License](https://www.openstreetmap.org/copyright).

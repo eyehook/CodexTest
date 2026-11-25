@@ -5,11 +5,11 @@ import {ForestAmbience, bindForestAudio} from '../hike/forest-audio.mjs?v=2';
 import {Atmosphere, ATMOSPHERE} from '../hike/atmosphere.mjs?v=1';
 import {Locomotion} from '../../shared/xr/locomotion.mjs';
 import {XRFrameState} from '../../shared/xr/session.mjs';
-import {loadHeightmap} from './heightmap.mjs?v=0.1.73';
+import {loadHeightmap} from './heightmap.mjs?v=0.1.85';
 import {createTerrain, createTerrainMaterial} from './terrain.mjs?v=0.1.76';
 import {createBuildings} from './buildings.mjs?v=0.1.47';
 import {LiftMenu} from './lift-menu.mjs?v=0.1.5';
-import {createLiftModels} from './lift-models.mjs?v=0.1.46';
+import {createLiftModels} from './lift-models.mjs?v=0.1.84';
 import {SkiMotion, SkiSteering} from './ski-motion.mjs?v=0.1.61';
 import {SkiProfiler, CPU, RENDER, SHADOW, TREES, TERRAIN, CALLS, TRIANGLES,
   TREE_BUILDS, TILE_BUILDS} from './profiling.mjs?v=0.1.72';
@@ -17,7 +17,7 @@ import {SkiAudio} from './ski-audio.mjs?v=0.1.69';
 import {createSkis} from './skis.mjs?v=0.1.58';
 import {createTrees, loadTreeHeights} from './trees.mjs?v=0.1.81';
 import {loadSettings, SkiSettings} from './settings.mjs?v=0.1.72';
-import {APP_VERSION} from './version.mjs?v=0.1.83';
+import {APP_VERSION} from './version.mjs?v=0.1.85';
 
 document.getElementById('version').textContent = `v${APP_VERSION}`;
 document.title = `Mount Snow v${APP_VERSION} · WebXR`;
@@ -64,7 +64,7 @@ async function start() {
   landscape.add(atmosphere.mesh);
   const liftMenu = new LiftMenu(heightRig, liftGroups);
   const terrain = createTerrain(landscape, map, material);
-  const {model: liftsModel, highlightNearestBase} = createLiftModels(landscape, map, liftGroups);
+  const {model: liftsModel, highlightNearestBase, updateChairs} = createLiftModels(landscape, map, liftGroups);
   const buildingsModel = createBuildings(landscape, map, footprints);
   const liftDestinations = Object.values(liftGroups).flat();
   const startLift = liftDestinations.find(lift => lift.osmWay === 143874600); // Bluebird Express
@@ -75,7 +75,7 @@ async function start() {
   });
   const trees = createTrees(landscape, map, canopy, material.uniforms.canopyViewer, footprints, liftClearings);
   atmosphere.apply(material);
-  for (const lift of liftsModel.children) atmosphere.apply(lift.material);
+  liftsModel.traverse(object => { if (object.material) atmosphere.apply(object.material); });
   atmosphere.apply(buildingsModel.material);
   atmosphere.apply(trees.material);
   const shadows = createPineShadows(scene, renderer, material, map.metadata);
@@ -366,6 +366,7 @@ async function start() {
     const shadowRefreshed = shadows.update(preferences.shadows && preferences.trees && !settings.visible,
       shadowViewer.x, shadowViewer.y);
     const renderStart = measure ? performance.now() : 0;
+    updateChairs(time * 0.001);
     renderer.render(scene, camera);
     if (measure) {
       const end = performance.now();

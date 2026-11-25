@@ -1,5 +1,7 @@
 import * as THREE from '../../shared/vendor/three-r180/three.module.js';
 
+import {chairCircuit, chairGeometry, movingChairs} from './chairlift.mjs?v=0.1.84';
+
 const PROFILES = {
   Chairlift: {spacing: 45, height: 9, routeWidth: 0.28, support: 0.65, terminal: 4, color: 0x334155},
   Carpet: {spacing: 4, height: 0.5, routeWidth: 1.4, support: 0, terminal: 2, color: 0x246b73},
@@ -26,6 +28,9 @@ function sampleRoute(route, map, spacing) {
 export function createLiftModels(scene, map, groups) {
   const geometry = new THREE.BoxGeometry();
   const material = new THREE.MeshBasicMaterial();
+  const chair = chairGeometry();
+  const wheel = new THREE.CylinderGeometry(2.1, 2.1, 0.42, 32);
+  const clock = {value: 0};
   const marker = new THREE.Object3D();
   const direction = new THREE.Vector3();
   const center = new THREE.Vector3();
@@ -81,9 +86,31 @@ export function createLiftModels(scene, map, groups) {
     matrices.length = 0;
     colors.length = 0;
 
+    const circuit = lift.type === 'Chairlift' ? chairCircuit(samples) : null;
+    const wheels = circuit && new THREE.InstancedMesh(wheel, material, 2);
+    const cable = {height: 0, support: true, routeWidth: 0.085};
     for (let i = 0; i < samples.length; i++) {
       const point = samples[i];
       const isTerminal = i === 0 || i === samples.length - 1;
+      if (circuit) {
+        const rail = circuit.outbound[i];
+        const postHeight = rail.y - point.y;
+        center.copy(point);
+        center.y += (postHeight - 1) / 2;
+        box(center, profile.support, postHeight + 1, profile.support, steel);
+        if (isTerminal) {
+          const end = i === 0 ? 0 : 1;
+          wheels.setMatrixAt(end, new THREE.Matrix4().makeTranslation(point.x, rail.y, point.z));
+          wheels.setColorAt(end, terminals);
+        } else {
+          span(rail, circuit.inbound[i], {height: -0.18, support: true, routeWidth: 0.38}, steel);
+        }
+        if (i > 0) {
+          span(circuit.outbound[i - 1], rail, cable, routeColor);
+          span(circuit.inbound[i - 1], circuit.inbound[i], cable, routeColor);
+        }
+        continue;
+      }
       if (isTerminal) {
         center.copy(point);
         center.y += 0.8;
@@ -96,17 +123,7 @@ export function createLiftModels(scene, map, groups) {
       }
       if (i === 0) continue;
       span(samples[i - 1], point, profile, routeColor);
-      if (lift.type === 'Chairlift') {
-        const previous = samples[i - 1];
-        const count = Math.ceil(Math.hypot(point.x - previous.x, point.z - previous.z) / profile.spacing);
-        for (let chair = 0; chair < count; chair++) {
-          center.copy(previous).lerp(point, (chair + 0.5) / count);
-          center.y += profile.height - 0.85;
-          box(center, 0.16, 1.7, 0.16, steel);
-          center.y -= 0.9;
-          box(center, 1.3, 0.35, 0.65, routeColor);
-        }
-      }
+
     }
 
     const mesh = new THREE.InstancedMesh(geometry, material, matrices.length);
@@ -116,9 +133,10 @@ export function createLiftModels(scene, map, groups) {
       mesh.setColorAt(i, colors[i]);
     }
     mesh.computeBoundingSphere();
+    if (circuit) mesh.add(wheels, movingChairs(chair, circuit.path, clock));
     model.add(mesh);
     const [x, z] = lift.route[0];
-    bases.push({x, z, mesh, lift});
+    bases.push({x, z, mesh: wheels || mesh, lift});
   }
   scene.add(model);
   function highlightNearestBase(x, z) {
@@ -145,5 +163,5 @@ export function createLiftModels(scene, map, groups) {
     return nearest?.lift ?? null;
   }
 
-  return {model, highlightNearestBase};
+  return {model, highlightNearestBase, updateChairs(timeSeconds) { clock.value = timeSeconds; }};
 }

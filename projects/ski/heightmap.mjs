@@ -31,11 +31,22 @@ export async function loadHeightmap(url = metadataUrl) {
   const metadata = await (await getAsset(manifestUrl)).json();
   const patchUrl = metadata.pisteAdjustmentAsset && new URL(metadata.pisteAdjustmentAsset, manifestUrl);
   if (patchUrl) patchUrl.search = manifestUrl.search;
-  const [data, adjustments] = await Promise.all([
+  const gradingUrl = metadata.terminalGradingAsset && new URL(metadata.terminalGradingAsset, manifestUrl);
+  if (gradingUrl) gradingUrl.search = manifestUrl.search;
+  const [data, adjustments, grading] = await Promise.all([
     loadGrid(new URL(metadata.asset, manifestUrl)),
     patchUrl ? loadGrid(patchUrl) : null,
+    gradingUrl ? loadGrid(gradingUrl) : null,
   ]);
   if (adjustments) applyPisteAdjustments(data, adjustments);
+  if (grading) {
+    const records = new DataView(grading);
+    const samples = new DataView(data);
+    if (records.byteLength % 6 !== 0) throw new Error('Invalid terminal grading asset');
+    for (let i = 0; i < records.byteLength; i += 6) {
+      samples.setUint16(records.getUint32(i, true) * 2, records.getUint16(i + 4, true), true);
+    }
+  }
   return createHeightmap(metadata, data);
 }
 
